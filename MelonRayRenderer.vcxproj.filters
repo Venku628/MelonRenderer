@@ -24,6 +24,9 @@
     <ClInclude Include="Logger.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="MelonMath.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

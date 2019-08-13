@@ -11,9 +11,9 @@ EXPORTED_VULKAN_FUNCTION ( vkGetInstanceProcAddr )
 #define GLOBAL_LEVEL_VULKAN_FUNCTION( function )
 #endif
 
-GLOBAL_LEVEL_VULKAN_FUNCTION(vkEnumerateInstanceExtensionProperties)
-GLOBAL_LEVEL_VULKAN_FUNCTION(vkEnumerateInstanceLayerProperties)
-GLOBAL_LEVEL_VULKAN_FUNCTION(vkCreateInstance)
+GLOBAL_LEVEL_VULKAN_FUNCTION( vkEnumerateInstanceExtensionProperties )
+GLOBAL_LEVEL_VULKAN_FUNCTION( vkEnumerateInstanceLayerProperties )
+GLOBAL_LEVEL_VULKAN_FUNCTION( vkCreateInstance )
 
 #undef GLOBAL_LEVEL_VULKAN_FUNCTION
 
@@ -29,6 +29,7 @@ INSTANCE_LEVEL_VULKAN_FUNCTION( vkGetPhysicalDeviceFeatures )
 INSTANCE_LEVEL_VULKAN_FUNCTION( vkGetPhysicalDeviceQueueFamilyProperties )
 INSTANCE_LEVEL_VULKAN_FUNCTION( vkCreateDevice )
 INSTANCE_LEVEL_VULKAN_FUNCTION( vkGetDeviceProcAddr )
+INSTANCE_LEVEL_VULKAN_FUNCTION( vkDestroyInstance )
 
 #undef INSTANCE_LEVEL_VULKAN_FUNCTION
 

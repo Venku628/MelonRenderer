@@ -9,5 +9,5 @@ int main(int argc, char* argv[]) {
 	MelonRenderer::Renderer test;
 	test.Init();
 
-
+	test.Fini();
 }

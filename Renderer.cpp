@@ -16,12 +16,28 @@ namespace MelonRenderer
 		LoadInstanceExtensionFunctions();
 		EnumeratePhysicalDevices();
 
+		//TODO: favor dedicated gpu
+		//if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+
 		// TODO: remember last used device or cycle through devices until one works the first time
 		CreateLogicalDevice(m_physicalDevices[0]);
 
 
 
 		Logger::Log("Loading complete.");
+	}
+
+	void Renderer::Fini()
+	{
+		vkDestroyDevice(m_logicalDevice, nullptr);
+		vkDestroyInstance(m_vulkanInstance, nullptr);
+
+#if defined _WIN32
+		FreeLibrary(m_vulkanLibrary);
+#elif defined __linux
+		dlclose(m_vulkanLibrary);
+#endif
+		m_vulkanLibrary = nullptr;
 	}
 
 	bool MelonRenderer::Renderer::LoadVulkanLibrary()
@@ -397,6 +413,16 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{std::cout << "Could not load device function named: " #name << std::endl; return false;}}}								\
 
 #include "loader/ListOfVulkanFunctions.inl"
+
+		return true;
+	}
+
+	bool Renderer::AquireQueueHandles()
+	{
+		//TODO: define queue requirements and aquire multiple handles accordingly
+
+		vkGetDeviceQueue(m_logicalDevice, 0, 0, &m_multipurposeQueue);
+
 
 		return true;
 	}

@@ -38,6 +38,7 @@ namespace MelonRenderer
 	public:
 		void Init();
 
+		void Fini();
 
 	private:
 		bool LoadVulkanLibrary();
@@ -60,15 +61,19 @@ namespace MelonRenderer
 		bool LoadDeviceFunctions();
 		bool LoadDeviceExtensionFunctions();
 
+		bool AquireQueueHandles();
+
 		std::vector<char const *> m_requiredInstanceExtensions;
 		std::vector<const char*> m_requiredDeviceExtensions;
 		std::vector<VkPhysicalDevice> m_physicalDevices;
-		VkDevice m_logicalDevice;
 
 		VkPhysicalDeviceFeatures m_currentPhysicalDeviceFeatures;
 		VkPhysicalDeviceProperties m_currentPhysicalDeviceProperties;
 		std::vector<VkQueueFamilyProperties> m_currentQueueFamilyProperties;
 
+		VkQueue m_multipurposeQueue;
+
+		VkDevice m_logicalDevice;
 		VkInstance m_vulkanInstance;
 		VULKAN_LIBRARY_TYPE m_vulkanLibrary;
 		
