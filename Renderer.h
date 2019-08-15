@@ -1,18 +1,14 @@
-#pragma once
 
+
+
+//TODO: figure out if xcb or xlib use platform needs to be defined
+
+#include "Window.h"
 #include "loader/VulkanFunctions.h"
 #include "Logger.h"
 
 #include <iostream>
 #include <vector>
-
-#if defined _WIN32
-#include <Windows.h>
-#define VULKAN_LIBRARY_TYPE HMODULE
-#elif defined __linux
-#include <dlfcn.h>
-#define VULKAN_LIBRARY_TYPE void*
-#endif
 
 constexpr VkApplicationInfo applicationInfo =
 {
@@ -30,6 +26,10 @@ struct QueueFamilyInfo
 	uint32_t familyIndex = UINT32_MAX;
 	std::vector<float> queuePriorities;
 };
+
+
+
+#define MELON_WINDOW_NAME "MelonRenderer"
 
 namespace MelonRenderer
 {
@@ -56,12 +56,13 @@ namespace MelonRenderer
 		bool CheckQueueFamiliesAndProperties(VkPhysicalDevice& device);
 		bool FindCompatibleQueueFamily(VkQueueFlags flags, std::vector<QueueFamilyInfo>& familyIndices);
 
-		void CreateLogicalDevice(VkPhysicalDevice& device);
+		void CreateLogicalDeviceAndFollowing(VkPhysicalDevice& device);
 
 		bool LoadDeviceFunctions();
 		bool LoadDeviceExtensionFunctions();
 
 		bool AquireQueueHandles();
+		bool CreatePresentationSurface();
 
 		std::vector<char const *> m_requiredInstanceExtensions;
 		std::vector<const char*> m_requiredDeviceExtensions;
@@ -71,8 +72,11 @@ namespace MelonRenderer
 		VkPhysicalDeviceProperties m_currentPhysicalDeviceProperties;
 		std::vector<VkQueueFamilyProperties> m_currentQueueFamilyProperties;
 
+		// temporarily only one
 		VkQueue m_multipurposeQueue;
 
+		WindowHandle m_windowHandle;
+		VkSurfaceKHR m_presentationSurface;
 		VkDevice m_logicalDevice;
 		VkInstance m_vulkanInstance;
 		VULKAN_LIBRARY_TYPE m_vulkanLibrary;

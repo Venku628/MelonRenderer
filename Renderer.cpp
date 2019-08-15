@@ -20,7 +20,7 @@ namespace MelonRenderer
 		//if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 
 		// TODO: remember last used device or cycle through devices until one works the first time
-		CreateLogicalDevice(m_physicalDevices[0]);
+		CreateLogicalDeviceAndFollowing(m_physicalDevices[0]);
 
 
 
@@ -106,9 +106,16 @@ namespace MelonRenderer
 			return false;
 		}
 
-		//TODO: make configurable
+		//TODO: define all requirements
 		m_requiredInstanceExtensions.emplace_back(VK_KHR_SURFACE_EXTENSION_NAME);
 
+#if defined VK_USE_PLATFORM_WIN32_KHR
+		m_requiredInstanceExtensions.emplace_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#elif defined VK_USE_PLATFORM_XCB_KHR
+		m_requiredInstanceExtensions.emplace_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+#elif defined VK_USE_PLATFORM_XLIB_KHR
+		m_requiredInstanceExtensions.emplace_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#endif 
 
 		for (auto requiredExtension : m_requiredInstanceExtensions)
 		{
@@ -210,6 +217,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		//TODO: move elsewhere
 		m_requiredDeviceExtensions.resize(0);
 		m_requiredDeviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
 
 		std::vector<VkExtensionProperties> deviceExtensions;
 
@@ -340,7 +348,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	void Renderer::CreateLogicalDevice(VkPhysicalDevice& device)
+	void Renderer::CreateLogicalDeviceAndFollowing(VkPhysicalDevice& device)
 	{
 		CheckRequiredDeviceExtensions(device);
 		CheckRequiredDeviceFeatures(device);
@@ -390,14 +398,15 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		LoadDeviceFunctions();
 		LoadDeviceExtensionFunctions();
-
+		AquireQueueHandles();
+		CreatePresentationSurface();
 	}
 
 	bool Renderer::LoadDeviceFunctions()
 	{
 #define DEVICE_LEVEL_VULKAN_FUNCTION( name ) name = (PFN_##name)vkGetDeviceProcAddr( m_logicalDevice, #name);	\
-	if (name == nullptr)																		\
-	{std::cout << "Could not load device function named: " #name << std::endl; return false;}	\
+	if (name == nullptr)																						\
+	{std::cout << "Could not load device function named: " #name << std::endl; return false;}					\
 
 #include "loader/ListOfVulkanFunctions.inl"
 
@@ -407,10 +416,10 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::LoadDeviceExtensionFunctions()
 	{
 #define DEVICE_LEVEL_VULKAN_FUNCTION_FROM_EXTENSION( name, extension ) name = (PFN_##name)vkGetDeviceProcAddr( m_logicalDevice, #name);	\
-	for(auto & requiredExtension : m_requiredDeviceExtensions){ if(std::string(requiredExtension) == std::string(extension))	\
-		{name = (PFN_##name)vkGetDeviceProcAddr( m_logicalDevice, #name);													\
-	if (name == nullptr)																										\
-	{std::cout << "Could not load device function named: " #name << std::endl; return false;}}}								\
+	for(auto & requiredExtension : m_requiredDeviceExtensions){ if(std::string(requiredExtension) == std::string(extension))			\
+		{name = (PFN_##name)vkGetDeviceProcAddr( m_logicalDevice, #name);																\
+	if (name == nullptr)																												\
+	{std::cout << "Could not load device function named: " #name << std::endl; return false;}}}											\
 
 #include "loader/ListOfVulkanFunctions.inl"
 
@@ -424,6 +433,51 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		vkGetDeviceQueue(m_logicalDevice, 0, 0, &m_multipurposeQueue);
 
 
+		return true;
+	}
+
+	bool Renderer::CreatePresentationSurface()
+	{
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+
+		
+
+		VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {
+			VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+			nullptr,
+			0,
+			m_windowHandle.m_hInstance,
+			m_windowHandle.m_HWnd
+		};
+
+		VkResult result = vkCreateWin32SurfaceKHR(m_vulkanInstance, &surfaceCreateInfo, nullptr, &m_presentationSurface);
+#elif defined VK_USE_PLATFORM_XLIB_KHR
+		VkXlibSurfaceCreateInfoKHR surfaceCreateInfo = {
+			VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+			nullptr,
+			0,
+			m_windowHandle.m_dpy,
+			m_windowHandle.m_window
+	};
+
+		VkResult result = vkCreateXlibSurfaceKHR(m_vulkanInstance, &surfaceCreateInfo, nullptr, &m_presentationSurface);
+#elif defined VK_USE_PLATFORM_XCB_KHR
+		VkXcbSurfaceCreateInfoKHR surfaceCreateInfo = {
+			VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+			nullptr,
+			0,
+			m_windowHandle.m_connection,
+			m_windowHandle.m_window
+		};
+
+		VkResult result = vkCreateXcbSurfaceKHR(m_vulkanInstance, &surfaceCreateInfo, nullptr, &m_presentationSurface);
+#endif
+
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create presentation surface.");
+			return false;
+		}
 		return true;
 	}
 
