@@ -25,9 +25,6 @@ namespace MelonRenderer {
 	Window::Window() : m_windowHandle() {
 	}
 
-	WindowHandle Window::GetParameters() const {
-		return m_windowHandle;
-	}
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
 
@@ -90,7 +87,7 @@ namespace MelonRenderer {
 		return true;
 	}
 
-	bool Window::Tick(WindowEventHandler& windowEventhandler) const {
+	bool Window::Tick(WindowEventHandlerBase& windowEventhandler) const {
 		// Display window
 		ShowWindow(m_windowHandle.m_HWnd, SW_SHOWNORMAL);
 		UpdateWindow(m_windowHandle.m_HWnd);
@@ -126,9 +123,9 @@ namespace MelonRenderer {
 						break;
 					}
 				}
-				// Draw
-				if (windowEventhandler.ReadyToDraw()) {
-					if (!windowEventhandler.Draw()) {
+				// Tick
+				if (windowEventhandler.IsReadyToDraw()) {
+					if (!windowEventhandler.Tick()) {
 						result = false;
 						break;
 					}
@@ -203,7 +200,7 @@ namespace MelonRenderer {
 		return true;
 	}
 
-	bool Window::Tick(WindowEventHandler& windowEventhandler) const {
+	bool Window::Tick(WindowEventHandlerBase& windowEventhandler) const {
 		// Prepare notification for window destruction
 		xcb_intern_atom_cookie_t  protocols_cookie = xcb_intern_atom(m_windowHandle.m_connection, 1, 12, "WM_PROTOCOLS");
 		xcb_intern_atom_reply_t* protocols_reply = xcb_intern_atom_reply(m_windowHandle.m_connection, protocols_cookie, 0);
@@ -256,7 +253,7 @@ namespace MelonRenderer {
 				free(event);
 			}
 			else {
-				// Draw
+				// Tick
 				if (resize) {
 					resize = false;
 					if (!windowEventhandler.OnWindowSizeChanged()) {
@@ -264,8 +261,8 @@ namespace MelonRenderer {
 						break;
 					}
 				}
-				if (windowEventhandler.ReadyToDraw()) {
-					if (!windowEventhandler.Draw()) {
+				if (windowEventhandler.IsReadyToDraw()) {
+					if (!windowEventhandler.Tick()) {
 						result = false;
 						break;
 					}
@@ -312,7 +309,7 @@ namespace MelonRenderer {
 		return true;
 	}
 
-	bool Window::Tick(WindowEventHandler& windowEventhandler) const {
+	bool Window::Tick(WindowEventHandlerBase& windowEventhandler) const {
 		// Prepare notification for window destruction
 		Atom delete_window_atom;
 		delete_window_atom = XInternAtom(m_windowHandle.m_dpy, "WM_DELETE_WINDOW", false);
@@ -359,7 +356,7 @@ namespace MelonRenderer {
 				}
 			}
 			else {
-				// Draw
+				// Tick
 				if (resize) {
 					resize = false;
 					if (!windowEventhandler.OnWindowSizeChanged()) {
@@ -367,8 +364,8 @@ namespace MelonRenderer {
 						break;
 					}
 				}
-				if (windowEventhandler.ReadyToDraw()) {
-					if (!windowEventhandler.Draw()) {
+				if (windowEventhandler.IsReadyToDraw()) {
+					if (!windowEventhandler.Tick()) {
 						result = false;
 						break;
 					}

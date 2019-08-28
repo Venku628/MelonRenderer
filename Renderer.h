@@ -33,12 +33,14 @@ struct QueueFamilyInfo
 
 namespace MelonRenderer
 {
-	class Renderer
+	class Renderer : public WindowEventHandlerBase
 	{
 	public:
-		void Init();
-
+		void Init(WindowHandle& windowHandle);
+		bool Tick() override;
 		void Fini();
+
+		bool OnWindowSizeChanged() override;
 
 	private:
 		bool LoadVulkanLibrary();
@@ -63,14 +65,19 @@ namespace MelonRenderer
 
 		bool AquireQueueHandles();
 		bool CreatePresentationSurface();
+		bool EnumeratePresentationModes(VkPhysicalDevice& device);
+		bool SelectPresentationMode(VkPresentModeKHR desiredPresentMode);
 
 		std::vector<char const *> m_requiredInstanceExtensions;
 		std::vector<const char*> m_requiredDeviceExtensions;
 		std::vector<VkPhysicalDevice> m_physicalDevices;
 
+		uint32_t m_currentPhysicalDeviceIndex = 0;
 		VkPhysicalDeviceFeatures m_currentPhysicalDeviceFeatures;
 		VkPhysicalDeviceProperties m_currentPhysicalDeviceProperties;
+		std::vector<VkPresentModeKHR> m_currentPhysicalDevicePresentModes;
 		std::vector<VkQueueFamilyProperties> m_currentQueueFamilyProperties;
+		VkPresentModeKHR m_presentMode;
 
 		// temporarily only one
 		VkQueue m_multipurposeQueue;

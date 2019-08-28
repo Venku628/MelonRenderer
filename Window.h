@@ -65,16 +65,16 @@ namespace MelonRenderer {
 	constexpr uint32_t windowX = 20;
 	constexpr uint32_t windowY = 20;
 
-	class WindowEventHandler {
+	class WindowEventHandlerBase {
 		public:
 			virtual bool OnWindowSizeChanged() = 0;
-			virtual bool Draw() = 0;
+			virtual bool Tick() = 0;
 
-			virtual bool ReadyToDraw() const {
+			virtual bool IsReadyToDraw() const {
 				return m_drawReady;
 			}
 
-			virtual ~WindowEventHandler() {}
+			virtual ~WindowEventHandlerBase() {}
 
 		protected:
 			bool m_drawReady = false;
@@ -86,10 +86,8 @@ namespace MelonRenderer {
 			~Window();
 
 			bool Init(const char* name);
-			bool Tick(WindowEventHandler& project) const;
-			WindowHandle  GetParameters() const;
+			bool Tick(WindowEventHandlerBase& project) const;
 
-		private:
 			WindowHandle  m_windowHandle;
 	};
 

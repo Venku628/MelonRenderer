@@ -3,8 +3,10 @@
 namespace MelonRenderer
 {
 
-	void MelonRenderer::Renderer::Init()
+	void MelonRenderer::Renderer::Init(WindowHandle& windowHandle)
 	{
+		m_windowHandle = windowHandle;
+
 		// TODO: handle failure with termination, maybe std quick exit?
 
 		LoadVulkanLibrary();
@@ -20,11 +22,16 @@ namespace MelonRenderer
 		//if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 
 		// TODO: remember last used device or cycle through devices until one works the first time
-		CreateLogicalDeviceAndFollowing(m_physicalDevices[0]);
+		CreateLogicalDeviceAndFollowing(m_physicalDevices[m_currentPhysicalDeviceIndex]);
 
 
 
 		Logger::Log("Loading complete.");
+	}
+
+	bool Renderer::Tick()
+	{
+		return false;
 	}
 
 	void Renderer::Fini()
@@ -38,6 +45,12 @@ namespace MelonRenderer
 		dlclose(m_vulkanLibrary);
 #endif
 		m_vulkanLibrary = nullptr;
+	}
+
+	bool Renderer::OnWindowSizeChanged()
+	{
+		std::cout << "Window resized." << std::endl;
+		return false;
 	}
 
 	bool MelonRenderer::Renderer::LoadVulkanLibrary()
@@ -400,6 +413,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		LoadDeviceExtensionFunctions();
 		AquireQueueHandles();
 		CreatePresentationSurface();
+
+
 	}
 
 	bool Renderer::LoadDeviceFunctions()
@@ -439,9 +454,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::CreatePresentationSurface()
 	{
 #ifdef VK_USE_PLATFORM_WIN32_KHR
-
-		
-
 		VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {
 			VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 			nullptr,
@@ -451,6 +463,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		};
 
 		VkResult result = vkCreateWin32SurfaceKHR(m_vulkanInstance, &surfaceCreateInfo, nullptr, &m_presentationSurface);
+
 #elif defined VK_USE_PLATFORM_XLIB_KHR
 		VkXlibSurfaceCreateInfoKHR surfaceCreateInfo = {
 			VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
@@ -461,6 +474,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	};
 
 		VkResult result = vkCreateXlibSurfaceKHR(m_vulkanInstance, &surfaceCreateInfo, nullptr, &m_presentationSurface);
+
 #elif defined VK_USE_PLATFORM_XCB_KHR
 		VkXcbSurfaceCreateInfoKHR surfaceCreateInfo = {
 			VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
@@ -479,6 +493,54 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 		return true;
+	}
+
+	bool Renderer::EnumeratePresentationModes(VkPhysicalDevice& device)
+	{
+		uint32_t presentModesCount = 0;
+
+		VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_presentationSurface, &presentModesCount, nullptr);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not get number of surface present modes.");
+			return false;
+		}
+
+		m_currentPhysicalDevicePresentModes.resize(presentModesCount);
+		result = vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_presentationSurface, &presentModesCount, &m_currentPhysicalDevicePresentModes[0]);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not enumerate surface present modes.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::SelectPresentationMode(VkPresentModeKHR desiredPresentMode)
+	{
+		for (VkPresentModeKHR presentMode : m_currentPhysicalDevicePresentModes)
+		{
+			if (presentMode == desiredPresentMode)
+			{
+				m_presentMode = presentMode;
+				return true;
+			}
+		}
+
+		Logger::Log("Could not select desiredPresentMode, trying to select default FIFO mode instead.");
+
+		for (VkPresentModeKHR presentMode : m_currentPhysicalDevicePresentModes)
+		{
+			if (presentMode == VK_PRESENT_MODE_FIFO_KHR)
+			{
+				m_presentMode = VK_PRESENT_MODE_FIFO_KHR;
+				return true;
+			}
+		}
+		Logger::Log("Could not select default FIFO presentation mode, is something wrong with the driver?");
+
+		return false;
 	}
 
 }

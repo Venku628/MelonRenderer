@@ -6,8 +6,16 @@ int main(int argc, char* argv[]) {
 
 	MelonRenderer::Logger::Get().Print();
 
+	MelonRenderer::Window window;
 	MelonRenderer::Renderer test;
-	test.Init();
 
+	window.Init("Debug");
+	test.Init(window.m_windowHandle);
+
+	while (true)
+	{
+		window.Tick(test);
+	}
+	
 	test.Fini();
 }
