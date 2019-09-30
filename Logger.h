@@ -15,6 +15,7 @@ namespace MelonRenderer
 
 		static void Log(std::string input);
 		void Print();
+		void Clear();
 		// TODO: ToFile(std::string path);
 
 		std::string m_log;

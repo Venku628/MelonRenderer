@@ -18,6 +18,12 @@ namespace MelonRenderer
 	void MelonRenderer::Logger::Print()
 	{
 		std::cout << m_log;
+		Clear();
+	}
+
+	void Logger::Clear()
+	{
+		m_log = "";
 	}
 
 	Logger::Logger()

@@ -36,6 +36,8 @@ namespace MelonRenderer
 
 	void Renderer::Fini()
 	{
+		vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr);
+		vkDestroySurfaceKHR(m_vulkanInstance, m_presentationSurface, nullptr);
 		vkDestroyDevice(m_logicalDevice, nullptr);
 		vkDestroyInstance(m_vulkanInstance, nullptr);
 
@@ -342,7 +344,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 				// this is the case for my gpu
 				//TODO: find out how to best prioritize queue families on gpus
-				if(currentFamilyIndex == 0)
+				if(currentFamilyIndex == m_queueFamilyIndex)
 					familyInfo.queuePriorities.resize(m_currentQueueFamilyProperties[currentFamilyIndex].queueCount, 1.0f);
 				else
 					familyInfo.queuePriorities.resize(m_currentQueueFamilyProperties[currentFamilyIndex].queueCount, 0.5f);
@@ -367,6 +369,9 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CheckRequiredDeviceFeatures(device);
 		CheckRequiredDeviceProperties(device);
 		CheckQueueFamiliesAndProperties(device);
+		
+		//no VkResult 
+		vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
 
 		//TODO: define important queue family flags
 		constexpr VkQueueFlags basicFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT |
@@ -413,6 +418,16 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		LoadDeviceExtensionFunctions();
 		AquireQueueHandles();
 		CreatePresentationSurface();
+		EnumeratePresentationModes(device);
+		SelectPresentationMode(VK_PRESENT_MODE_FIFO_KHR);
+
+		CheckPresentationSurfaceCapabilities(device);
+		CreateSwapchain(device);
+
+		CreateCommandBufferPool(m_multipurposeCommandPool);
+		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+
+		CreateDepthBuffer();
 
 
 	}
@@ -541,6 +556,360 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		Logger::Log("Could not select default FIFO presentation mode, is something wrong with the driver?");
 
 		return false;
+	}
+
+	bool Renderer::CheckPresentationSurfaceCapabilities(VkPhysicalDevice& device)
+	{
+		VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_presentationSurface, &m_currentSurfaceCapabilities);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not get surface capabilities.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::CreateSwapchain(VkPhysicalDevice& device)
+	{
+		//TODO: make configureable and/or define requirements
+		uint32_t desiredNumberOfImages = 2;
+		VkExtent2D desiredSizeOfImages = { 640, 480 };
+		VkImageUsageFlags desiredImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		VkSurfaceTransformFlagBitsKHR desiredTransform;
+
+		if (desiredNumberOfImages < m_currentSurfaceCapabilities.minImageCount)
+		{
+			desiredNumberOfImages = m_currentSurfaceCapabilities.minImageCount;
+			Logger::Log("Desired number of images too low, using minimum instead.");
+		}
+
+		if (desiredNumberOfImages > m_currentSurfaceCapabilities.maxImageCount)
+		{
+			desiredNumberOfImages = m_currentSurfaceCapabilities.maxImageCount;
+			Logger::Log("Desired number of images too high, using maximum instead.");
+		}
+
+		//this signals that the size of the window is determined by the size of the swapchain, we only need the desired size in this case
+		if (0xFFFFFFFF == m_currentSurfaceCapabilities.currentExtent.width)
+		{
+			if (desiredSizeOfImages.width < m_currentSurfaceCapabilities.minImageExtent.width)
+			{
+				desiredSizeOfImages.width = m_currentSurfaceCapabilities.minImageExtent.width;
+				Logger::Log("Desired width of images too low, using minimum instead.");
+			}
+			else if (desiredSizeOfImages.width > m_currentSurfaceCapabilities.maxImageExtent.width)
+			{
+				desiredSizeOfImages.width = m_currentSurfaceCapabilities.minImageExtent.width;
+				Logger::Log("Desired width of images too high, using maximum instead.");
+			}
+
+			if (desiredSizeOfImages.height < m_currentSurfaceCapabilities.minImageExtent.height)
+			{
+				desiredSizeOfImages.height = m_currentSurfaceCapabilities.minImageExtent.height;
+				Logger::Log("Desired height of images too low, using minimum instead.");
+			}
+			else if (desiredSizeOfImages.height > m_currentSurfaceCapabilities.maxImageExtent.height)
+			{
+				desiredSizeOfImages.height = m_currentSurfaceCapabilities.minImageExtent.height;
+				Logger::Log("Desired height of images too high, using maximum instead.");
+			}
+		}
+		else
+		{
+			desiredSizeOfImages = m_currentSurfaceCapabilities.currentExtent;
+		}
+
+		//TODO: as soon as requirements are defined, implement bitwise checks for both
+		desiredImageUsage = m_currentSurfaceCapabilities.supportedUsageFlags;
+		desiredTransform = m_currentSurfaceCapabilities.currentTransform;
+
+		uint32_t formatCount = 0;
+		VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_presentationSurface, &formatCount, nullptr);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not get number of physical device surface formats.");
+			return false;
+		}
+
+		std::vector<VkSurfaceFormatKHR> surfaceFormats { formatCount };
+		result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_presentationSurface, &formatCount, &surfaceFormats[0]);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not get physical device surface formats.");
+			return false;
+		}
+
+		//TODO: define format requirement
+		VkFormat imageFormat = surfaceFormats[0].format;
+		for (auto& surfaceFormat : surfaceFormats)
+		{
+			if (surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM)
+			{
+				imageFormat = surfaceFormat.format;
+				break;
+			}
+		}
+		VkColorSpaceKHR imageColorSpace = surfaceFormats[0].colorSpace;
+		for (auto& surfaceFormat : surfaceFormats)
+		{
+			if (surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			{
+				imageColorSpace = surfaceFormat.colorSpace;
+				break;
+			}
+		}
+
+		//store values for later use
+		m_extent.height = desiredSizeOfImages.height;
+		m_extent.width = desiredSizeOfImages.width;
+
+		VkSwapchainCreateInfoKHR swapchainCreateInfo = {
+			VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+			nullptr,
+			0,
+			m_presentationSurface,
+			desiredNumberOfImages,
+			imageFormat,
+			imageColorSpace,
+			desiredSizeOfImages,
+			1,
+			desiredImageUsage,
+			VK_SHARING_MODE_EXCLUSIVE,
+			0,
+			nullptr,
+			desiredTransform,
+			VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+			m_presentMode,
+			VK_TRUE,
+			VK_NULL_HANDLE //TODO: insert old swapchain if available and destroy after
+		};
+
+		result = vkCreateSwapchainKHR(m_logicalDevice, &swapchainCreateInfo, nullptr, &m_swapchain);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create swapchain.");
+			return false;
+		}
+
+		// driver may create more images than requested
+		uint32_t actualImageCount = 0;
+		result = vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchain, &actualImageCount, nullptr);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not get number of swapchain images.");
+			return false;
+		}
+
+		m_swapchainImages.resize(actualImageCount);
+		result = vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchain, &actualImageCount, &m_swapchainImages[0]);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not enumerate swapchain images.");
+			return false;
+		}
+
+		m_imageViews.resize(actualImageCount);
+		for (int i = 0; i < actualImageCount; i++)
+		{
+			VkImageViewCreateInfo colorImageView = {};
+			colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			colorImageView.pNext = NULL;
+			colorImageView.flags = 0;
+			colorImageView.image = m_swapchainImages[i];
+			colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			colorImageView.format = imageFormat;
+			colorImageView.components.r = VK_COMPONENT_SWIZZLE_R;
+			colorImageView.components.g = VK_COMPONENT_SWIZZLE_G;
+			colorImageView.components.b = VK_COMPONENT_SWIZZLE_B;
+			colorImageView.components.a = VK_COMPONENT_SWIZZLE_A;
+			colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			colorImageView.subresourceRange.baseMipLevel = 0;
+			colorImageView.subresourceRange.levelCount = 1;
+			colorImageView.subresourceRange.baseArrayLayer = 0;
+			colorImageView.subresourceRange.layerCount = 1;
+
+
+			result = vkCreateImageView(m_logicalDevice, &colorImageView, nullptr, &m_imageViews[i]);
+			if (result != VK_SUCCESS)
+			{
+				Logger::Log("Could not create image view.");
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool Renderer::CreateCommandBufferPool(VkCommandPool& commandPool)
+	{
+		VkCommandPoolCreateInfo cmdPoolInfo = {};
+		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		cmdPoolInfo.pNext = NULL;
+		cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex; //TODO: make variable as soon as it is defined as a non constant
+		cmdPoolInfo.flags = 0;
+
+		VkResult result = vkCreateCommandPool(m_logicalDevice, &cmdPoolInfo, NULL, &commandPool);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create command pool.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer commandBuffer)
+	{
+		VkCommandBufferAllocateInfo cmdInfo = {};
+		cmdInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		cmdInfo.pNext = NULL;
+		cmdInfo.commandPool = commandPool;
+		cmdInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		cmdInfo.commandBufferCount = 1;
+
+		VkResult result = vkAllocateCommandBuffers(m_logicalDevice, &cmdInfo, &commandBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create command buffer.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::CreateDepthBuffer()
+	{
+		//find a more elegant solution
+		m_extent.depth = 1;
+
+		VkImageCreateInfo imageCreateInfo = {
+		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		nullptr,
+		0,
+		VK_IMAGE_TYPE_2D,
+		VK_FORMAT_D16_UNORM,
+		m_extent,
+		1, 
+		1,
+		VK_SAMPLE_COUNT_1_BIT,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VK_SHARING_MODE_EXCLUSIVE,
+		0, //family queue index count
+		nullptr,
+		VK_IMAGE_LAYOUT_UNDEFINED
+		};
+
+		m_currentPhysicalDeviceProperties;
+
+		VkResult result = vkCreateImage(m_logicalDevice, &imageCreateInfo, nullptr, &m_depthBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create image for depth buffer.");
+			return false;
+		}
+
+		VkMemoryRequirements memoryReq;
+		vkGetImageMemoryRequirements(m_logicalDevice, m_depthBuffer, &memoryReq);
+		
+		VkMemoryAllocateInfo memoryAllocInfo =
+		{
+			VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			nullptr,
+			memoryReq.size,
+			0
+		};
+		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryAllocInfo.memoryTypeIndex))
+		{
+			Logger::Log("Could not find matching memory type from propterties.");
+			return false;
+		}
+
+		vkAllocateMemory(m_logicalDevice, &memoryAllocInfo, nullptr, &m_depthBufferMemory);
+		vkBindImageMemory(m_logicalDevice, m_depthBuffer, m_depthBufferMemory, 0);
+
+		VkImageViewCreateInfo viewInfo = {};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.pNext = nullptr;
+		viewInfo.image = m_depthBuffer;
+		viewInfo.format = VK_FORMAT_D16_UNORM;
+		viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
+		viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+		viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
+		viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.flags = 0;
+
+		result = vkCreateImageView(m_logicalDevice, &viewInfo, nullptr, &m_depthBufferView);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create image view for depth buffer.");
+			return false;
+		}
+
+		return true;
+	}
+
+	//helper function from Vulkan Samples
+	bool Renderer::FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex)
+	{
+		// Search memtypes to find first index with those properties
+		for (uint32_t i = 0; i < m_physicalDeviceMemoryProperties.memoryTypeCount; i++) {
+			if ((typeBits & 1) == 1) {
+				// Type is available, does it match user properties?
+				if ((m_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
+					*typeIndex = i;
+					return true;
+				}
+			}
+			typeBits >>= 1;
+		}
+		// No memory types matched, return failure
+		return false;
+	}
+
+	bool Renderer::AquireNextImage()
+	{
+		VkResult result = vkAcquireNextImageKHR(m_logicalDevice, m_swapchain, 2000000000, m_semaphore, m_fence, &m_currentImageIndex);
+		if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR))
+		{
+			Logger::Log("Could not aquire next image.");
+			return false;
+		}
+
+		//TODO: if VK_ERROR_OUT_OF_DATE_KHR, swapchain has to be recreated
+
+		return true;
+	}
+
+	bool Renderer::PresentImage()
+	{
+		//TODO: adjust to multiple swapchains etc
+		VkPresentInfoKHR presentInfo = {
+			VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			nullptr,
+			1, //semaphore array size
+			&m_semaphore,
+			1, //swapchain array size
+			&m_swapchain,
+			&m_currentImageIndex,
+			nullptr
+		};
+
+		VkResult result = vkQueuePresentKHR(m_multipurposeQueue, &presentInfo);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not present image");
+			return false;
+		}
+
+		return true;
 	}
 
 }

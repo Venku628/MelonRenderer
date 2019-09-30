@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
 	while (true)
 	{
 		window.Tick(test);
+		MelonRenderer::Logger::Get().Print();
 	}
 	
 	test.Fini();

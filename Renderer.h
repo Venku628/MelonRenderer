@@ -27,8 +27,6 @@ struct QueueFamilyInfo
 	std::vector<float> queuePriorities;
 };
 
-
-
 #define MELON_WINDOW_NAME "MelonRenderer"
 
 namespace MelonRenderer
@@ -67,6 +65,15 @@ namespace MelonRenderer
 		bool CreatePresentationSurface();
 		bool EnumeratePresentationModes(VkPhysicalDevice& device);
 		bool SelectPresentationMode(VkPresentModeKHR desiredPresentMode);
+		bool CheckPresentationSurfaceCapabilities(VkPhysicalDevice& device);
+		bool CreateSwapchain(VkPhysicalDevice& device);
+
+		bool CreateCommandBufferPool(VkCommandPool& commandPool);
+		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer commandBuffer);
+
+		bool CreateDepthBuffer();
+		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
+
 
 		std::vector<char const *> m_requiredInstanceExtensions;
 		std::vector<const char*> m_requiredDeviceExtensions;
@@ -75,16 +82,39 @@ namespace MelonRenderer
 		uint32_t m_currentPhysicalDeviceIndex = 0;
 		VkPhysicalDeviceFeatures m_currentPhysicalDeviceFeatures;
 		VkPhysicalDeviceProperties m_currentPhysicalDeviceProperties;
+		VkSurfaceCapabilitiesKHR m_currentSurfaceCapabilities;
 		std::vector<VkPresentModeKHR> m_currentPhysicalDevicePresentModes;
 		std::vector<VkQueueFamilyProperties> m_currentQueueFamilyProperties;
+
+		const uint32_t m_numberOfSamples = 1;
+		VkExtent3D m_extent;
+
+		//TODO: evaluate seperate class for this purpose, semaphores etc. included
+		VkSwapchainKHR m_swapchain;
+		std::vector<VkImage> m_swapchainImages;
+		std::vector<VkImageView> m_imageViews;
 		VkPresentModeKHR m_presentMode;
+		uint32_t m_currentImageIndex;
+		VkSemaphore m_semaphore;
+		VkFence m_fence;
+		bool AquireNextImage();
+		bool PresentImage();
 
-		// temporarily only one
+		// temporarily only one of each
+		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined
 		VkQueue m_multipurposeQueue;
+		VkCommandPool m_multipurposeCommandPool;
+		VkCommandBuffer m_multipurposeCommandBuffer;
 
+		//TODO: most likely move this into it´s own class 
+		VkImage m_depthBuffer;
+		VkDeviceMemory m_depthBufferMemory;
+		VkImageView m_depthBufferView;
+		
 		WindowHandle m_windowHandle;
 		VkSurfaceKHR m_presentationSurface;
 		VkDevice m_logicalDevice;
+		VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties;
 		VkInstance m_vulkanInstance;
 		VULKAN_LIBRARY_TYPE m_vulkanLibrary;
 		
