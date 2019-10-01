@@ -7,6 +7,15 @@ namespace MelonRenderer
 	{
 		m_windowHandle = windowHandle;
 
+		mat4 projection = glm::mat4(1.0f);
+		// Vulkan clip space has inverted Y and half Z.
+		mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, -1.0f, 0.0f, 0.0f,
+			0.0f, 0.0f, 0.5f, 0.0f,
+			0.0f, 0.0f, 0.5f, 1.0f);
+		m_modelViewProjection = projection * clip;
+
+
 		// TODO: handle failure with termination, maybe std quick exit?
 
 		LoadVulkanLibrary();
@@ -23,7 +32,6 @@ namespace MelonRenderer
 
 		// TODO: remember last used device or cycle through devices until one works the first time
 		CreateLogicalDeviceAndFollowing(m_physicalDevices[m_currentPhysicalDeviceIndex]);
-
 
 
 		Logger::Log("Loading complete.");
@@ -428,8 +436,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
 
 		CreateDepthBuffer();
-
-
+		CreateUniformBufferMVP();
+		CreatePipelineLayout();
 	}
 
 	bool Renderer::LoadDeviceFunctions()
@@ -872,6 +880,113 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 		// No memory types matched, return failure
 		return false;
+	}
+
+	bool Renderer::CreateUniformBufferMVP()
+	{
+		VkBufferCreateInfo bufferCreateInfo = {
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			nullptr,
+			0,
+			sizeof(m_modelViewProjection),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_SHARING_MODE_EXCLUSIVE,
+			0, 
+			nullptr
+		};
+
+		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &m_uniformBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create uniform buffer.");
+			return false;
+		}
+
+		VkMemoryRequirements memoryReq;
+		vkGetBufferMemoryRequirements(m_logicalDevice, m_uniformBuffer, &memoryReq);
+
+		VkMemoryAllocateInfo allocateInfo = {
+			VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			nullptr, 
+			memoryReq.size,
+			0
+		};
+		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&allocateInfo.memoryTypeIndex))
+		{
+			Logger::Log("Could not find memory type from properties for uniform buffer.");
+			return false;
+		}
+
+		result = vkAllocateMemory(m_logicalDevice, &allocateInfo, nullptr, &m_uniformBufferMemory);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not allocate uniform buffer memory.");
+			return false;
+		}
+
+		uint8_t* pData;
+		result = vkMapMemory(m_logicalDevice, m_uniformBufferMemory, 0, memoryReq.size, 0, (void**)& pData);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map memory for uniform buffer memory.");
+			return false;
+		}
+		memcpy(pData, &m_modelViewProjection, sizeof(m_modelViewProjection));
+		vkUnmapMemory(m_logicalDevice, m_uniformBufferMemory); //immediatley unmap because of limited page table for gpu+cpu adresses
+
+		result = vkBindBufferMemory(m_logicalDevice, m_uniformBuffer, m_uniformBufferMemory, 0);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind buffer to memory.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::CreatePipelineLayout()
+	{
+		//TODO: split and scale
+
+		VkDescriptorSetLayoutBinding layoutBinding = {
+			0, //only one descriptor set for now
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			1,
+			VK_SHADER_STAGE_VERTEX_BIT, // = bound to vertex shader
+			nullptr
+		};
+		VkDescriptorSetLayoutCreateInfo descriptorLayout = {
+			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			nullptr,
+			0,
+			1,
+			&layoutBinding //only single element for now
+		};
+		VkResult result = vkCreateDescriptorSetLayout(m_logicalDevice, &descriptorLayout, nullptr, &m_uniformBufferDescriptorSetLayout);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create uniform buffer descriptor set layout.");
+			return false;
+		}
+
+		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+			VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			nullptr,
+			0,
+			1,
+			&m_uniformBufferDescriptorSetLayout,
+			0,
+			nullptr
+		};
+		result = vkCreatePipelineLayout(m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create pipeline layout.");
+			return false;
+		}
+
+		return true;
 	}
 
 	bool Renderer::AquireNextImage()

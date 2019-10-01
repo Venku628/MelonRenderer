@@ -6,6 +6,7 @@
 #include "Window.h"
 #include "loader/VulkanFunctions.h"
 #include "Logger.h"
+#include "MelonMath.h"
 
 #include <iostream>
 #include <vector>
@@ -71,9 +72,6 @@ namespace MelonRenderer
 		bool CreateCommandBufferPool(VkCommandPool& commandPool);
 		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer commandBuffer);
 
-		bool CreateDepthBuffer();
-		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
-
 
 		std::vector<char const *> m_requiredInstanceExtensions;
 		std::vector<const char*> m_requiredDeviceExtensions;
@@ -90,6 +88,7 @@ namespace MelonRenderer
 		VkExtent3D m_extent;
 
 		//TODO: evaluate seperate class for this purpose, semaphores etc. included
+		//---------------------------------------
 		VkSwapchainKHR m_swapchain;
 		std::vector<VkImage> m_swapchainImages;
 		std::vector<VkImageView> m_imageViews;
@@ -99,18 +98,39 @@ namespace MelonRenderer
 		VkFence m_fence;
 		bool AquireNextImage();
 		bool PresentImage();
+		//---------------------------------------
 
+	
+		//TODO: depth buffer class?
+		//---------------------------------------
+		VkImage m_depthBuffer;
+		VkDeviceMemory m_depthBufferMemory;
+		VkImageView m_depthBufferView;
+
+		bool CreateDepthBuffer();
+		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
+		//---------------------------------------
+
+		// TODO: uniform buffer class? buffers should also be allocated in bulk 
+		//---------------------------------------
+		mat4 m_modelViewProjection;
+		VkBuffer m_uniformBuffer;
+		VkDeviceMemory m_uniformBufferMemory;
+
+		bool CreateUniformBufferMVP();
+
+		//---------------------------------------
+
+		VkDescriptorSetLayout m_uniformBufferDescriptorSetLayout;
+		VkPipelineLayout m_pipelineLayout;
+		bool CreatePipelineLayout();
+		
 		// temporarily only one of each
 		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined
 		VkQueue m_multipurposeQueue;
 		VkCommandPool m_multipurposeCommandPool;
 		VkCommandBuffer m_multipurposeCommandBuffer;
 
-		//TODO: most likely move this into it´s own class 
-		VkImage m_depthBuffer;
-		VkDeviceMemory m_depthBufferMemory;
-		VkImageView m_depthBufferView;
-		
 		WindowHandle m_windowHandle;
 		VkSurfaceKHR m_presentationSurface;
 		VkDevice m_logicalDevice;
