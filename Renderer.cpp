@@ -989,6 +989,55 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
+	bool Renderer::CreateDescriptorSet()
+	{
+		VkDescriptorPoolSize typeCount[1];
+		typeCount[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		typeCount[0].descriptorCount = 1;
+		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
+			VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+			nullptr,
+			0,
+			1,
+			1,
+			typeCount
+		};
+		VkResult result = vkCreateDescriptorPool(m_logicalDevice, &descriptorPoolCreateInfo, nullptr, &m_descriptorPool);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create descriptor pool.");
+			return false;
+		}
+
+		VkDescriptorSetAllocateInfo allocInfo[1];
+		allocInfo[0].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo[0].pNext = NULL;
+		allocInfo[0].descriptorPool = m_descriptorPool;
+		allocInfo[0].descriptorSetCount = 1;
+		allocInfo[0].pSetLayouts = &m_uniformBufferDescriptorSetLayout;
+		result = vkAllocateDescriptorSets(m_logicalDevice, allocInfo, &m_descriptorSet);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not allocate descriptor set.");
+			return false;
+		}
+
+		VkWriteDescriptorSet writes[1];
+		writes[0] = {};
+		writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[0].pNext = nullptr;
+		writes[0].dstSet = m_descriptorSet;
+		writes[0].descriptorCount = 1;
+		writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writes[0].pBufferInfo = &m_descriptorBufferInfo;
+		writes[0].dstArrayElement = 0;
+		writes[0].dstBinding = 0;
+		vkUpdateDescriptorSets(m_logicalDevice, 1, writes, 0, nullptr);
+
+
+		return true;
+	}
+
 	bool Renderer::AquireNextImage()
 	{
 		VkResult result = vkAcquireNextImageKHR(m_logicalDevice, m_swapchain, 2000000000, m_semaphore, m_fence, &m_currentImageIndex);

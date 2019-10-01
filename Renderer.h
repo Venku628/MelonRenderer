@@ -118,12 +118,15 @@ namespace MelonRenderer
 		VkDeviceMemory m_uniformBufferMemory;
 
 		bool CreateUniformBufferMVP();
-
 		//---------------------------------------
 
+		VkDescriptorPool m_descriptorPool;
+		VkDescriptorSet m_descriptorSet;
+		VkDescriptorBufferInfo m_descriptorBufferInfo;
 		VkDescriptorSetLayout m_uniformBufferDescriptorSetLayout;
 		VkPipelineLayout m_pipelineLayout;
 		bool CreatePipelineLayout();
+		bool CreateDescriptorSet();
 		
 		// temporarily only one of each
 		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined
