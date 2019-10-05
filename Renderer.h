@@ -106,6 +106,7 @@ namespace MelonRenderer
 		VkImage m_depthBuffer;
 		VkDeviceMemory m_depthBufferMemory;
 		VkImageView m_depthBufferView;
+		VkFormat m_depthBufferFormat;
 
 		bool CreateDepthBuffer();
 		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
@@ -120,12 +121,20 @@ namespace MelonRenderer
 		bool CreateUniformBufferMVP();
 		//---------------------------------------
 
+		//Renderpass
+		//---------------------------------------
+		VkRenderPass m_renderPass;
+
+		bool CreateRenderPass();
+		//---------------------------------------
+
 		VkDescriptorPool m_descriptorPool;
 		VkDescriptorSet m_descriptorSet;
 		VkDescriptorBufferInfo m_descriptorBufferInfo;
 		VkDescriptorSetLayout m_uniformBufferDescriptorSetLayout;
 		VkPipelineLayout m_pipelineLayout;
 		bool CreatePipelineLayout();
+		bool CreateDescriptorPool();
 		bool CreateDescriptorSet();
 		
 		// temporarily only one of each
@@ -134,6 +143,7 @@ namespace MelonRenderer
 		VkCommandPool m_multipurposeCommandPool;
 		VkCommandBuffer m_multipurposeCommandBuffer;
 
+		VkFormat m_format;
 		WindowHandle m_windowHandle;
 		VkSurfaceKHR m_presentationSurface;
 		VkDevice m_logicalDevice;

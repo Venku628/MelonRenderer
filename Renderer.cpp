@@ -438,6 +438,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateDepthBuffer();
 		CreateUniformBufferMVP();
 		CreatePipelineLayout();
+		CreateDescriptorPool();
+		CreateDescriptorSet();
 	}
 
 	bool Renderer::LoadDeviceFunctions()
@@ -658,6 +660,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 				break;
 			}
 		}
+		m_format = imageFormat;
 		VkColorSpaceKHR imageColorSpace = surfaceFormats[0].colorSpace;
 		for (auto& surfaceFormat : surfaceFormats)
 		{
@@ -942,6 +945,78 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
+		m_descriptorBufferInfo.buffer = m_uniformBuffer;
+		m_descriptorBufferInfo.offset = 0;
+		m_descriptorBufferInfo.range = sizeof(m_modelViewProjection);
+
+
+		return true;
+	}
+
+	//simple render pass with color and depth buffer in one subpass
+	bool Renderer::CreateRenderPass()
+	{
+		VkAttachmentDescription attachments[2];
+		attachments[0].format = m_format;
+		attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		attachments[0].flags = 0;
+
+		attachments[1].format = m_format; // depth buffer format same format?
+		attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachments[1].flags = 0;
+
+		VkAttachmentReference colorReference = {};
+		colorReference.attachment = 0;
+		colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthReference = {};
+		depthReference.attachment = 1;
+		depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpassDescription = {
+			0,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			0,
+			nullptr,
+			1,
+			&colorReference,
+			nullptr,
+			&depthReference,
+			0,
+			nullptr
+		};
+
+		VkRenderPassCreateInfo renderPassInfo = {
+			VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+			nullptr,
+			0,
+			2,
+			attachments,
+			1,
+			&subpassDescription,
+			0,
+			nullptr
+		};
+		VkResult result = vkCreateRenderPass(m_logicalDevice, &renderPassInfo, nullptr, &m_renderPass);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create render pass.");
+			return false;
+		}
+
+
 		return true;
 	}
 
@@ -989,7 +1064,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CreateDescriptorSet()
+	bool Renderer::CreateDescriptorPool()
 	{
 		VkDescriptorPoolSize typeCount[1];
 		typeCount[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1009,13 +1084,18 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
+		return true;
+	}
+
+	bool Renderer::CreateDescriptorSet()
+	{
 		VkDescriptorSetAllocateInfo allocInfo[1];
 		allocInfo[0].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo[0].pNext = NULL;
+		allocInfo[0].pNext = nullptr;
 		allocInfo[0].descriptorPool = m_descriptorPool;
 		allocInfo[0].descriptorSetCount = 1;
 		allocInfo[0].pSetLayouts = &m_uniformBufferDescriptorSetLayout;
-		result = vkAllocateDescriptorSets(m_logicalDevice, allocInfo, &m_descriptorSet);
+		VkResult result = vkAllocateDescriptorSets(m_logicalDevice, allocInfo, &m_descriptorSet);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not allocate descriptor set.");
@@ -1033,7 +1113,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		writes[0].dstArrayElement = 0;
 		writes[0].dstBinding = 0;
 		vkUpdateDescriptorSets(m_logicalDevice, 1, writes, 0, nullptr);
-
 
 		return true;
 	}
