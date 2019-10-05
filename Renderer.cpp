@@ -440,6 +440,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreatePipelineLayout();
 		CreateDescriptorPool();
 		CreateDescriptorSet();
+
+		CreateShaderModules();
 	}
 
 	bool Renderer::LoadDeviceFunctions()
@@ -1017,6 +1019,37 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 
+		return true;
+	}
+
+	bool Renderer::CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule)
+	{
+		VkShaderModuleCreateInfo shaderModuleCreateInfo = {
+			VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+			nullptr,
+			0,
+			code.size(),
+			reinterpret_cast<const uint32_t*>(code.data())
+		};
+		VkResult result = vkCreateShaderModule(m_logicalDevice, &shaderModuleCreateInfo, nullptr, shaderModule);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create shader module.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::CreateShaderModules()
+	{
+		auto vertShaderCode = readFile("shaders/vert.spv");
+		auto fragShaderCode = readFile("shaders/frag.spv");
+
+		CreateShaderModule(vertShaderCode, m_vertShaderModule);
+		CreateShaderModule(vertShaderCode, m_fragShaderModule);
+
+		//TODO: rework function to create all necessary shader modules and handle errors accordingly
 		return true;
 	}
 

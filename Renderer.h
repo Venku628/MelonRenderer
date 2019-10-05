@@ -1,11 +1,9 @@
-
-
-
 //TODO: figure out if xcb or xlib use platform needs to be defined
 
 #include "Window.h"
 #include "loader/VulkanFunctions.h"
 #include "Logger.h"
+#include "Shader.h"
 #include "MelonMath.h"
 
 #include <iostream>
@@ -126,6 +124,15 @@ namespace MelonRenderer
 		VkRenderPass m_renderPass;
 
 		bool CreateRenderPass();
+		//---------------------------------------
+
+		//Shader Modules
+		//---------------------------------------
+		VkShaderModule m_vertShaderModule;
+		VkShaderModule m_fragShaderModule;
+
+		bool CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule);
+		bool CreateShaderModules();
 		//---------------------------------------
 
 		VkDescriptorPool m_descriptorPool;
