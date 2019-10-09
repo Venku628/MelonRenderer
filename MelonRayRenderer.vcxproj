@@ -143,6 +143,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="cube.h" />
     <ClInclude Include="loader\VulkanFunctions.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MelonMath.h" />

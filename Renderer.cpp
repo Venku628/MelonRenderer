@@ -441,7 +441,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateDescriptorPool();
 		CreateDescriptorSet();
 
+		CreateRenderPass();
 		CreateShaderModules();
+		CreateFramebuffers();
+
+		CreateVertexBuffer();
 	}
 
 	bool Renderer::LoadDeviceFunctions()
@@ -722,7 +726,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		m_imageViews.resize(actualImageCount);
+		m_swapchainImageViews.resize(actualImageCount);
 		for (int i = 0; i < actualImageCount; i++)
 		{
 			VkImageViewCreateInfo colorImageView = {};
@@ -743,7 +747,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			colorImageView.subresourceRange.layerCount = 1;
 
 
-			result = vkCreateImageView(m_logicalDevice, &colorImageView, nullptr, &m_imageViews[i]);
+			result = vkCreateImageView(m_logicalDevice, &colorImageView, nullptr, &m_swapchainImageViews[i]);
 			if (result != VK_SUCCESS)
 			{
 				Logger::Log("Could not create image view.");
@@ -1031,7 +1035,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			code.size(),
 			reinterpret_cast<const uint32_t*>(code.data())
 		};
-		VkResult result = vkCreateShaderModule(m_logicalDevice, &shaderModuleCreateInfo, nullptr, shaderModule);
+		VkResult result = vkCreateShaderModule(m_logicalDevice, &shaderModuleCreateInfo, nullptr, &shaderModule);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create shader module.");
@@ -1046,10 +1050,107 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		auto vertShaderCode = readFile("shaders/vert.spv");
 		auto fragShaderCode = readFile("shaders/frag.spv");
 
-		CreateShaderModule(vertShaderCode, m_vertShaderModule);
-		CreateShaderModule(vertShaderCode, m_fragShaderModule);
+		CreateShaderModule(vertShaderCode, m_shaderStages[0].module);
+		CreateShaderModule(vertShaderCode, m_shaderStages[1].module);
+
+		m_shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		m_shaderStages[0].pNext = nullptr;
+		m_shaderStages[0].flags = 0;
+		m_shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+		m_shaderStages[0].pName = "main";
+		m_shaderStages[0].pSpecializationInfo = nullptr;
+		
+		m_shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		m_shaderStages[1].pNext = nullptr;
+		m_shaderStages[1].flags = 0;
+		m_shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		m_shaderStages[1].pName = "main";
+		m_shaderStages[1].pSpecializationInfo = nullptr;
+		
 
 		//TODO: rework function to create all necessary shader modules and handle errors accordingly
+		return true;
+	}
+
+	bool Renderer::CreateFramebuffers()
+	{
+		//reuse depthbuffer for all framebuffers
+		VkImageView attachments[2];
+		attachments[1] = m_depthBufferView;
+
+		VkFramebufferCreateInfo framebufferCreateInfo = {
+			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			nullptr,
+			0,
+			m_renderPass,
+			2,
+			attachments,
+			m_extent.width,
+			m_extent.height,
+			1
+		};
+
+		m_framebuffers.resize(m_swapchainImages.size());
+		for (int i = 0; i < m_swapchainImages.size(); i++)
+		{
+			attachments[0] = m_swapchainImageViews[i];
+			VkResult result = vkCreateFramebuffer(m_logicalDevice, &framebufferCreateInfo, nullptr, &m_framebuffers[i]);
+			if (result != VK_SUCCESS)
+			{
+				Logger::Log("Could not create framebuffer.");
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool Renderer::CreateVertexBuffer()
+	{
+		VkBufferCreateInfo bufferCreateInfo = {
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			nullptr,
+			0,
+			sizeof(g_vb_solid_face_colors_Data),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			VK_SHARING_MODE_EXCLUSIVE,
+			0,
+			nullptr
+		};
+		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &m_vertexBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create vertex buffer.");
+			return false;
+		}
+
+		VkMemoryRequirements memoryReq;
+		vkGetBufferMemoryRequirements(m_logicalDevice, m_vertexBuffer, &memoryReq);
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+		allocInfo.allocationSize = memoryReq.size;
+		allocInfo.memoryTypeIndex = 0;
+		if (FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&allocInfo.memoryTypeIndex))
+		{
+			Logger::Log("Could not find memory type from properties for vertex buffer.");
+			return false;
+		}
+
+		//questionable way to do this?
+		uint8_t* pData;
+		result = vkMapMemory(m_logicalDevice, m_vertexBufferMemory, 0, memoryReq.size, 0, (void**)& pData);
+		memcpy(pData, g_vb_solid_face_colors_Data, sizeof(g_vb_solid_face_colors_Data));
+		vkUnmapMemory(m_logicalDevice, m_vertexBufferMemory);
+
+		result = vkBindBufferMemory(m_logicalDevice, m_vertexBuffer, m_vertexBufferMemory, 0);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind vertex buffer to memory.");
+			return false;
+		}
+
 		return true;
 	}
 

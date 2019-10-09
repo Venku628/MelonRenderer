@@ -33,6 +33,9 @@
     <ClInclude Include="Shader.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="cube.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

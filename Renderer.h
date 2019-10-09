@@ -6,6 +6,8 @@
 #include "Shader.h"
 #include "MelonMath.h"
 
+#include "cube.h"
+
 #include <iostream>
 #include <vector>
 
@@ -89,7 +91,7 @@ namespace MelonRenderer
 		//---------------------------------------
 		VkSwapchainKHR m_swapchain;
 		std::vector<VkImage> m_swapchainImages;
-		std::vector<VkImageView> m_imageViews;
+		std::vector<VkImageView> m_swapchainImageViews;
 		VkPresentModeKHR m_presentMode;
 		uint32_t m_currentImageIndex;
 		VkSemaphore m_semaphore;
@@ -110,7 +112,7 @@ namespace MelonRenderer
 		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
 		//---------------------------------------
 
-		// TODO: uniform buffer class? buffers should also be allocated in bulk 
+		//uniform buffer class? buffers should also be allocated in bulk 
 		//---------------------------------------
 		mat4 m_modelViewProjection;
 		VkBuffer m_uniformBuffer;
@@ -126,13 +128,28 @@ namespace MelonRenderer
 		bool CreateRenderPass();
 		//---------------------------------------
 
-		//Shader Modules
+		//shader modules
 		//---------------------------------------
-		VkShaderModule m_vertShaderModule;
-		VkShaderModule m_fragShaderModule;
+		//this struct holds the shader modules
+		VkPipelineShaderStageCreateInfo m_shaderStages[2];
 
 		bool CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule);
 		bool CreateShaderModules();
+		//---------------------------------------
+
+		//frame buffers
+		//---------------------------------------
+		std::vector<VkFramebuffer> m_framebuffers;
+
+		bool CreateFramebuffers();
+		//---------------------------------------
+
+		//vertex buffer
+		//---------------------------------------
+		VkBuffer m_vertexBuffer;
+		VkDeviceMemory m_vertexBufferMemory;
+
+		bool CreateVertexBuffer();
 		//---------------------------------------
 
 		VkDescriptorPool m_descriptorPool;
