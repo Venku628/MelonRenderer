@@ -148,8 +148,17 @@ namespace MelonRenderer
 		//---------------------------------------
 		VkBuffer m_vertexBuffer;
 		VkDeviceMemory m_vertexBufferMemory;
+		VkVertexInputBindingDescription m_vertexInputBinding;
+		VkVertexInputAttributeDescription m_vertexInputAttribute[2];
 
 		bool CreateVertexBuffer();
+		//---------------------------------------
+
+
+		//---------------------------------------
+		VkPipeline m_pipeline;
+
+		bool CreateGraphicsPipeline();
 		//---------------------------------------
 
 		VkDescriptorPool m_descriptorPool;
