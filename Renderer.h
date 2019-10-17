@@ -154,12 +154,14 @@ namespace MelonRenderer
 		bool CreateVertexBuffer();
 		//---------------------------------------
 
-
 		//---------------------------------------
 		VkPipeline m_pipeline;
 
 		bool CreateGraphicsPipeline();
 		//---------------------------------------
+
+		bool Draw();
+		uint32_t m_imageIndex; 
 
 		VkDescriptorPool m_descriptorPool;
 		VkDescriptorSet m_descriptorSet;

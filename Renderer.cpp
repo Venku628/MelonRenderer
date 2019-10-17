@@ -179,6 +179,15 @@ namespace MelonRenderer
 			m_requiredInstanceExtensions.size() > 0 ? &m_requiredInstanceExtensions[0] : nullptr
 		};
 
+#ifdef _DEBUG
+		std::vector<const char*> validationLayers = {
+			"VK_LAYER_KHRONOS_validation"
+		};
+		instanceCreateInfo.enabledLayerCount = validationLayers.size();
+		instanceCreateInfo.ppEnabledLayerNames = validationLayers.data();
+		Logger::Log("Activated validation layers for debugging.");
+#endif
+
 		VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_vulkanInstance);
 		if ((result != VK_SUCCESS) || (m_vulkanInstance == VK_NULL_HANDLE))
 		{
@@ -353,9 +362,9 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 				// this is the case for my gpu
 				//TODO: find out how to best prioritize queue families on gpus
 				if(currentFamilyIndex == m_queueFamilyIndex)
-					familyInfo.queuePriorities.resize(m_currentQueueFamilyProperties[currentFamilyIndex].queueCount, 1.0f);
+					familyInfo.queuePriorities.resize(m_currentQueueFamilyProperties[currentFamilyIndex].queueCount, 1.0);
 				else
-					familyInfo.queuePriorities.resize(m_currentQueueFamilyProperties[currentFamilyIndex].queueCount, 0.5f);
+					familyInfo.queuePriorities.resize(m_currentQueueFamilyProperties[currentFamilyIndex].queueCount, 0.5);
 
 				familyIndices.emplace_back(familyInfo);
 				foundCompatibleQueueFamily = true;
@@ -388,7 +397,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		FindCompatibleQueueFamily(basicFlags, basicQueueFamilyInfos);
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-		for (auto info : basicQueueFamilyInfos)
+		for (auto& info : basicQueueFamilyInfos)
 		{
 			queueCreateInfos.push_back({
 				VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -683,6 +692,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_extent.height = desiredSizeOfImages.height;
 		m_extent.width = desiredSizeOfImages.width;
 
+		
+
 		VkSwapchainCreateInfoKHR swapchainCreateInfo = {
 			VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 			nullptr,
@@ -703,6 +714,14 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			VK_TRUE,
 			VK_NULL_HANDLE //TODO: insert old swapchain if available and destroy after
 		};
+
+		VkBool32 deviceSupported;
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, m_queueFamilyIndex, m_presentationSurface, &deviceSupported);
+		if (!deviceSupported)
+		{
+			Logger::Log("Presentation surface not supported by physical device.");
+			return false;
+		}
 
 		result = vkCreateSwapchainKHR(m_logicalDevice, &swapchainCreateInfo, nullptr, &m_swapchain);
 		if (result != VK_SUCCESS)
@@ -801,6 +820,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{
 		//find a more elegant solution
 		m_extent.depth = 1;
+		m_depthBufferFormat = VK_FORMAT_D16_UNORM;
 
 		VkImageCreateInfo imageCreateInfo = {
 		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -819,8 +839,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		nullptr,
 		VK_IMAGE_LAYOUT_UNDEFINED
 		};
-
-		m_currentPhysicalDeviceProperties;
 
 		VkResult result = vkCreateImage(m_logicalDevice, &imageCreateInfo, nullptr, &m_depthBuffer);
 		if (result != VK_SUCCESS)
@@ -964,7 +982,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::CreateRenderPass()
 	{
 		VkAttachmentDescription attachments[2];
-		attachments[0].format = m_format;
+		attachments[0].format = VK_FORMAT_B8G8R8A8_UNORM; // is this correct?
 		attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -974,7 +992,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		attachments[0].flags = 0;
 
-		attachments[1].format = m_format; // depth buffer format same format?
+		attachments[1].format = m_depthBufferFormat; 
 		attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -1052,7 +1070,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		auto fragShaderCode = readFile("shaders/frag.spv");
 
 		CreateShaderModule(vertShaderCode, m_shaderStages[0].module);
-		CreateShaderModule(vertShaderCode, m_shaderStages[1].module);
+		CreateShaderModule(fragShaderCode, m_shaderStages[1].module);
 
 		m_shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		m_shaderStages[0].pNext = nullptr;
@@ -1315,6 +1333,90 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			Logger::Log("Could not create graphics pipeline.");
 			return false;
 		}
+
+		return true;
+	}
+
+	bool Renderer::Draw()
+	{
+		VkClearValue clearValues[2];
+		clearValues[0].color.float32[0] = 0.2f;
+		clearValues[0].color.float32[1] = 0.2f;
+		clearValues[0].color.float32[2] = 0.2f;
+		clearValues[0].color.float32[3] = 0.2f;
+		clearValues[1].depthStencil.depth = 1.0f;
+		clearValues[1].depthStencil.stencil = 0;
+
+		VkSemaphore imageSemaphore;
+		VkSemaphoreCreateInfo imageSemaphoreInfo;
+		imageSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		imageSemaphoreInfo.pNext = nullptr;
+		imageSemaphoreInfo.flags = 0;
+
+		VkResult result = vkCreateSemaphore(m_logicalDevice, &imageSemaphoreInfo, nullptr, &imageSemaphore);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create draw semaphore.");
+			return false;
+		}
+
+		result = vkAcquireNextImageKHR(m_logicalDevice, m_swapchain, UINT64_MAX, imageSemaphore, VK_NULL_HANDLE, &m_imageIndex);
+		if (result != VK_SUCCESS) //TODO: handle VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
+		{
+			Logger::Log("Could not aquire next image for draw.");
+			return false;
+		}
+
+		VkRenderPassBeginInfo renderPassBegin;
+		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBegin.pNext = NULL;
+		renderPassBegin.renderPass = m_renderPass;
+		renderPassBegin.framebuffer = m_framebuffers[m_imageIndex];
+		renderPassBegin.renderArea.offset.x = 0;
+		renderPassBegin.renderArea.offset.y = 0;
+		renderPassBegin.renderArea.extent.width = m_extent.width;
+		renderPassBegin.renderArea.extent.height = m_extent.height;
+		renderPassBegin.clearValueCount = 2;
+		renderPassBegin.pClearValues = clearValues;
+
+		vkCmdBeginRenderPass(m_multipurposeCommandBuffer , &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+		vkCmdBindDescriptorSets(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
+			&m_descriptorSet, 0, nullptr);
+
+		const VkDeviceSize offsets[1] = { 0 };
+		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, &m_vertexBuffer, offsets);
+
+
+
+
+		//TODO: SOFORT braucht noch viewport und scissor infos
+
+
+
+
+
+
+		vkCmdDraw(m_multipurposeCommandBuffer, 12 * 3, 1, 0, 0);
+		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
+		result = vkEndCommandBuffer(m_multipurposeCommandBuffer);
+		if (result != VK_SUCCESS) 
+		{
+			Logger::Log("Could not end command buffer for draw.");
+			return false;
+		}
+
+		//TODO: change this 
+		const VkCommandBuffer cmd = m_multipurposeCommandBuffer;
+		VkFenceCreateInfo fenceInfo;
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceInfo.pNext = nullptr;
+		fenceInfo.flags = 0;
+		VkFence drawFence;
+		vkCreateFence(m_logicalDevice, &fenceInfo, nullptr, &drawFence);
+
+
 
 		return true;
 	}
