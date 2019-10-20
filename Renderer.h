@@ -70,7 +70,7 @@ namespace MelonRenderer
 		bool CreateSwapchain(VkPhysicalDevice& device);
 
 		bool CreateCommandBufferPool(VkCommandPool& commandPool);
-		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer commandBuffer);
+		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
 
 
 		std::vector<char const *> m_requiredInstanceExtensions;
@@ -162,6 +162,10 @@ namespace MelonRenderer
 
 		bool Draw();
 		uint32_t m_imageIndex; 
+		VkViewport m_viewport;
+		VkRect2D m_scissorRect2D;
+
+		unsigned int m_windowWidth, m_windowHeight, m_windowX, m_windowY;
 
 		VkDescriptorPool m_descriptorPool;
 		VkDescriptorSet m_descriptorSet;

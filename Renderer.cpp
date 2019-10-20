@@ -7,13 +7,19 @@ namespace MelonRenderer
 	{
 		m_windowHandle = windowHandle;
 
-		mat4 projection = glm::mat4(1.0f);
+		mat4 projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+		mat4 view = glm::lookAt(vec3(-5,3,-10),
+									vec3(0,0,0),
+									vec3(0,-1,0));
+		mat4 model = mat4(1.0f);
+
 		// Vulkan clip space has inverted Y and half Z.
 		mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
 			0.0f, -1.0f, 0.0f, 0.0f,
 			0.0f, 0.0f, 0.5f, 0.0f,
 			0.0f, 0.0f, 0.5f, 1.0f);
-		m_modelViewProjection = projection * clip;
+		m_modelViewProjection = clip*projection*view*model;
+		
 
 
 		// TODO: handle failure with termination, maybe std quick exit?
@@ -39,6 +45,8 @@ namespace MelonRenderer
 
 	bool Renderer::Tick()
 	{
+		Draw();
+
 		return false;
 	}
 
@@ -183,7 +191,7 @@ namespace MelonRenderer
 		std::vector<const char*> validationLayers = {
 			"VK_LAYER_KHRONOS_validation"
 		};
-		instanceCreateInfo.enabledLayerCount = validationLayers.size();
+		instanceCreateInfo.enabledLayerCount = static_cast<unsigned int>(validationLayers.size());
 		instanceCreateInfo.ppEnabledLayerNames = validationLayers.data();
 		Logger::Log("Activated validation layers for debugging.");
 #endif
@@ -748,7 +756,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		m_swapchainImageViews.resize(actualImageCount);
-		for (int i = 0; i < actualImageCount; i++)
+		for (unsigned int i = 0; i < actualImageCount; i++)
 		{
 			VkImageViewCreateInfo colorImageView = {};
 			colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -797,7 +805,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer commandBuffer)
+	bool Renderer::CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer)
 	{
 		VkCommandBufferAllocateInfo cmdInfo = {};
 		cmdInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1339,6 +1347,20 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::Draw()
 	{
+		//TODO: make helper function
+		VkCommandBufferBeginInfo cmdBufferInfo = {};
+		cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		cmdBufferInfo.pNext = nullptr;
+		cmdBufferInfo.flags = 0;
+		cmdBufferInfo.pInheritanceInfo = nullptr;
+
+		VkResult result = vkBeginCommandBuffer(m_multipurposeCommandBuffer, &cmdBufferInfo);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not begin command buffer for draw.");
+			return false;
+		}
+
 		VkClearValue clearValues[2];
 		clearValues[0].color.float32[0] = 0.2f;
 		clearValues[0].color.float32[1] = 0.2f;
@@ -1353,7 +1375,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		imageSemaphoreInfo.pNext = nullptr;
 		imageSemaphoreInfo.flags = 0;
 
-		VkResult result = vkCreateSemaphore(m_logicalDevice, &imageSemaphoreInfo, nullptr, &imageSemaphore);
+		result = vkCreateSemaphore(m_logicalDevice, &imageSemaphoreInfo, nullptr, &imageSemaphore);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create draw semaphore.");
@@ -1388,15 +1410,19 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		const VkDeviceSize offsets[1] = { 0 };
 		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, &m_vertexBuffer, offsets);
 
+		m_viewport.height = (float)m_extent.height;
+		m_viewport.width = (float)m_extent.width;
+		m_viewport.minDepth = (float)0.0f;
+		m_viewport.maxDepth = (float)1.0f;
+		m_viewport.x = 0;
+		m_viewport.y = 0;
+		vkCmdSetViewport(m_multipurposeCommandBuffer, 0, 1, &m_viewport);
 
-
-
-		//TODO: SOFORT braucht noch viewport und scissor infos
-
-
-
-
-
+		m_scissorRect2D.extent.width = m_extent.width;
+		m_scissorRect2D.extent.height = m_extent.height;
+		m_scissorRect2D.offset.x = 0;
+		m_scissorRect2D.offset.y = 0;
+		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
 
 		vkCmdDraw(m_multipurposeCommandBuffer, 12 * 3, 1, 0, 0);
 		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
@@ -1408,7 +1434,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		//TODO: change this 
-		const VkCommandBuffer cmd = m_multipurposeCommandBuffer;
+		const VkCommandBuffer cmd[] = { m_multipurposeCommandBuffer };
 		VkFenceCreateInfo fenceInfo;
 		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fenceInfo.pNext = nullptr;
@@ -1416,7 +1442,50 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkFence drawFence;
 		vkCreateFence(m_logicalDevice, &fenceInfo, nullptr, &drawFence);
 
+		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		VkSubmitInfo submitInfo[1] = {};
+		submitInfo[0].pNext = nullptr;
+		submitInfo[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo[0].waitSemaphoreCount = 1;
+		submitInfo[0].pWaitSemaphores = &imageSemaphore;
+		submitInfo[0].pWaitDstStageMask = &pipelineStageFlags;
+		submitInfo[0].commandBufferCount = 1;
+		submitInfo[0].pCommandBuffers = cmd;
+		submitInfo[0].signalSemaphoreCount = 0;
+		submitInfo[0].pSignalSemaphores = nullptr;
+		result = vkQueueSubmit(m_multipurposeQueue, 1, submitInfo, drawFence);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not submit draw queue.");
+			return false;
+		}
 
+		VkPresentInfoKHR presentInfo;
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.pNext = nullptr;
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = &m_swapchain;
+		presentInfo.pImageIndices = &m_imageIndex;
+		presentInfo.pWaitSemaphores = nullptr;
+		presentInfo.waitSemaphoreCount = 0;
+		presentInfo.pResults = nullptr;
+
+		//wait for buffer to be finished
+		do {
+			result = vkWaitForFences(m_logicalDevice, 1, &drawFence, VK_TRUE, 10000000);
+		} while (result == VK_TIMEOUT);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not wait for draw fences.");
+			return false;
+		}
+
+		result = vkQueuePresentKHR(m_multipurposeQueue, &presentInfo);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not present the draw queue.");
+			return false;
+		}
 
 		return true;
 	}
