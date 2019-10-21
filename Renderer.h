@@ -83,6 +83,7 @@ namespace MelonRenderer
 		VkSurfaceCapabilitiesKHR m_currentSurfaceCapabilities;
 		std::vector<VkPresentModeKHR> m_currentPhysicalDevicePresentModes;
 		std::vector<VkQueueFamilyProperties> m_currentQueueFamilyProperties;
+		bool m_hasRaytracingCapabilities;
 
 		const uint32_t m_numberOfSamples = 1;
 		VkExtent3D m_extent;

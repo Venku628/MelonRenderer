@@ -33,6 +33,8 @@ namespace MelonRenderer
 		LoadInstanceExtensionFunctions();
 		EnumeratePhysicalDevices();
 
+		m_requiredDeviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
 		//TODO: favor dedicated gpu
 		//if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 
@@ -139,6 +141,7 @@ namespace MelonRenderer
 
 		//TODO: define all requirements
 		m_requiredInstanceExtensions.emplace_back(VK_KHR_SURFACE_EXTENSION_NAME);
+		m_requiredInstanceExtensions.emplace_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
 #if defined VK_USE_PLATFORM_WIN32_KHR
 		m_requiredInstanceExtensions.emplace_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
@@ -174,18 +177,13 @@ namespace MelonRenderer
 
 	bool Renderer::CreateInstance()
 	{
-		VkInstanceCreateInfo instanceCreateInfo =
-		{
-			VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-			nullptr,
-			0,
-			&applicationInfo,
-			0,
-			nullptr,
-			static_cast<uint32_t>(m_requiredInstanceExtensions.size()),
-			// lambda, if extensions exist submit them
-			m_requiredInstanceExtensions.size() > 0 ? &m_requiredInstanceExtensions[0] : nullptr
-		};
+		VkInstanceCreateInfo instanceCreateInfo ={};
+		instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+		instanceCreateInfo.pNext = nullptr;
+		instanceCreateInfo.flags = 0;
+		instanceCreateInfo.pApplicationInfo = &applicationInfo;
+		instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(m_requiredInstanceExtensions.size());
+		instanceCreateInfo.ppEnabledExtensionNames = m_requiredInstanceExtensions.size() > 0 ? &m_requiredInstanceExtensions[0] : nullptr;
 
 #ifdef _DEBUG
 		std::vector<const char*> validationLayers = {
@@ -194,6 +192,9 @@ namespace MelonRenderer
 		instanceCreateInfo.enabledLayerCount = static_cast<unsigned int>(validationLayers.size());
 		instanceCreateInfo.ppEnabledLayerNames = validationLayers.data();
 		Logger::Log("Activated validation layers for debugging.");
+#elif
+		instanceCreateInfo.enabledLayerCount = 0;
+		instanceCreateInfo.ppEnabledLayerNames = nullptr;
 #endif
 
 		VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_vulkanInstance);
@@ -254,11 +255,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::CheckRequiredDeviceExtensions(VkPhysicalDevice& device)
 	{
-		//TODO: move elsewhere
-		m_requiredDeviceExtensions.resize(0);
-		m_requiredDeviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-
 		std::vector<VkExtensionProperties> deviceExtensions;
 
 		uint32_t extensionCount = 0;
@@ -278,11 +274,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		for (auto requiredDeviceExtension : m_requiredDeviceExtensions)
+		for (auto& requiredDeviceExtension : m_requiredDeviceExtensions)
 		{
 			bool extensionSupported = false;
 
-			for (auto deviceExtension : deviceExtensions)
+			for (auto& deviceExtension : deviceExtensions)
 			{
 				if (!strcmp(deviceExtension.extensionName, requiredDeviceExtension))
 				{
@@ -297,6 +293,17 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 				logMessage.append(requiredDeviceExtension);
 				Logger::Log(logMessage);
 				return false;
+			}
+		}
+
+		//check raytracing capabilities at this point because it´s convenient
+		m_hasRaytracingCapabilities = false;
+		for (auto& deviceExtension : deviceExtensions)
+		{
+			if (!strcmp(deviceExtension.extensionName, "VK_NV_ray_tracing"))
+			{
+				Logger::Log("Device supports raytracing!");
+				m_hasRaytracingCapabilities = true;
 			}
 		}
 
@@ -395,7 +402,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CheckRequiredDeviceProperties(device);
 		CheckQueueFamiliesAndProperties(device);
 		
-		//no VkResult 
 		vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
 
 		//TODO: define important queue family flags
@@ -405,36 +411,48 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		FindCompatibleQueueFamily(basicFlags, basicQueueFamilyInfos);
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-		for (auto& info : basicQueueFamilyInfos)
+		for (auto& basicQueueFamilyInfo : basicQueueFamilyInfos)
 		{
-			queueCreateInfos.push_back({
-				VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-				nullptr,
-				0, // queue flags, might be interesting later
-				info.familyIndex,
-				static_cast<uint32_t>(info.queuePriorities.size()),
-				&info.queuePriorities[0]
-				});
+			VkDeviceQueueCreateInfo queueCreateInfo = {};
+			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+			queueCreateInfo.pNext = nullptr;
+			queueCreateInfo.flags = 0;
+			queueCreateInfo.queueFamilyIndex = basicQueueFamilyInfo.familyIndex;
+			queueCreateInfo.queueCount = static_cast<uint32_t>(basicQueueFamilyInfo.queuePriorities.size());
+			queueCreateInfo.pQueuePriorities = &basicQueueFamilyInfo.queuePriorities[0];
+
+			queueCreateInfos.emplace_back(queueCreateInfo);
 		}
 
-		VkDeviceCreateInfo deviceCreateInfo =
+		//TODO: copy and add raytracing to required extensions
+		auto deviceExtensionsToActivate = m_requiredDeviceExtensions;
+		if (m_hasRaytracingCapabilities)
 		{
-			VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			nullptr,
-			0,
-			static_cast<uint32_t>(queueCreateInfos.size()),
-			&queueCreateInfos[0],
-			0,
-			nullptr,
-			static_cast<uint32_t>(m_requiredDeviceExtensions.size()),
-			m_requiredDeviceExtensions.size() > 0 ? &m_requiredDeviceExtensions[0] : nullptr,
-			&m_currentPhysicalDeviceFeatures  //TODO: define which features are required, to be able to turn off any other ones
-		};
+			deviceExtensionsToActivate.emplace_back("VK_KHR_get_memory_requirements2");
+			deviceExtensionsToActivate.emplace_back("VK_NV_ray_tracing");
+		}
+
+		VkPhysicalDeviceFeatures2 features2 = {};
+		features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		vkGetPhysicalDeviceFeatures2(device, &features2);
+
+		VkDeviceCreateInfo deviceCreateInfo = {};
+		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		deviceCreateInfo.pNext = &features2;
+		deviceCreateInfo.flags = 0;
+		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+		deviceCreateInfo.pQueueCreateInfos = &queueCreateInfos[0];
+		deviceCreateInfo.enabledLayerCount = 0;
+		deviceCreateInfo.ppEnabledLayerNames = nullptr;
+		deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensionsToActivate.size());
+		deviceCreateInfo.ppEnabledExtensionNames = deviceExtensionsToActivate.data();
+		deviceCreateInfo.pEnabledFeatures = nullptr; //raytracing? previously &m_currentPhysicalDeviceFeatures
+
 
 		VkResult result = vkCreateDevice(device, &deviceCreateInfo, nullptr, &m_logicalDevice);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not create logical device");
+			Logger::Log("Could not create logical device.");
 			//TODO: add quick exit functionality here as well
 			return ;
 		}
@@ -444,7 +462,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		AquireQueueHandles();
 		CreatePresentationSurface();
 		EnumeratePresentationModes(device);
-		SelectPresentationMode(VK_PRESENT_MODE_FIFO_KHR);
+		SelectPresentationMode(VK_PRESENT_MODE_FIFO_KHR); 
 
 		CheckPresentationSurfaceCapabilities(device);
 		CreateSwapchain(device);
@@ -700,8 +718,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_extent.height = desiredSizeOfImages.height;
 		m_extent.width = desiredSizeOfImages.width;
 
-		
-
 		VkSwapchainCreateInfoKHR swapchainCreateInfo = {
 			VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 			nullptr,
@@ -722,6 +738,24 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			VK_TRUE,
 			VK_NULL_HANDLE //TODO: insert old swapchain if available and destroy after
 		};
+		swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+		swapchainCreateInfo.pNext = nullptr;
+		swapchainCreateInfo.surface = m_presentationSurface;
+		swapchainCreateInfo.minImageCount = desiredNumberOfImages;
+		swapchainCreateInfo.imageFormat = imageFormat;
+		swapchainCreateInfo.imageColorSpace = imageColorSpace;
+		swapchainCreateInfo.imageExtent = desiredSizeOfImages;
+		swapchainCreateInfo.imageArrayLayers = 1;
+		swapchainCreateInfo.imageUsage = desiredImageUsage;
+		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		swapchainCreateInfo.queueFamilyIndexCount = 0;
+		swapchainCreateInfo.pQueueFamilyIndices = nullptr;
+		swapchainCreateInfo.preTransform = desiredTransform;
+		swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		swapchainCreateInfo.presentMode = m_presentMode;
+		swapchainCreateInfo.clipped = VK_TRUE;
+		swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE; //TODO: insert old swapchain if available and destroy after
+
 
 		VkBool32 deviceSupported;
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, m_queueFamilyIndex, m_presentationSurface, &deviceSupported);
