@@ -69,5 +69,8 @@
     </None>
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
+    <None Include="shaders\compile.bat">
+      <Filter>Quelldateien</Filter>
+    </None>
   </ItemGroup>
 </Project>
