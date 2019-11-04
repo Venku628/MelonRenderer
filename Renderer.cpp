@@ -481,6 +481,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateFramebuffers();
 
 		CreateVertexBuffer();
+		CreateIndexBuffer();
 
 		CreateGraphicsPipeline();
 	}
@@ -1253,6 +1254,67 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
+	bool Renderer::CreateIndexBuffer()
+	{
+		VkBufferCreateInfo bufferCreateInfo = {
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			nullptr,
+			0,
+			sizeof(cube_index_data),
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+			VK_SHARING_MODE_EXCLUSIVE,
+			0,
+			nullptr
+		};
+		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &m_indexBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create index buffer.");
+			return false;
+		}
+
+		VkMemoryRequirements memoryReq;
+		vkGetBufferMemoryRequirements(m_logicalDevice, m_indexBuffer, &memoryReq);
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+		allocInfo.allocationSize = memoryReq.size;
+		allocInfo.memoryTypeIndex = 0;
+		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&allocInfo.memoryTypeIndex))
+		{
+			Logger::Log("Could not find memory type from properties for index buffer.");
+			return false;
+		}
+		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &m_indexBufferMemory);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not allocate index buffer memory.");
+			return false;
+		}
+
+		//questionable way to do this?
+		uint8_t* pData;
+		result = vkMapMemory(m_logicalDevice, m_indexBufferMemory, 0, memoryReq.size, 0, (void**)&pData);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map index buffer to memory.");
+			return false;
+		}
+
+		memcpy(pData, cube_index_data, sizeof(cube_index_data));
+		vkUnmapMemory(m_logicalDevice, m_indexBufferMemory);
+		result = vkBindBufferMemory(m_logicalDevice, m_indexBuffer, m_indexBufferMemory, 0);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind index buffer to memory.");
+			return false;
+		}
+
+
+		return true;
+	}
+
 	bool Renderer::CreateGraphicsPipeline()
 	{
 		VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
@@ -1454,6 +1516,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		const VkDeviceSize offsets[1] = { 0 };
 		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, &m_vertexBuffer, offsets);
+		//vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		m_viewport.height = (float)m_extent.height;
 		m_viewport.width = (float)m_extent.width;
@@ -1470,6 +1533,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
 
 		vkCmdDraw(m_multipurposeCommandBuffer, 12 * 3, 1, 0, 0);
+		//vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data), 1, 0, 0, 0);
+
 		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
 		result = vkEndCommandBuffer(m_multipurposeCommandBuffer);
 		if (result != VK_SUCCESS) 

@@ -155,7 +155,11 @@ namespace MelonRenderer
 		std::vector<VkVertexInputAttributeDescription> m_vertexInputAttributes;
 		std::vector<VkVertexInputBindingDescription> m_vertexInputBindings;
 
+		VkBuffer m_indexBuffer;
+		VkDeviceMemory m_indexBufferMemory;
+
 		bool CreateVertexBuffer();
+		bool CreateIndexBuffer();
 		//---------------------------------------
 
 
