@@ -36,6 +36,12 @@
     <ClInclude Include="cube.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="Drawable.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Basics.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -51,6 +57,9 @@
       <Filter>Quelldateien</Filter>
     </ClCompile>
     <ClCompile Include="Window.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Drawable.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>

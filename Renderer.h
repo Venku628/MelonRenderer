@@ -1,10 +1,8 @@
 //TODO: figure out if xcb or xlib use platform needs to be defined
 
 #include "Window.h"
-#include "loader/VulkanFunctions.h"
-#include "Logger.h"
 #include "Shader.h"
-#include "MelonMath.h"
+#include "Basics.h"
 
 #include "cube.h"
 
@@ -113,6 +111,7 @@ namespace MelonRenderer
 		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
 		//---------------------------------------
 
+
 		//uniform buffer class? buffers should also be allocated in bulk 
 		//---------------------------------------
 		mat4 m_modelViewProjection;
@@ -122,6 +121,7 @@ namespace MelonRenderer
 		bool CreateUniformBufferMVP();
 		//---------------------------------------
 
+
 		//Renderpass
 		//---------------------------------------
 		VkRenderPass m_renderPass;
@@ -129,14 +129,16 @@ namespace MelonRenderer
 		bool CreateRenderPass();
 		//---------------------------------------
 
+
 		//shader modules
 		//---------------------------------------
 		//this struct holds the shader modules
-		VkPipelineShaderStageCreateInfo m_shaderStages[2];
+		std::vector<VkPipelineShaderStageCreateInfo> m_shaderStagesV;
 
 		bool CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule);
 		bool CreateShaderModules();
 		//---------------------------------------
+
 
 		//frame buffers
 		//---------------------------------------
@@ -145,15 +147,17 @@ namespace MelonRenderer
 		bool CreateFramebuffers();
 		//---------------------------------------
 
+
 		//vertex buffer
 		//---------------------------------------
 		VkBuffer m_vertexBuffer;
 		VkDeviceMemory m_vertexBufferMemory;
-		VkVertexInputBindingDescription m_vertexInputBinding;
-		VkVertexInputAttributeDescription m_vertexInputAttribute[2];
+		std::vector<VkVertexInputAttributeDescription> m_vertexInputAttributes;
+		std::vector<VkVertexInputBindingDescription> m_vertexInputBindings;
 
 		bool CreateVertexBuffer();
 		//---------------------------------------
+
 
 		//---------------------------------------
 		VkPipeline m_pipeline;

@@ -1111,23 +1111,27 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		auto vertShaderCode = readFile("shaders/vert.spv");
 		auto fragShaderCode = readFile("shaders/frag.spv");
 
-		CreateShaderModule(vertShaderCode, m_shaderStages[0].module);
-		CreateShaderModule(fragShaderCode, m_shaderStages[1].module);
+		VkPipelineShaderStageCreateInfo vertexShader, fragmentShader;
 
-		m_shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		m_shaderStages[0].pNext = nullptr;
-		m_shaderStages[0].flags = 0;
-		m_shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-		m_shaderStages[0].pName = "main";
-		m_shaderStages[0].pSpecializationInfo = nullptr;
+		CreateShaderModule(vertShaderCode, vertexShader.module);
+		CreateShaderModule(fragShaderCode, fragmentShader.module);
+
+		vertexShader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		vertexShader.pNext = nullptr;
+		vertexShader.flags = 0;
+		vertexShader.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		vertexShader.pName = "main";
+		vertexShader.pSpecializationInfo = nullptr;
 		
-		m_shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		m_shaderStages[1].pNext = nullptr;
-		m_shaderStages[1].flags = 0;
-		m_shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		m_shaderStages[1].pName = "main";
-		m_shaderStages[1].pSpecializationInfo = nullptr;
+		fragmentShader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		fragmentShader.pNext = nullptr;
+		fragmentShader.flags = 0;
+		fragmentShader.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		fragmentShader.pName = "main";
+		fragmentShader.pSpecializationInfo = nullptr;
 		
+		m_shaderStagesV.emplace_back(vertexShader);
+		m_shaderStagesV.emplace_back(fragmentShader);
 
 		//TODO: rework function to create all necessary shader modules and handle errors accordingly
 		return true;
@@ -1223,19 +1227,28 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
+		//
+		VkVertexInputBindingDescription vertexInputBinding;
+		vertexInputBinding.binding = 0;
+		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		vertexInputBinding.stride = sizeof(g_vb_solid_face_colors_Data[0]);
+		m_vertexInputBindings.emplace_back(vertexInputBinding);
+		//
 
-		m_vertexInputBinding.binding = 0;
-		m_vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		m_vertexInputBinding.stride = sizeof(g_vb_solid_face_colors_Data[0]);
+		//
+		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor;
+		vertexAttributePosition.binding = 0;
+		vertexAttributePosition.location = 0;
+		vertexAttributePosition.format = VK_FORMAT_R32G32B32_SFLOAT;
+		vertexAttributePosition.offset = 0;
+		m_vertexInputAttributes.emplace_back(vertexAttributePosition);
 
-		m_vertexInputAttribute[0].binding = 0;
-		m_vertexInputAttribute[0].location = 0;
-		m_vertexInputAttribute[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		m_vertexInputAttribute[0].offset = 0;
-		m_vertexInputAttribute[1].binding = 0;
-		m_vertexInputAttribute[1].location = 1;
-		m_vertexInputAttribute[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		m_vertexInputAttribute[1].offset = 16;
+		vertexAttributeColor.binding = 0;
+		vertexAttributeColor.location = 1;
+		vertexAttributeColor.format = VK_FORMAT_R32G32B32_SFLOAT;
+		vertexAttributeColor.offset = sizeof(float)*3;
+		m_vertexInputAttributes.emplace_back(vertexAttributeColor);
+		//
 
 		return true;
 	}
@@ -1250,23 +1263,21 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		dynamicState.pDynamicStates = dynamicStateEnables;
 		dynamicState.dynamicStateCount = 0;
 
-		VkPipelineVertexInputStateCreateInfo pipelineVertexInputInfo = {
-			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-			nullptr,
-			0,
-			1,
-			&m_vertexInputBinding,
-			2,
-			m_vertexInputAttribute
-		};
+		VkPipelineVertexInputStateCreateInfo pipelineVertexInputInfo = {};
+		pipelineVertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		pipelineVertexInputInfo.pNext = nullptr;
+		pipelineVertexInputInfo.flags = 0;
+		pipelineVertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(m_vertexInputBindings.size());
+		pipelineVertexInputInfo.pVertexBindingDescriptions = m_vertexInputBindings.data();
+		pipelineVertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(m_vertexInputAttributes.size());
+		pipelineVertexInputInfo.pVertexAttributeDescriptions = m_vertexInputAttributes.data();
 
-		VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyInfo = {
-			VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-			nullptr,
-			0,
-			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-			VK_FALSE
-		};
+		VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyInfo = {};
+		pipelineInputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+		pipelineInputAssemblyInfo.pNext = nullptr;
+		pipelineInputAssemblyInfo.flags = 0;
+		pipelineInputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		pipelineInputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
 		VkPipelineRasterizationStateCreateInfo pipelineRasterizationInfo;
 		pipelineRasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -1364,8 +1375,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		pipeline.pDynamicState = &dynamicState;
 		pipeline.pViewportState = &pipelineViewportInfo;
 		pipeline.pDepthStencilState = &pipelineDepthStencilInfo;
-		pipeline.pStages = m_shaderStages;
-		pipeline.stageCount = 2;
+		pipeline.pStages = m_shaderStagesV.data();
+		pipeline.stageCount = static_cast<uint32_t>(m_shaderStagesV.size());
 		pipeline.renderPass = m_renderPass;
 		pipeline.subpass = 0;
 
