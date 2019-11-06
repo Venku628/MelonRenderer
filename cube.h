@@ -5,49 +5,40 @@ struct Vertex {
 	float r, g, b;              // Color
 };
 
-static const Vertex g_vb_solid_face_colors_Data[] = {
-	// red face
-	{-1.f, -1.f, 1.f, 1.f, 0.f, 0.f},
-	{-1.f, 1.f, 1.f, 1.f, 0.f, 0.f},
-	{1.f, -1.f, 1.f, 1.f, 0.f, 0.f},
-	{1.f, -1.f, 1.f, 1.f, 0.f, 0.f},
-	{-1.f, 1.f, 1.f, 1.f, 0.f, 0.f},
-	{1.f, 1.f, 1.f, 1.f, 0.f, 0.f},
-	// green face
-	{-1.f, -1.f, -1.f, 0.f, 1.f, 0.f},
-	{1.f, -1.f, -1.f, 0.f, 1.f, 0.f},
-	{-1.f, 1.f, -1.f, 0.f, 1.f, 0.f},
-	{-1.f, 1.f, -1.f, 0.f, 1.f, 0.f},
-	{1.f, -1.f, -1.f, 0.f, 1.f, 0.f},
-	{1.f, 1.f, -1.f, 0.f, 1.f, 0.f},
-	// blue face
-	{-1.f, 1.f, 1.f, 0.f, 0.f, 1.f},
-	{-1.f, -1.f, 1.f, 0.f, 0.f, 1.f},
-	{-1.f, 1.f, -1.f, 0.f, 0.f, 1.f},
-	{-1.f, 1.f, -1.f, 0.f, 0.f, 1.f},
-	{-1.f, -1.f, 1.f, 0.f, 0.f, 1.f},
-	{-1.f, -1.f, -1.f, 0.f, 0.f, 1.f},
-	// yellow face
-	{1.f, 1.f, 1.f, 1.f, 1.f, 0.f},
-	{1.f, 1.f, -1.f, 1.f, 1.f, 0.f},
-	{1.f, -1.f, 1.f, 1.f, 1.f, 0.f},
-	{1.f, -1.f, 1.f, 1.f, 1.f, 0.f},
-	{1.f, 1.f, -1.f, 1.f, 1.f, 0.f},
-	{1.f, -1.f, -1.f, 1.f, 1.f, 0.f},
-	// magenta face
-	{1.f, 1.f, 1.f, 1.f, 0.f, 1.f},
-	{-1.f, 1.f, 1.f, 1.f, 0.f, 1.f},
-	{1.f, 1.f, -1.f, 1.f, 0.f, 1.f},
-	{1.f, 1.f, -1.f, 1.f, 0.f, 1.f},
-	{-1.f, 1.f, 1.f, 1.f, 0.f, 1.f},
-	{-1.f, 1.f, -1.f, 1.f, 0.f, 1.f},
-	// cyan face
-	{1.f, -1.f, 1.f, 0.f, 1.f, 1.f},
-	{1.f, -1.f, -1.f, 0.f, 1.f, 1.f},
-	{-1.f, -1.f, 1.f, 0.f, 1.f, 1.f},
-	{-1.f, -1.f, 1.f, 0.f, 1.f, 1.f},
-	{1.f, -1.f, -1.f, 0.f, 1.f, 1.f},
-	{-1.f, -1.f, -1.f, 0.f, 1.f, 1.f}
+#define ColorVertex(x, y, z) (x), (y), (z), 1.f, 0.f, 0.f
+
+
+static const Vertex cube_vertex_data[] = {
+	//front
+	{ColorVertex(-1.f, -1.f, 1.f)},
+	{ColorVertex(1.f, -1.f, 1.f)},
+	{ColorVertex(1.f, 1.f, 1.f)},
+	{ColorVertex(-1.f, 1.f, 1.f)},
+	//back
+	{ColorVertex(-1.f, 1.f, -1.f)},
+	{ColorVertex(1.f, 1.f, -1.f)},
+	{ColorVertex(1.f, -1.f, -1.f)},
+	{ColorVertex(-1.f, -1.f, -1.f)},
+	//right
+	{ColorVertex(1.f, -1.f, 1.f)},
+	{ColorVertex(1.f, -1.f, -1.f)},
+	{ColorVertex(1.f, 1.f, -1.f)},
+	{ColorVertex(1.f, 1.f, 1.f)},
+	//left
+	{ColorVertex(-1.f, 1.f, 1.f)},
+	{ColorVertex(-1.f, 1.f, -1.f)},
+	{ColorVertex(-1.f, -1.f, -1.f)},
+	{ColorVertex(-1.f, -1.f, 1.f)},
+	//top
+	{ColorVertex(-1.f, 1.f, 1.f)},
+	{ColorVertex(1.f, 1.f, 1.f)},
+	{ColorVertex(1.f, 1.f, -1.f)},
+	{ColorVertex(-1.f, 1.f, -1.f)},
+	//bottom
+	{ColorVertex(-1.f, -1.f, -1.f)},
+	{ColorVertex(1.f, -1.f, -1.f)},
+	{ColorVertex(1.f, -1.f, 1.f)},
+	{ColorVertex(-1.f, -1.f, 1.f)}
 };
 
 static const uint32_t cube_index_data[] = {

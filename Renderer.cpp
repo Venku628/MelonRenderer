@@ -1177,7 +1177,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			nullptr,
 			0,
-			sizeof(g_vb_solid_face_colors_Data),
+			sizeof(cube_vertex_data),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 			VK_SHARING_MODE_EXCLUSIVE,
 			0,
@@ -1219,7 +1219,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		memcpy(pData, g_vb_solid_face_colors_Data, sizeof(g_vb_solid_face_colors_Data));
+		memcpy(pData, cube_vertex_data, sizeof(cube_vertex_data));
 		vkUnmapMemory(m_logicalDevice, m_vertexBufferMemory);
 		result = vkBindBufferMemory(m_logicalDevice, m_vertexBuffer, m_vertexBufferMemory, 0);
 		if (result != VK_SUCCESS)
@@ -1232,7 +1232,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkVertexInputBindingDescription vertexInputBinding;
 		vertexInputBinding.binding = 0;
 		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		vertexInputBinding.stride = sizeof(g_vb_solid_face_colors_Data[0]);
+		vertexInputBinding.stride = sizeof(cube_vertex_data[0]);
 		m_vertexInputBindings.emplace_back(vertexInputBinding);
 		//
 
@@ -1515,8 +1515,9 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			&m_descriptorSet, 0, nullptr);
 
 		const VkDeviceSize offsets[1] = { 0 };
+		//TODO: Fix
 		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, &m_vertexBuffer, offsets);
-		//vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		m_viewport.height = (float)m_extent.height;
 		m_viewport.width = (float)m_extent.width;
@@ -1532,8 +1533,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
 
-		vkCmdDraw(m_multipurposeCommandBuffer, 12 * 3, 1, 0, 0);
-		//vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data), 1, 0, 0, 0);
+		//vkCmdDraw(m_multipurposeCommandBuffer, 12 * 3, 1, 0, 0);
+		vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data)/sizeof(uint32_t), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
 		result = vkEndCommandBuffer(m_multipurposeCommandBuffer);
