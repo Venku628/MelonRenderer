@@ -1,8 +1,14 @@
 #pragma once
 
+#include "Basics.h"
+
 struct Vertex {
 	float posX, posY, posZ;  // Position data
 	float r, g, b;              // Color
+};
+
+struct VertexTransform {
+	mat4 transformMatrix;
 };
 
 #define ColorVertex(x, y, z) (x), (y), (z), 1.f, 0.f, 0.f

@@ -154,7 +154,7 @@ namespace MelonRenderer
 		VkDeviceMemory m_vertexBufferMemory;
 		std::vector<VkVertexInputAttributeDescription> m_vertexInputAttributes;
 		std::vector<VkVertexInputBindingDescription> m_vertexInputBindings;
-
+		//TODO: use combined index/vertex buffer with offsets
 		VkBuffer m_indexBuffer;
 		VkDeviceMemory m_indexBufferMemory;
 
@@ -176,14 +176,16 @@ namespace MelonRenderer
 
 		unsigned int m_windowWidth, m_windowHeight, m_windowX, m_windowY;
 
+		//---------------------------------------
 		VkDescriptorPool m_descriptorPool;
-		VkDescriptorSet m_descriptorSet;
-		VkDescriptorBufferInfo m_descriptorBufferInfo;
-		VkDescriptorSetLayout m_uniformBufferDescriptorSetLayout;
+		std::vector<VkDescriptorSet> m_descriptorSets;
+		VkDescriptorBufferInfo m_descriptorBufferInfoViewProjection;
+		std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 		VkPipelineLayout m_pipelineLayout;
 		bool CreatePipelineLayout();
 		bool CreateDescriptorPool();
 		bool CreateDescriptorSet();
+		//---------------------------------------
 		
 		// temporarily only one of each
 		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined

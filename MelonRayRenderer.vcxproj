@@ -217,6 +217,7 @@
   <ItemGroup>
     <ClInclude Include="Basics.h" />
     <ClInclude Include="cube.h" />
+    <ClInclude Include="DescriptorManager.h" />
     <ClInclude Include="Drawable.h" />
     <ClInclude Include="loader\VulkanFunctions.h" />
     <ClInclude Include="Logger.h" />
@@ -226,6 +227,7 @@
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DescriptorManager.cpp" />
     <ClCompile Include="Drawable.cpp" />
     <ClCompile Include="loader\VulkanFunctions.cpp" />
     <ClCompile Include="Logger.cpp" />

@@ -828,7 +828,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		cmdPoolInfo.pNext = NULL;
 		cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex; //TODO: make variable as soon as it is defined as a non constant
-		cmdPoolInfo.flags = 0;
+		cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 		VkResult result = vkCreateCommandPool(m_logicalDevice, &cmdPoolInfo, NULL, &commandPool);
 		if (result != VK_SUCCESS)
@@ -1013,9 +1013,9 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		m_descriptorBufferInfo.buffer = m_uniformBuffer;
-		m_descriptorBufferInfo.offset = 0;
-		m_descriptorBufferInfo.range = sizeof(m_modelViewProjection);
+		m_descriptorBufferInfoViewProjection.buffer = m_uniformBuffer;
+		m_descriptorBufferInfoViewProjection.offset = 0;
+		m_descriptorBufferInfoViewProjection.range = sizeof(m_modelViewProjection);
 
 
 		return true;
@@ -1510,12 +1510,28 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		vkCmdBeginRenderPass(m_multipurposeCommandBuffer , &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
 
+		//TODO: scale for multiple objects
+		VertexTransform vertexTransformMatrix{ mat4(1.f,0.f,0.f,2.f,
+			0.f,1.f,0.f,0.f,
+			0.f,0.f,1.f,0.f,
+			0.f,0.f,0.f,1.f) };
+		VertexTransform vertexTransformMatrix2{ mat4(1.f,0.f,0.f,-2.f,
+			0.f,1.f,0.f,0.f,
+			0.f,0.f,1.f,0.f,
+			0.f,0.f,0.f,1.f) };
+		std::vector<VertexTransform> vertexTransforms;
+		vertexTransforms.emplace_back(vertexTransformMatrix);
+		vertexTransforms.emplace_back(vertexTransformMatrix2);
+
+
 		vkCmdBindPipeline(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-		vkCmdBindDescriptorSets(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
-			&m_descriptorSet, 0, nullptr);
+		std::vector<uint32_t> dynamicOffsets;
+		//dynamicOffsets.emplace_back(0);
+		vkCmdBindDescriptorSets(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
+			m_descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
 
 		const VkDeviceSize offsets[1] = { 0 };
-		//TODO: Fix
+
 		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, &m_vertexBuffer, offsets);
 		vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -1533,7 +1549,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
 
-		//vkCmdDraw(m_multipurposeCommandBuffer, 12 * 3, 1, 0, 0);
+		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, 
+			sizeof(vertexTransformMatrix), &vertexTransformMatrix);
+		vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data)/sizeof(uint32_t), 2, 0, 0, 0);
+		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, 
+			sizeof(vertexTransformMatrix2), &vertexTransformMatrix2);
 		vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data)/sizeof(uint32_t), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
@@ -1604,36 +1624,59 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::CreatePipelineLayout()
 	{
 		//TODO: split and scale
+		std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
+		unsigned int layoutBindingIndex = 0;
 
-		VkDescriptorSetLayoutBinding layoutBinding = {
-			0, //only one descriptor set for now
+		VkDescriptorSetLayoutBinding layoutBindingViewProjection = {
+			layoutBindingIndex++, //only one descriptor set for now
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			1,
 			VK_SHADER_STAGE_VERTEX_BIT, // = bound to vertex shader
 			nullptr
 		};
+		layoutBindings.emplace_back(layoutBindingViewProjection);
+		/*
+		VkDescriptorSetLayoutBinding layoutBindingModel = {
+			layoutBindingIndex++, //only one descriptor set for now
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+			1,
+			VK_SHADER_STAGE_VERTEX_BIT, // = bound to vertex shader
+			nullptr
+		};
+		layoutBindings.emplace_back(layoutBindingModel);
+		*/
+		
+
 		VkDescriptorSetLayoutCreateInfo descriptorLayout = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 			nullptr,
 			0,
-			1,
-			&layoutBinding //only single element for now
+			layoutBindings.size(),
+			layoutBindings.data() //only single element for now
 		};
-		VkResult result = vkCreateDescriptorSetLayout(m_logicalDevice, &descriptorLayout, nullptr, &m_uniformBufferDescriptorSetLayout);
+		m_descriptorSetLayouts.resize(1);
+		VkResult result = vkCreateDescriptorSetLayout(m_logicalDevice, &descriptorLayout, nullptr, &m_descriptorSetLayouts[0]);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create uniform buffer descriptor set layout.");
 			return false;
 		}
 
+		std::vector<VkPushConstantRange> pushConstantRanges;
+		VkPushConstantRange pushConstantRangeTransforms = {};
+		pushConstantRangeTransforms.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		pushConstantRangeTransforms.offset = 0;
+		pushConstantRangeTransforms.size = sizeof(VertexTransform);
+		pushConstantRanges.emplace_back(pushConstantRangeTransforms);
+		
 		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
 			VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			nullptr,
 			0,
-			1,
-			&m_uniformBufferDescriptorSetLayout,
-			0,
-			nullptr
+			m_descriptorSetLayouts.size(),
+			m_descriptorSetLayouts.data(),
+			pushConstantRanges.size(),
+			pushConstantRanges.data()
 		};
 		result = vkCreatePipelineLayout(m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout);
 		if (result != VK_SUCCESS)
@@ -1647,16 +1690,25 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::CreateDescriptorPool()
 	{
-		VkDescriptorPoolSize typeCount[1];
-		typeCount[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		typeCount[0].descriptorCount = 1;
+		std::vector<VkDescriptorPoolSize> descriptorPoolSizes;
+		VkDescriptorPoolSize poolSizeViewProjection = {};
+		poolSizeViewProjection.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizeViewProjection.descriptorCount = 1;
+		descriptorPoolSizes.emplace_back(poolSizeViewProjection);
+		/*
+		VkDescriptorPoolSize poolSizeModel = {};
+		poolSizeModel.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		poolSizeModel.descriptorCount = 1;
+		descriptorPoolSizes.emplace_back(poolSizeModel);
+		*/
+		
 		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 			nullptr,
 			0,
-			1,
-			1,
-			typeCount
+			1, //TODO: max sets, make non constant, take number from CreatePipelineLayout
+			descriptorPoolSizes.size(),
+			descriptorPoolSizes.data()
 		};
 		VkResult result = vkCreateDescriptorPool(m_logicalDevice, &descriptorPoolCreateInfo, nullptr, &m_descriptorPool);
 		if (result != VK_SUCCESS)
@@ -1670,13 +1722,14 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::CreateDescriptorSet()
 	{
-		VkDescriptorSetAllocateInfo allocInfo[1];
-		allocInfo[0].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo[0].pNext = nullptr;
-		allocInfo[0].descriptorPool = m_descriptorPool;
-		allocInfo[0].descriptorSetCount = 1;
-		allocInfo[0].pSetLayouts = &m_uniformBufferDescriptorSetLayout;
-		VkResult result = vkAllocateDescriptorSets(m_logicalDevice, allocInfo, &m_descriptorSet);
+		VkDescriptorSetAllocateInfo allocInfo;
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+		allocInfo.descriptorPool = m_descriptorPool;
+		allocInfo.descriptorSetCount = m_descriptorSetLayouts.size(); //m_descriptorSetLayouts.size()
+		allocInfo.pSetLayouts = m_descriptorSetLayouts.data();
+		m_descriptorSets.resize(1);
+		VkResult result = vkAllocateDescriptorSets(m_logicalDevice, &allocInfo, m_descriptorSets.data());
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not allocate descriptor set.");
@@ -1687,12 +1740,23 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		writes[0] = {};
 		writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[0].pNext = nullptr;
-		writes[0].dstSet = m_descriptorSet;
+		writes[0].dstSet = m_descriptorSets[0];
 		writes[0].descriptorCount = 1;
 		writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		writes[0].pBufferInfo = &m_descriptorBufferInfo;
+		writes[0].pBufferInfo = &m_descriptorBufferInfoViewProjection;
 		writes[0].dstArrayElement = 0;
 		writes[0].dstBinding = 0;
+		/*
+		writes[1] = {};
+		writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[1].pNext = nullptr;
+		writes[1].dstSet = m_descriptorSets[0];
+		writes[1].descriptorCount = 1;
+		writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		writes[1].pBufferInfo = &m_descriptorBufferInfoViewProjection; //TODO: replace with other uniform buffer
+		writes[1].dstArrayElement = 0;
+		writes[1].dstBinding = 1;
+		*/
 		vkUpdateDescriptorSets(m_logicalDevice, 1, writes, 0, nullptr);
 
 		return true;

@@ -42,6 +42,9 @@
     <ClInclude Include="Basics.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="DescriptorManager.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -62,15 +65,20 @@
     <ClCompile Include="Drawable.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
+    <ClCompile Include="DescriptorManager.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="loader\ListOfVulkanFunctions.inl">
       <Filter>Headerdateien</Filter>
     </None>
-    <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
     <None Include="shaders\compile.bat">
       <Filter>Quelldateien</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="shaders\shader.frag" />
   </ItemGroup>
 </Project>
