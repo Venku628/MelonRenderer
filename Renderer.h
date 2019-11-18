@@ -4,7 +4,7 @@
 #include "Shader.h"
 #include "Basics.h"
 
-#include "cube.h"
+#include "Drawable.h"
 
 #include <iostream>
 #include <vector>
@@ -162,6 +162,11 @@ namespace MelonRenderer
 		bool CreateIndexBuffer();
 		//---------------------------------------
 
+		//drawables
+		//---------------------------------------
+		std::vector<Drawable> m_drawables;
+		bool CreateDrawableBuffers(Drawable& drawable);
+		//---------------------------------------
 
 		//---------------------------------------
 		VkPipeline m_pipeline;

@@ -7,6 +7,8 @@ struct Vertex {
 	float r, g, b;              // Color
 };
 
+typedef uint32_t MeshIndex;
+
 struct VertexTransform {
 	mat4 transformMatrix;
 };

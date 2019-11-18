@@ -483,6 +483,19 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateVertexBuffer();
 		CreateIndexBuffer();
 
+		//---------------------------------------
+		m_drawables.resize(4);
+		CreateDrawableBuffers(m_drawables[0]);
+		CreateDrawableBuffers(m_drawables[1]);
+		CreateDrawableBuffers(m_drawables[2]);
+		CreateDrawableBuffers(m_drawables[3]);
+
+		m_drawables[0].m_transform = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawables[1].m_transform = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawables[2].m_transform = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawables[3].m_transform = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		//---------------------------------------
+
 		CreateGraphicsPipeline();
 	}
 
@@ -1210,8 +1223,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		//questionable way to do this?
-		uint8_t* pData;
+		void* pData;
 		result = vkMapMemory(m_logicalDevice, m_vertexBufferMemory, 0, memoryReq.size, 0, (void**)& pData);
 		if (result != VK_SUCCESS)
 		{
@@ -1232,7 +1244,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkVertexInputBindingDescription vertexInputBinding;
 		vertexInputBinding.binding = 0;
 		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		vertexInputBinding.stride = sizeof(cube_vertex_data[0]);
+		vertexInputBinding.stride = sizeof(Vertex);
 		m_vertexInputBindings.emplace_back(vertexInputBinding);
 		//
 
@@ -1293,8 +1305,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		//questionable way to do this?
-		uint8_t* pData;
+		void* pData;
 		result = vkMapMemory(m_logicalDevice, m_indexBufferMemory, 0, memoryReq.size, 0, (void**)&pData);
 		if (result != VK_SUCCESS)
 		{
@@ -1305,6 +1316,124 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		memcpy(pData, cube_index_data, sizeof(cube_index_data));
 		vkUnmapMemory(m_logicalDevice, m_indexBufferMemory);
 		result = vkBindBufferMemory(m_logicalDevice, m_indexBuffer, m_indexBufferMemory, 0);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind index buffer to memory.");
+			return false;
+		}
+
+
+		return true;
+	}
+
+	bool Renderer::CreateDrawableBuffers(Drawable& drawable)
+	{
+		//TODO: staging buffers
+
+		VkBufferCreateInfo bufferCreateInfo = {
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			nullptr,
+			0,
+			sizeof(cube_vertex_data),
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			VK_SHARING_MODE_EXCLUSIVE,
+			0,
+			nullptr
+		};
+		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &drawable.m_vertexBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create vertex buffer.");
+			return false;
+		}
+
+		VkMemoryRequirements memoryReq;
+		vkGetBufferMemoryRequirements(m_logicalDevice, drawable.m_vertexBuffer, &memoryReq);
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+		allocInfo.allocationSize = memoryReq.size;
+		allocInfo.memoryTypeIndex = 0;
+		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&allocInfo.memoryTypeIndex))
+		{
+			Logger::Log("Could not find memory type from properties for vertex buffer.");
+			return false;
+		}
+		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &drawable.m_vertexBufferMemory);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not allocate vertex buffer memory.");
+			return false;
+		}
+
+		void* pVertexData;
+		result = vkMapMemory(m_logicalDevice, drawable.m_vertexBufferMemory, 0, memoryReq.size, 0, (void**)&pVertexData);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind vertex buffer to memory.");
+			return false;
+		}
+
+		memcpy(pVertexData, cube_vertex_data, sizeof(cube_vertex_data));
+		vkUnmapMemory(m_logicalDevice, drawable.m_vertexBufferMemory);
+		result = vkBindBufferMemory(m_logicalDevice, drawable.m_vertexBuffer, drawable.m_vertexBufferMemory, 0);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind vertex buffer to memory.");
+			return false;
+		}
+
+		//index buffer
+		//----------------------------------------------------------
+
+		bufferCreateInfo = {
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			nullptr,
+			0,
+			sizeof(cube_index_data),
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+			VK_SHARING_MODE_EXCLUSIVE,
+			0,
+			nullptr
+		};
+		result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &drawable.m_indexBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create index buffer.");
+			return false;
+		}
+
+		vkGetBufferMemoryRequirements(m_logicalDevice, drawable.m_indexBuffer, &memoryReq);
+		allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+		allocInfo.allocationSize = memoryReq.size;
+		allocInfo.memoryTypeIndex = 0;
+		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&allocInfo.memoryTypeIndex))
+		{
+			Logger::Log("Could not find memory type from properties for index buffer.");
+			return false;
+		}
+		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &drawable.m_indexBufferMemory);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not allocate index buffer memory.");
+			return false;
+		}
+
+		void* pIndexData;
+		result = vkMapMemory(m_logicalDevice, drawable.m_indexBufferMemory, 0, memoryReq.size, 0, (void**)&pVertexData);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map index buffer to memory.");
+			return false;
+		}
+
+		memcpy(pVertexData, cube_index_data, sizeof(cube_index_data));
+		vkUnmapMemory(m_logicalDevice, drawable.m_indexBufferMemory);
+		result = vkBindBufferMemory(m_logicalDevice, drawable.m_indexBuffer, drawable.m_indexBufferMemory, 0);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not bind index buffer to memory.");
@@ -1530,11 +1659,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		vkCmdBindDescriptorSets(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
 			m_descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
 
-		const VkDeviceSize offsets[1] = { 0 };
-
-		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, &m_vertexBuffer, offsets);
-		vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
+		
 		m_viewport.height = (float)m_extent.height;
 		m_viewport.width = (float)m_extent.width;
 		m_viewport.minDepth = (float)0.0f;
@@ -1549,12 +1674,26 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
 
+		/*
+		const VkDeviceSize offsets[1] = { 0 };
+		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, &m_vertexBuffer, offsets);
+		vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+
 		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, 
 			sizeof(vertexTransformMatrix), &vertexTransformMatrix);
-		vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data)/sizeof(uint32_t), 2, 0, 0, 0);
+		vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data)/sizeof(uint32_t), 1, 0, 0, 0);
 		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, 
 			sizeof(vertexTransformMatrix2), &vertexTransformMatrix2);
 		vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data)/sizeof(uint32_t), 1, 0, 0, 0);
+		*/
+
+		//------------------------------------
+		for (auto& drawable : m_drawables)
+		{
+			drawable.Tick(m_multipurposeCommandBuffer, m_pipelineLayout);
+		}
+		//------------------------------------
 
 		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
 		result = vkEndCommandBuffer(m_multipurposeCommandBuffer);
