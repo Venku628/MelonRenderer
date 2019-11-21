@@ -67,9 +67,8 @@ namespace MelonRenderer
 		bool CheckPresentationSurfaceCapabilities(VkPhysicalDevice& device);
 		bool CreateSwapchain(VkPhysicalDevice& device);
 
-		bool CreateCommandBufferPool(VkCommandPool& commandPool);
+		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
 		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
-
 
 		std::vector<char const *> m_requiredInstanceExtensions;
 		std::vector<const char*> m_requiredDeviceExtensions;
@@ -150,22 +149,15 @@ namespace MelonRenderer
 
 		//vertex buffer
 		//---------------------------------------
-		VkBuffer m_vertexBuffer;
-		VkDeviceMemory m_vertexBufferMemory;
 		std::vector<VkVertexInputAttributeDescription> m_vertexInputAttributes;
 		std::vector<VkVertexInputBindingDescription> m_vertexInputBindings;
-		//TODO: use combined index/vertex buffer with offsets
-		VkBuffer m_indexBuffer;
-		VkDeviceMemory m_indexBufferMemory;
-
-		bool CreateVertexBuffer();
-		bool CreateIndexBuffer();
 		//---------------------------------------
 
 		//drawables
 		//---------------------------------------
 		std::vector<Drawable> m_drawables;
 		bool CreateDrawableBuffers(Drawable& drawable);
+		bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 		//---------------------------------------
 
 		//---------------------------------------
@@ -193,10 +185,19 @@ namespace MelonRenderer
 		//---------------------------------------
 		
 		// temporarily only one of each
+		//---------------------------------------
 		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined
 		VkQueue m_multipurposeQueue;
 		VkCommandPool m_multipurposeCommandPool;
 		VkCommandBuffer m_multipurposeCommandBuffer;
+		//---------------------------------------
+
+		//staging buffer
+		//---------------------------------------
+		VkCommandPool m_stagingBufferCommandPool;
+		//TODO: evaluate bulk copying of buffers within one commandbuffer
+		bool CopyStagingBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size);
+		//---------------------------------------
 
 		VkFormat m_format;
 		WindowHandle m_windowHandle;
@@ -208,6 +209,3 @@ namespace MelonRenderer
 		
 	};
 }
-
-
-

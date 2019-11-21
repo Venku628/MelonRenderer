@@ -467,8 +467,12 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CheckPresentationSurfaceCapabilities(device);
 		CreateSwapchain(device);
 
-		CreateCommandBufferPool(m_multipurposeCommandPool);
+		//rendering cmd buffer
+		CreateCommandBufferPool(m_multipurposeCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+
+		//staging cmd buffer pool
+		CreateCommandBufferPool(m_stagingBufferCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
 		CreateDepthBuffer();
 		CreateUniformBufferMVP();
@@ -480,8 +484,28 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateShaderModules();
 		CreateFramebuffers();
 
-		CreateVertexBuffer();
-		CreateIndexBuffer();
+		//
+		VkVertexInputBindingDescription vertexInputBinding;
+		vertexInputBinding.binding = 0;
+		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		vertexInputBinding.stride = sizeof(Vertex);
+		m_vertexInputBindings.emplace_back(vertexInputBinding);
+		//
+
+		//
+		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor;
+		vertexAttributePosition.binding = 0;
+		vertexAttributePosition.location = 0;
+		vertexAttributePosition.format = VK_FORMAT_R32G32B32_SFLOAT;
+		vertexAttributePosition.offset = 0;
+		m_vertexInputAttributes.emplace_back(vertexAttributePosition);
+
+		vertexAttributeColor.binding = 0;
+		vertexAttributeColor.location = 1;
+		vertexAttributeColor.format = VK_FORMAT_R32G32B32_SFLOAT;
+		vertexAttributeColor.offset = sizeof(float) * 3;
+		m_vertexInputAttributes.emplace_back(vertexAttributeColor);
+		//
 
 		//---------------------------------------
 		m_drawables.resize(4);
@@ -835,13 +859,13 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CreateCommandBufferPool(VkCommandPool& commandPool)
+	bool Renderer::CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags)
 	{
 		VkCommandPoolCreateInfo cmdPoolInfo = {};
 		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		cmdPoolInfo.pNext = NULL;
 		cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex; //TODO: make variable as soon as it is defined as a non constant
-		cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		cmdPoolInfo.flags = flags;
 
 		VkResult result = vkCreateCommandPool(m_logicalDevice, &cmdPoolInfo, NULL, &commandPool);
 		if (result != VK_SUCCESS)
@@ -1184,262 +1208,116 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CreateVertexBuffer()
-	{
-		VkBufferCreateInfo bufferCreateInfo = {
-			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			nullptr,
-			0,
-			sizeof(cube_vertex_data),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_SHARING_MODE_EXCLUSIVE,
-			0,
-			nullptr
-		};
-		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &m_vertexBuffer);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create vertex buffer.");
-			return false;
-		}
-
-		VkMemoryRequirements memoryReq;
-		vkGetBufferMemoryRequirements(m_logicalDevice, m_vertexBuffer, &memoryReq);
-		VkMemoryAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.pNext = nullptr;
-		allocInfo.allocationSize = memoryReq.size;
-		allocInfo.memoryTypeIndex = 0;
-		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&allocInfo.memoryTypeIndex))
-		{
-			Logger::Log("Could not find memory type from properties for vertex buffer.");
-			return false;
-		}
-		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &m_vertexBufferMemory);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not allocate vertex buffer memory.");
-			return false;
-		}
-
-		void* pData;
-		result = vkMapMemory(m_logicalDevice, m_vertexBufferMemory, 0, memoryReq.size, 0, (void**)& pData);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind vertex buffer to memory.");
-			return false;
-		}
-
-		memcpy(pData, cube_vertex_data, sizeof(cube_vertex_data));
-		vkUnmapMemory(m_logicalDevice, m_vertexBufferMemory);
-		result = vkBindBufferMemory(m_logicalDevice, m_vertexBuffer, m_vertexBufferMemory, 0);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind vertex buffer to memory.");
-			return false;
-		}
-
-		//
-		VkVertexInputBindingDescription vertexInputBinding;
-		vertexInputBinding.binding = 0;
-		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		vertexInputBinding.stride = sizeof(Vertex);
-		m_vertexInputBindings.emplace_back(vertexInputBinding);
-		//
-
-		//
-		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor;
-		vertexAttributePosition.binding = 0;
-		vertexAttributePosition.location = 0;
-		vertexAttributePosition.format = VK_FORMAT_R32G32B32_SFLOAT;
-		vertexAttributePosition.offset = 0;
-		m_vertexInputAttributes.emplace_back(vertexAttributePosition);
-
-		vertexAttributeColor.binding = 0;
-		vertexAttributeColor.location = 1;
-		vertexAttributeColor.format = VK_FORMAT_R32G32B32_SFLOAT;
-		vertexAttributeColor.offset = sizeof(float)*3;
-		m_vertexInputAttributes.emplace_back(vertexAttributeColor);
-		//
-
-		return true;
-	}
-
-	bool Renderer::CreateIndexBuffer()
-	{
-		VkBufferCreateInfo bufferCreateInfo = {
-			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			nullptr,
-			0,
-			sizeof(cube_index_data),
-			VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-			VK_SHARING_MODE_EXCLUSIVE,
-			0,
-			nullptr
-		};
-		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &m_indexBuffer);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create index buffer.");
-			return false;
-		}
-
-		VkMemoryRequirements memoryReq;
-		vkGetBufferMemoryRequirements(m_logicalDevice, m_indexBuffer, &memoryReq);
-		VkMemoryAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.pNext = nullptr;
-		allocInfo.allocationSize = memoryReq.size;
-		allocInfo.memoryTypeIndex = 0;
-		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&allocInfo.memoryTypeIndex))
-		{
-			Logger::Log("Could not find memory type from properties for index buffer.");
-			return false;
-		}
-		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &m_indexBufferMemory);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not allocate index buffer memory.");
-			return false;
-		}
-
-		void* pData;
-		result = vkMapMemory(m_logicalDevice, m_indexBufferMemory, 0, memoryReq.size, 0, (void**)&pData);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not map index buffer to memory.");
-			return false;
-		}
-
-		memcpy(pData, cube_index_data, sizeof(cube_index_data));
-		vkUnmapMemory(m_logicalDevice, m_indexBufferMemory);
-		result = vkBindBufferMemory(m_logicalDevice, m_indexBuffer, m_indexBufferMemory, 0);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind index buffer to memory.");
-			return false;
-		}
-
-
-		return true;
-	}
-
 	bool Renderer::CreateDrawableBuffers(Drawable& drawable)
 	{
-		//TODO: staging buffers
+		//TODO: make drawable attribute
+		uint32_t vertexBufferSize = sizeof(cube_vertex_data);
 
-		VkBufferCreateInfo bufferCreateInfo = {
-			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			nullptr,
-			0,
-			sizeof(cube_vertex_data),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_SHARING_MODE_EXCLUSIVE,
-			0,
-			nullptr
-		};
-		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &drawable.m_vertexBuffer);
-		if (result != VK_SUCCESS)
+		VkBuffer vertexStagingBuffer;
+		VkDeviceMemory vertexStagingBufferMemory;
+		if (!CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			vertexStagingBuffer, vertexStagingBufferMemory))
 		{
-			Logger::Log("Could not create vertex buffer.");
-			return false;
-		}
-
-		VkMemoryRequirements memoryReq;
-		vkGetBufferMemoryRequirements(m_logicalDevice, drawable.m_vertexBuffer, &memoryReq);
-		VkMemoryAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.pNext = nullptr;
-		allocInfo.allocationSize = memoryReq.size;
-		allocInfo.memoryTypeIndex = 0;
-		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&allocInfo.memoryTypeIndex))
-		{
-			Logger::Log("Could not find memory type from properties for vertex buffer.");
-			return false;
-		}
-		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &drawable.m_vertexBufferMemory);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not allocate vertex buffer memory.");
+			Logger::Log("Could not create vertex staging buffer.");
 			return false;
 		}
 
 		void* pVertexData;
-		result = vkMapMemory(m_logicalDevice, drawable.m_vertexBufferMemory, 0, memoryReq.size, 0, (void**)&pVertexData);
+		VkResult result = vkMapMemory(m_logicalDevice, vertexStagingBufferMemory, 0, vertexBufferSize, 0, (void**)&pVertexData);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not bind vertex buffer to memory.");
+			Logger::Log("Could not bind vertex staging buffer to memory.");
+			return false;
+		}
+		memcpy(pVertexData, cube_vertex_data, sizeof(cube_vertex_data));
+		vkUnmapMemory(m_logicalDevice, vertexStagingBufferMemory);
+
+		if (!CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			drawable.m_vertexBuffer, drawable.m_vertexBufferMemory))
+		{
+			Logger::Log("Could not create vertex buffer.");
 			return false;
 		}
 
-		memcpy(pVertexData, cube_vertex_data, sizeof(cube_vertex_data));
-		vkUnmapMemory(m_logicalDevice, drawable.m_vertexBufferMemory);
-		result = vkBindBufferMemory(m_logicalDevice, drawable.m_vertexBuffer, drawable.m_vertexBufferMemory, 0);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind vertex buffer to memory.");
-			return false;
-		}
+		CopyStagingBuffer(vertexStagingBuffer, drawable.m_vertexBuffer, vertexBufferSize);
+
+		vkDestroyBuffer(m_logicalDevice, vertexStagingBuffer, nullptr);
+		vkFreeMemory(m_logicalDevice, vertexStagingBufferMemory, nullptr);
 
 		//index buffer
-		//----------------------------------------------------------
+		//TODO: make drawable attribute
+		uint32_t indexBufferSize = sizeof(cube_index_data);
+		
+		VkBuffer indexStagingBuffer;
+		VkDeviceMemory indexStagingBufferMemory;
+		if (!CreateBuffer(indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			indexStagingBuffer, indexStagingBufferMemory))
+		{
+			Logger::Log("Could not create index staging buffer.");
+			return false;
+		}
 
-		bufferCreateInfo = {
-			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			nullptr,
-			0,
-			sizeof(cube_index_data),
-			VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-			VK_SHARING_MODE_EXCLUSIVE,
-			0,
-			nullptr
-		};
-		result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &drawable.m_indexBuffer);
+		void* pIndexData;
+		result = vkMapMemory(m_logicalDevice, indexStagingBufferMemory, 0, indexBufferSize, 0, (void**)&pIndexData);
 		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind index staging buffer to memory.");
+			return false;
+		}
+		memcpy(pIndexData, cube_index_data, sizeof(cube_index_data));
+		vkUnmapMemory(m_logicalDevice, indexStagingBufferMemory);
+
+		if (!CreateBuffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			drawable.m_indexBuffer, drawable.m_indexBufferMemory))
 		{
 			Logger::Log("Could not create index buffer.");
 			return false;
 		}
 
-		vkGetBufferMemoryRequirements(m_logicalDevice, drawable.m_indexBuffer, &memoryReq);
-		allocInfo = {};
+		CopyStagingBuffer(indexStagingBuffer, drawable.m_indexBuffer, indexBufferSize);
+
+		vkDestroyBuffer(m_logicalDevice, indexStagingBuffer, nullptr);
+		vkFreeMemory(m_logicalDevice, indexStagingBufferMemory, nullptr);
+
+		return true;
+	}
+
+	bool Renderer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+	{
+		VkBufferCreateInfo bufferInfo = {};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferInfo, nullptr, &buffer);
+		if (result != VK_SUCCESS) {
+			Logger::Log("Could not create buffer.");
+			return false;
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(m_logicalDevice, buffer, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.pNext = nullptr;
-		allocInfo.allocationSize = memoryReq.size;
-		allocInfo.memoryTypeIndex = 0;
-		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&allocInfo.memoryTypeIndex))
-		{
-			Logger::Log("Could not find memory type from properties for index buffer.");
-			return false;
-		}
-		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &drawable.m_indexBufferMemory);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not allocate index buffer memory.");
+		allocInfo.allocationSize = memRequirements.size;
+		FindMemoryTypeFromProperties(memRequirements.memoryTypeBits, properties, &allocInfo.memoryTypeIndex);
+
+		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &bufferMemory);
+		if (result != VK_SUCCESS) {
+			Logger::Log("Could not allocate buffer memory.");
 			return false;
 		}
 
-		void* pIndexData;
-		result = vkMapMemory(m_logicalDevice, drawable.m_indexBufferMemory, 0, memoryReq.size, 0, (void**)&pVertexData);
+		result = vkBindBufferMemory(m_logicalDevice, buffer, bufferMemory, 0);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not map index buffer to memory.");
+			Logger::Log("Could not bind buffer to memory.");
 			return false;
 		}
-
-		memcpy(pVertexData, cube_index_data, sizeof(cube_index_data));
-		vkUnmapMemory(m_logicalDevice, drawable.m_indexBufferMemory);
-		result = vkBindBufferMemory(m_logicalDevice, drawable.m_indexBuffer, drawable.m_indexBufferMemory, 0);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind index buffer to memory.");
-			return false;
-		}
-
 
 		return true;
 	}
@@ -1897,6 +1775,77 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		writes[1].dstBinding = 1;
 		*/
 		vkUpdateDescriptorSets(m_logicalDevice, 1, writes, 0, nullptr);
+
+		return true;
+	}
+
+	bool Renderer::CopyStagingBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size)
+	{
+		VkCommandBufferAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+		allocInfo.commandPool = m_stagingBufferCommandPool;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer copyCommandBuffer;
+		VkResult result = vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, &copyCommandBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not allocate command buffer for copying staging buffer.");
+			return false;
+		}
+
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.pNext = nullptr;
+		beginInfo.flags = 0;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		result = vkBeginCommandBuffer(copyCommandBuffer, &beginInfo);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not begin command buffer for copying staging buffer.");
+			return false;
+		}
+
+		VkBufferCopy copyRegion = {};
+		copyRegion.srcOffset = 0; // Optional
+		copyRegion.dstOffset = 0; // Optional
+		copyRegion.size = size;
+		vkCmdCopyBuffer(copyCommandBuffer, cpuVisibleBuffer, gpuOnlyBuffer, 1, &copyRegion);
+
+		result = vkEndCommandBuffer(copyCommandBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not end command buffer for copying staging buffer.");
+			return false;
+		}
+
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.pNext = nullptr;
+		submitInfo.waitSemaphoreCount = 0;
+		submitInfo.pWaitSemaphores = nullptr;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &copyCommandBuffer;
+		submitInfo.signalSemaphoreCount = 0;
+		submitInfo.pSignalSemaphores = nullptr;
+
+		result = vkQueueSubmit(m_multipurposeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not submit queue for copying staging buffer.");
+			return false;
+		}
+		result = vkQueueWaitIdle(m_multipurposeQueue);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not wait for idle queue for copying staging buffer.");
+			return false;
+		}
+
+		vkFreeCommandBuffers(m_logicalDevice, m_stagingBufferCommandPool, 1, &copyCommandBuffer);
 
 		return true;
 	}
