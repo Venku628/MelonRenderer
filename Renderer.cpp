@@ -1,5 +1,8 @@
 #include "Renderer.h"
 
+#define STB_IMAGE_IMPLEMENTATION 
+#include <stb_image.h>
+
 namespace MelonRenderer
 {
 
@@ -472,7 +475,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
 
 		//staging cmd buffer pool
-		CreateCommandBufferPool(m_stagingBufferCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+		CreateCommandBufferPool(m_singleUseBufferCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
 		CreateDepthBuffer();
 		CreateUniformBufferMVP();
@@ -1212,74 +1215,19 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{
 		//TODO: make drawable attribute
 		uint32_t vertexBufferSize = sizeof(cube_vertex_data);
-
-		VkBuffer vertexStagingBuffer;
-		VkDeviceMemory vertexStagingBufferMemory;
-		if (!CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			vertexStagingBuffer, vertexStagingBufferMemory))
-		{
-			Logger::Log("Could not create vertex staging buffer.");
-			return false;
-		}
-
-		void* pVertexData;
-		VkResult result = vkMapMemory(m_logicalDevice, vertexStagingBufferMemory, 0, vertexBufferSize, 0, (void**)&pVertexData);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind vertex staging buffer to memory.");
-			return false;
-		}
-		memcpy(pVertexData, cube_vertex_data, sizeof(cube_vertex_data));
-		vkUnmapMemory(m_logicalDevice, vertexStagingBufferMemory);
-
-		if (!CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			drawable.m_vertexBuffer, drawable.m_vertexBufferMemory))
+		if (!CreateOptimalBuffer(drawable.m_vertexBuffer, drawable.m_vertexBufferMemory, cube_vertex_data, vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
 		{
 			Logger::Log("Could not create vertex buffer.");
 			return false;
 		}
 
-		CopyStagingBuffer(vertexStagingBuffer, drawable.m_vertexBuffer, vertexBufferSize);
-
-		vkDestroyBuffer(m_logicalDevice, vertexStagingBuffer, nullptr);
-		vkFreeMemory(m_logicalDevice, vertexStagingBufferMemory, nullptr);
-
-		//index buffer
 		//TODO: make drawable attribute
 		uint32_t indexBufferSize = sizeof(cube_index_data);
-		
-		VkBuffer indexStagingBuffer;
-		VkDeviceMemory indexStagingBufferMemory;
-		if (!CreateBuffer(indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			indexStagingBuffer, indexStagingBufferMemory))
-		{
-			Logger::Log("Could not create index staging buffer.");
-			return false;
-		}
-
-		void* pIndexData;
-		result = vkMapMemory(m_logicalDevice, indexStagingBufferMemory, 0, indexBufferSize, 0, (void**)&pIndexData);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind index staging buffer to memory.");
-			return false;
-		}
-		memcpy(pIndexData, cube_index_data, sizeof(cube_index_data));
-		vkUnmapMemory(m_logicalDevice, indexStagingBufferMemory);
-
-		if (!CreateBuffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			drawable.m_indexBuffer, drawable.m_indexBufferMemory))
+		if (!CreateOptimalBuffer(drawable.m_indexBuffer, drawable.m_indexBufferMemory, cube_index_data, indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
 		{
 			Logger::Log("Could not create index buffer.");
 			return false;
 		}
-
-		CopyStagingBuffer(indexStagingBuffer, drawable.m_indexBuffer, indexBufferSize);
-
-		vkDestroyBuffer(m_logicalDevice, indexStagingBuffer, nullptr);
-		vkFreeMemory(m_logicalDevice, indexStagingBufferMemory, nullptr);
 
 		return true;
 	}
@@ -1770,7 +1718,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		writes[1].dstSet = m_descriptorSets[0];
 		writes[1].descriptorCount = 1;
 		writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-		writes[1].pBufferInfo = &m_descriptorBufferInfoViewProjection; //TODO: replace with other uniform buffer
+		writes[1].pBufferInfo = &m_descriptorBufferInfoViewProjection; 
 		writes[1].dstArrayElement = 0;
 		writes[1].dstBinding = 1;
 		*/
@@ -1779,43 +1727,158 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CopyStagingBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size)
+	bool Renderer::CreateTexture(const char* filePath)
+	{
+		//using int because of compatibility issues
+		int width, height, channels;
+		stbi_uc* pixelData = stbi_load(filePath, &width, &height, &channels, STBI_rgb_alpha);
+
+		if (pixelData == nullptr)
+		{
+			Logger::Log("Could not load texture from file path.");
+			return false;
+		}
+
+		VkDeviceSize imageSize = static_cast<double>(width) * static_cast<double>(height) * 4; //4 for STBI_rgb_alpha
+		
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		if (!CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory))
+		{
+			Logger::Log("Could not create staging buffer for texture.");
+			return false;
+		}
+
+		void* data;
+		VkResult result = vkMapMemory(m_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map memory for staging buffer.");
+			return false;
+		}
+		memcpy(data, pixelData, static_cast<size_t>(imageSize));
+		stbi_image_free(pixelData);
+		vkUnmapMemory(m_logicalDevice, stagingBufferMemory);
+
+		//TODO: make subfunction if used elsewhere
+		VkImage textureImage;
+		VkDeviceMemory textureImageMemory;
+		VkImageCreateInfo imageInfo = {};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.pNext = nullptr;
+		imageInfo.flags = 0;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+		imageInfo.extent.width = static_cast<uint32_t>(width);
+		imageInfo.extent.height = static_cast<uint32_t>(height);
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = 1;
+		imageInfo.arrayLayers = 1;
+		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT; //only relevant to images used as attachments
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		result = vkCreateImage(m_logicalDevice, &imageInfo, nullptr, &textureImage);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create image for texture.");
+			return false;
+		}
+
+		VkMemoryRequirements memoryRequirements;
+		vkGetImageMemoryRequirements(m_logicalDevice, textureImage, &memoryRequirements);
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+		allocInfo.allocationSize = memoryRequirements.size;
+		if (!FindMemoryTypeFromProperties(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &allocInfo.memoryTypeIndex))
+		{
+			Logger::Log("Could find memory type from properties for texture image.");
+			return false;
+		}
+
+		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &textureImageMemory);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not allocate memory for texture image.");
+			return false;
+		}
+
+		result = vkBindImageMemory(m_logicalDevice, textureImage, textureImageMemory, 0);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind memory for texture image.");
+			return false;
+		}
+
+
+		return true;
+	}
+
+	bool Renderer::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout)
+	{
+		VkCommandBuffer layoutTransitionCommandBuffer;
+		if (!CreateSingleUseCommand(layoutTransitionCommandBuffer))
+		{
+			Logger::Log("Could not create single use command buffer for transition of image layout.");
+			return false;
+		}
+
+		VkImageMemoryBarrier barrier = {};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.pNext = nullptr;
+		barrier.srcAccessMask = 0; //TODO: change once specified
+		barrier.dstAccessMask = 0;
+		barrier.oldLayout = previousLayout;
+		barrier.newLayout = desiredLayout;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.image = image;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+		
+		vkCmdPipelineBarrier(layoutTransitionCommandBuffer, 0, 0, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+		return true;
+	}
+
+	bool Renderer::CreateSingleUseCommand(VkCommandBuffer& commandBuffer)
 	{
 		VkCommandBufferAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.pNext = nullptr;
-		allocInfo.commandPool = m_stagingBufferCommandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = m_singleUseBufferCommandPool;
 		allocInfo.commandBufferCount = 1;
-
-		VkCommandBuffer copyCommandBuffer;
-		VkResult result = vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, &copyCommandBuffer);
+		VkResult result = vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, &commandBuffer);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not allocate command buffer for copying staging buffer.");
+			Logger::Log("Could not allocate single use command buffer");
 			return false;
 		}
 
 		VkCommandBufferBeginInfo beginInfo = {};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.pNext = nullptr;
-		beginInfo.flags = 0;
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-		result = vkBeginCommandBuffer(copyCommandBuffer, &beginInfo);
+		beginInfo.pInheritanceInfo = nullptr;
+		result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not begin command buffer for copying staging buffer.");
+			Logger::Log("Could not begin single use command buffer");
 			return false;
 		}
 
-		VkBufferCopy copyRegion = {};
-		copyRegion.srcOffset = 0; // Optional
-		copyRegion.dstOffset = 0; // Optional
-		copyRegion.size = size;
-		vkCmdCopyBuffer(copyCommandBuffer, cpuVisibleBuffer, gpuOnlyBuffer, 1, &copyRegion);
+		return true;
+	}
 
-		result = vkEndCommandBuffer(copyCommandBuffer);
+	bool Renderer::EndSingleUseCommand(VkCommandBuffer& commandBuffer)
+	{
+		VkResult result = vkEndCommandBuffer(commandBuffer);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not end command buffer for copying staging buffer.");
@@ -1828,7 +1891,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		submitInfo.waitSemaphoreCount = 0;
 		submitInfo.pWaitSemaphores = nullptr;
 		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &copyCommandBuffer;
+		submitInfo.pCommandBuffers = &commandBuffer;
 		submitInfo.signalSemaphoreCount = 0;
 		submitInfo.pSignalSemaphores = nullptr;
 
@@ -1845,7 +1908,66 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		vkFreeCommandBuffers(m_logicalDevice, m_stagingBufferCommandPool, 1, &copyCommandBuffer);
+		vkFreeCommandBuffers(m_logicalDevice, m_singleUseBufferCommandPool, 1, &commandBuffer);
+
+		return true;
+	}
+
+	bool Renderer::CopyStagingBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size)
+	{
+		VkCommandBuffer copyCommandBuffer;
+
+		if (!CreateSingleUseCommand(copyCommandBuffer))
+		{
+			Logger::Log("Could not wait for idle queue for copying staging buffer.");
+			return false;
+		}
+
+		VkBufferCopy copyRegion = {};
+		copyRegion.srcOffset = 0; 
+		copyRegion.dstOffset = 0; 
+		copyRegion.size = size;
+		vkCmdCopyBuffer(copyCommandBuffer, cpuVisibleBuffer, gpuOnlyBuffer, 1, &copyRegion);
+
+		EndSingleUseCommand(copyCommandBuffer);
+
+		return true;
+	}
+
+	bool Renderer::CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage)
+	{
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		if (!CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer, stagingBufferMemory))
+		{
+			Logger::Log("Could not create staging buffer.");
+			return false;
+		}
+
+		void* pData;
+		VkResult result = vkMapMemory(m_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, (void**)&pData);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind staging buffer to memory.");
+			return false;
+		}
+		memcpy(pData, data, bufferSize);
+
+		vkUnmapMemory(m_logicalDevice, stagingBufferMemory);
+
+		if (!CreateBuffer(bufferSize, bufferUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			buffer, bufferMemory))
+		{
+			Logger::Log("Could not create buffer.");
+			return false;
+		}
+
+		CopyStagingBuffer(stagingBuffer, buffer, bufferSize);
+
+		vkDestroyBuffer(m_logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(m_logicalDevice, stagingBufferMemory, nullptr);
 
 		return true;
 	}

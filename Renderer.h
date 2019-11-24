@@ -1,4 +1,5 @@
 //TODO: figure out if xcb or xlib use platform needs to be defined
+#pragma once
 
 #include "Window.h"
 #include "Shader.h"
@@ -192,11 +193,21 @@ namespace MelonRenderer
 		VkCommandBuffer m_multipurposeCommandBuffer;
 		//---------------------------------------
 
+		//texture
+		//---------------------------------------
+		
+		bool CreateTexture(const char* filePath);
+		bool TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout);
+		bool CreateSingleUseCommand(VkCommandBuffer& commandBuffer);
+		bool EndSingleUseCommand(VkCommandBuffer& commandBuffer);
+		//---------------------------------------
+
 		//staging buffer
 		//---------------------------------------
-		VkCommandPool m_stagingBufferCommandPool;
-		//TODO: evaluate bulk copying of buffers within one commandbuffer
+		VkCommandPool m_singleUseBufferCommandPool;
+		//TODO: evaluate bulk copying of buffers within one commandbuffer, within one tick or init
 		bool CopyStagingBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size);
+		bool CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage);
 		//---------------------------------------
 
 		VkFormat m_format;
