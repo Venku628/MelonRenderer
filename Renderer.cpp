@@ -510,6 +510,10 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_vertexInputAttributes.emplace_back(vertexAttributeColor);
 		//
 
+		CreateTexture("textures/texture.jpg");
+		CreateTextureView();
+		CreateTextureSampler();
+
 		//---------------------------------------
 		m_drawables.resize(4);
 		CreateDrawableBuffers(m_drawables[0]);
@@ -1065,7 +1069,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::CreateRenderPass()
 	{
 		VkAttachmentDescription attachments[2];
-		attachments[0].format = VK_FORMAT_B8G8R8A8_UNORM; // is this correct?
+		attachments[0].format = VK_FORMAT_B8G8R8A8_UNORM; //TODO is this correct? this is BRG instead of RGB
 		attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1593,23 +1597,22 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		unsigned int layoutBindingIndex = 0;
 
 		VkDescriptorSetLayoutBinding layoutBindingViewProjection = {
-			layoutBindingIndex++, //only one descriptor set for now
+			layoutBindingIndex++, 
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			1,
-			VK_SHADER_STAGE_VERTEX_BIT, // = bound to vertex shader
+			VK_SHADER_STAGE_VERTEX_BIT, 
 			nullptr
 		};
 		layoutBindings.emplace_back(layoutBindingViewProjection);
-		/*
-		VkDescriptorSetLayoutBinding layoutBindingModel = {
-			layoutBindingIndex++, //only one descriptor set for now
+		
+		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
+			layoutBindingIndex++, 
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
 			1,
-			VK_SHADER_STAGE_VERTEX_BIT, // = bound to vertex shader
+			VK_SHADER_STAGE_FRAGMENT_BIT, 
 			nullptr
 		};
-		layoutBindings.emplace_back(layoutBindingModel);
-		*/
+		layoutBindings.emplace_back(samplerLayoutBinding);
 		
 
 		VkDescriptorSetLayoutCreateInfo descriptorLayout = {
@@ -1617,7 +1620,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			nullptr,
 			0,
 			layoutBindings.size(),
-			layoutBindings.data() //only single element for now
+			layoutBindings.data() 
 		};
 		m_descriptorSetLayouts.resize(1);
 		VkResult result = vkCreateDescriptorSetLayout(m_logicalDevice, &descriptorLayout, nullptr, &m_descriptorSetLayouts[0]);
@@ -1762,14 +1765,13 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		vkUnmapMemory(m_logicalDevice, stagingBufferMemory);
 
 		//TODO: make subfunction if used elsewhere
-		VkImage textureImage;
-		VkDeviceMemory textureImageMemory;
+		
 		VkImageCreateInfo imageInfo = {};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.pNext = nullptr;
 		imageInfo.flags = 0;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+		imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
 		imageInfo.extent.width = static_cast<uint32_t>(width);
 		imageInfo.extent.height = static_cast<uint32_t>(height);
 		imageInfo.extent.depth = 1;
@@ -1779,7 +1781,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		result = vkCreateImage(m_logicalDevice, &imageInfo, nullptr, &textureImage);
+		result = vkCreateImage(m_logicalDevice, &imageInfo, nullptr, &m_textureImage);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create image for texture.");
@@ -1787,7 +1789,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		VkMemoryRequirements memoryRequirements;
-		vkGetImageMemoryRequirements(m_logicalDevice, textureImage, &memoryRequirements);
+		vkGetImageMemoryRequirements(m_logicalDevice, m_textureImage, &memoryRequirements);
 		VkMemoryAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.pNext = nullptr;
@@ -1798,20 +1800,97 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &textureImageMemory);
+		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &m_textureImageMemory);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not allocate memory for texture image.");
 			return false;
 		}
 
-		result = vkBindImageMemory(m_logicalDevice, textureImage, textureImageMemory, 0);
+		result = vkBindImageMemory(m_logicalDevice, m_textureImage, m_textureImageMemory, 0);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not bind memory for texture image.");
 			return false;
 		}
 
+		if (!TransitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
+		{
+			Logger::Log("Could not transition image layout before uplodading data to image.");
+			return false;
+		}
+
+		if (!CopyStagingBufferToImage(stagingBuffer, m_textureImage, width, height))
+		{
+			Logger::Log("Could not transition image layout before uplodading data to image.");
+			return false;
+		}
+
+		if (!TransitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
+		{
+			Logger::Log("Could not create single use command buffer for transition of image layout to be read as a texture.");
+			return false;
+		}
+
+		vkDestroyBuffer(m_logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(m_logicalDevice, stagingBufferMemory, nullptr);
+
+		return true;
+	}
+
+	bool Renderer::CreateTextureView()
+	{
+		VkImageViewCreateInfo viewInfo = {};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.pNext = nullptr;
+		viewInfo.flags = 0;
+		viewInfo.image = m_textureImage;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+
+		VkResult result = vkCreateImageView(m_logicalDevice, &viewInfo, nullptr, &m_textureView);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create image view for texture.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::CreateTextureSampler()
+	{
+		VkSamplerCreateInfo samplerInfo = {};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.pNext = nullptr;
+		samplerInfo.flags = 0;
+		samplerInfo.magFilter = VK_FILTER_LINEAR;
+		samplerInfo.minFilter = VK_FILTER_LINEAR;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.anisotropyEnable = VK_TRUE;
+		samplerInfo.maxAnisotropy = 16;
+		samplerInfo.compareEnable = VK_FALSE;
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = 0.0f;
+		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerInfo.unnormalizedCoordinates = VK_FALSE; //TODO: change this to true, so coords are always 0-1
+
+		VkResult result = vkCreateSampler(m_logicalDevice, &samplerInfo, nullptr, &m_textureSampler);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create texture sampler.");
+			return false;
+		}
 
 		return true;
 	}
@@ -1825,11 +1904,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
+		VkPipelineStageFlags sourceStageFlags, destinationStageFlags;
+
 		VkImageMemoryBarrier barrier = {};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		barrier.pNext = nullptr;
-		barrier.srcAccessMask = 0; //TODO: change once specified
-		barrier.dstAccessMask = 0;
 		barrier.oldLayout = previousLayout;
 		barrier.newLayout = desiredLayout;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -1840,8 +1919,67 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		barrier.subresourceRange.levelCount = 1;
 		barrier.subresourceRange.baseArrayLayer = 0;
 		barrier.subresourceRange.layerCount = 1;
+
+		if (previousLayout == VK_IMAGE_LAYOUT_UNDEFINED && desiredLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
+		{
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+			sourceStageFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		}
+		else if (previousLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && desiredLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		{
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			sourceStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			destinationStageFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		}
+		else 
+		{
+			Logger::Log("Could find valid configuration for image layout transition.");
+			return false;
+		}
 		
-		vkCmdPipelineBarrier(layoutTransitionCommandBuffer, 0, 0, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		vkCmdPipelineBarrier(layoutTransitionCommandBuffer, sourceStageFlags, destinationStageFlags, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+		if (!EndSingleUseCommand(layoutTransitionCommandBuffer))
+		{
+			Logger::Log("Could not end command buffer for image layout transition.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+	{
+		VkCommandBuffer copyCommandBuffer;
+		if (!CreateSingleUseCommand(copyCommandBuffer))
+		{
+			Logger::Log("Could not create single use command buffer for copying buffer to image.");
+			return false;
+		}
+
+		VkBufferImageCopy copyRegion = {};
+		copyRegion.bufferOffset = 0;
+		copyRegion.bufferRowLength = 0;
+		copyRegion.bufferImageHeight = 0;
+		copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copyRegion.imageSubresource.mipLevel = 0;
+		copyRegion.imageSubresource.baseArrayLayer = 0;
+		copyRegion.imageSubresource.layerCount = 1;
+		copyRegion.imageOffset = { 0, 0, 0 };
+		copyRegion.imageExtent = {width, height, 1};
+
+		vkCmdCopyBufferToImage(copyCommandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+		if (!EndSingleUseCommand(copyCommandBuffer))
+		{
+			Logger::Log("Could not end single use command buffer for copying buffer to image.");
+			return false;
+		}
 
 		return true;
 	}
@@ -1913,7 +2051,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CopyStagingBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size)
+	bool Renderer::CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size)
 	{
 		VkCommandBuffer copyCommandBuffer;
 
@@ -1964,7 +2102,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		CopyStagingBuffer(stagingBuffer, buffer, bufferSize);
+		CopyStagingBufferToBuffer(stagingBuffer, buffer, bufferSize);
 
 		vkDestroyBuffer(m_logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(m_logicalDevice, stagingBufferMemory, nullptr);

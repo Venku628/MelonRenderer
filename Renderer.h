@@ -195,9 +195,16 @@ namespace MelonRenderer
 
 		//texture
 		//---------------------------------------
-		
+		VkImage m_textureImage;
+		VkDeviceMemory m_textureImageMemory;
+		VkImageView m_textureView;
+		VkSampler m_textureSampler;
 		bool CreateTexture(const char* filePath);
+		bool CreateTextureView();
+		bool CreateTextureSampler();
+
 		bool TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout);
+		bool CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 		bool CreateSingleUseCommand(VkCommandBuffer& commandBuffer);
 		bool EndSingleUseCommand(VkCommandBuffer& commandBuffer);
 		//---------------------------------------
@@ -206,7 +213,7 @@ namespace MelonRenderer
 		//---------------------------------------
 		VkCommandPool m_singleUseBufferCommandPool;
 		//TODO: evaluate bulk copying of buffers within one commandbuffer, within one tick or init
-		bool CopyStagingBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size);
+		bool CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size);
 		bool CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage);
 		//---------------------------------------
 
