@@ -479,13 +479,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		CreateDepthBuffer();
 		CreateUniformBufferMVP();
-		CreatePipelineLayout();
-		CreateDescriptorPool();
-		CreateDescriptorSet();
-
-		CreateRenderPass();
-		CreateShaderModules();
-		CreateFramebuffers();
+		
 
 		//
 		VkVertexInputBindingDescription vertexInputBinding;
@@ -496,7 +490,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		//
 
 		//
-		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor;
+		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor, vertexAttributeUV;
 		vertexAttributePosition.binding = 0;
 		vertexAttributePosition.location = 0;
 		vertexAttributePosition.format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -508,6 +502,12 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		vertexAttributeColor.format = VK_FORMAT_R32G32B32_SFLOAT;
 		vertexAttributeColor.offset = sizeof(float) * 3;
 		m_vertexInputAttributes.emplace_back(vertexAttributeColor);
+
+		vertexAttributeUV.binding = 0;
+		vertexAttributeUV.location = 2;
+		vertexAttributeUV.format = VK_FORMAT_R32G32_SFLOAT;
+		vertexAttributeUV.offset = sizeof(float) * 6;
+		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
 		//
 
 		CreateTexture("textures/texture.jpg");
@@ -526,6 +526,15 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_drawables[2].m_transform = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawables[3].m_transform = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		//---------------------------------------
+
+		CreatePipelineLayout();
+		CreateDescriptorPool();
+		CreateDescriptorSet();
+
+		CreateRenderPass();
+		CreateShaderModules();
+		CreateFramebuffers();
+
 
 		CreateGraphicsPipeline();
 	}
@@ -1504,20 +1513,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
 
-		/*
-		const VkDeviceSize offsets[1] = { 0 };
-		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, &m_vertexBuffer, offsets);
-		vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-
-		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, 
-			sizeof(vertexTransformMatrix), &vertexTransformMatrix);
-		vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data)/sizeof(uint32_t), 1, 0, 0, 0);
-		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, 
-			sizeof(vertexTransformMatrix2), &vertexTransformMatrix2);
-		vkCmdDrawIndexed(m_multipurposeCommandBuffer, sizeof(cube_index_data)/sizeof(uint32_t), 1, 0, 0, 0);
-		*/
-
 		//------------------------------------
 		for (auto& drawable : m_drawables)
 		{
@@ -1607,7 +1602,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++, 
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			1,
 			VK_SHADER_STAGE_FRAGMENT_BIT, 
 			nullptr
@@ -1615,7 +1610,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		layoutBindings.emplace_back(samplerLayoutBinding);
 		
 
-		VkDescriptorSetLayoutCreateInfo descriptorLayout = {
+		VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 			nullptr,
 			0,
@@ -1623,7 +1618,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			layoutBindings.data() 
 		};
 		m_descriptorSetLayouts.resize(1);
-		VkResult result = vkCreateDescriptorSetLayout(m_logicalDevice, &descriptorLayout, nullptr, &m_descriptorSetLayouts[0]);
+		VkResult result = vkCreateDescriptorSetLayout(m_logicalDevice, &descriptorLayoutInfo, nullptr, m_descriptorSetLayouts.data());
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create uniform buffer descriptor set layout.");
@@ -1661,14 +1656,13 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		std::vector<VkDescriptorPoolSize> descriptorPoolSizes;
 		VkDescriptorPoolSize poolSizeViewProjection = {};
 		poolSizeViewProjection.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizeViewProjection.descriptorCount = 1;
+		poolSizeViewProjection.descriptorCount = 1; //TODO: swapchainImage numbers
 		descriptorPoolSizes.emplace_back(poolSizeViewProjection);
-		/*
-		VkDescriptorPoolSize poolSizeModel = {};
-		poolSizeModel.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-		poolSizeModel.descriptorCount = 1;
-		descriptorPoolSizes.emplace_back(poolSizeModel);
-		*/
+		
+		VkDescriptorPoolSize poolSizeTextureSampler = {};
+		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizeTextureSampler.descriptorCount = 1; //TODO: swapchainImage number
+		descriptorPoolSizes.emplace_back(poolSizeTextureSampler);
 		
 		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -1696,7 +1690,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		allocInfo.descriptorPool = m_descriptorPool;
 		allocInfo.descriptorSetCount = m_descriptorSetLayouts.size(); //m_descriptorSetLayouts.size()
 		allocInfo.pSetLayouts = m_descriptorSetLayouts.data();
-		m_descriptorSets.resize(1);
+		m_descriptorSets.resize(m_descriptorSetLayouts.size());
 		VkResult result = vkAllocateDescriptorSets(m_logicalDevice, &allocInfo, m_descriptorSets.data());
 		if (result != VK_SUCCESS)
 		{
@@ -1704,28 +1698,30 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		VkWriteDescriptorSet writes[1];
-		writes[0] = {};
-		writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writes[0].pNext = nullptr;
-		writes[0].dstSet = m_descriptorSets[0];
-		writes[0].descriptorCount = 1;
-		writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		writes[0].pBufferInfo = &m_descriptorBufferInfoViewProjection;
-		writes[0].dstArrayElement = 0;
-		writes[0].dstBinding = 0;
-		/*
-		writes[1] = {};
-		writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writes[1].pNext = nullptr;
-		writes[1].dstSet = m_descriptorSets[0];
-		writes[1].descriptorCount = 1;
-		writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-		writes[1].pBufferInfo = &m_descriptorBufferInfoViewProjection; 
-		writes[1].dstArrayElement = 0;
-		writes[1].dstBinding = 1;
-		*/
-		vkUpdateDescriptorSets(m_logicalDevice, 1, writes, 0, nullptr);
+		std::vector<VkWriteDescriptorSet> writes;
+		VkWriteDescriptorSet uniformBufferDescriptorSet;
+		uniformBufferDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		uniformBufferDescriptorSet.pNext = nullptr;
+		uniformBufferDescriptorSet.dstSet = m_descriptorSets[0];
+		uniformBufferDescriptorSet.descriptorCount = 1;
+		uniformBufferDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniformBufferDescriptorSet.pBufferInfo = &m_descriptorBufferInfoViewProjection;
+		uniformBufferDescriptorSet.dstArrayElement = 0;
+		uniformBufferDescriptorSet.dstBinding = 0;
+		writes.emplace_back(uniformBufferDescriptorSet);
+		
+		VkWriteDescriptorSet imageSamplerDescriptorSet;
+		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		imageSamplerDescriptorSet.pNext = nullptr;
+		imageSamplerDescriptorSet.dstSet = m_descriptorSets[0];
+		imageSamplerDescriptorSet.descriptorCount = 1;
+		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		imageSamplerDescriptorSet.pImageInfo = &m_descriptorImageInfoTexture;
+		imageSamplerDescriptorSet.dstArrayElement = 0;
+		imageSamplerDescriptorSet.dstBinding = 1;
+		writes.emplace_back(imageSamplerDescriptorSet);
+		
+		vkUpdateDescriptorSets(m_logicalDevice, writes.size(), writes.data(), 0, nullptr);
 
 		return true;
 	}
@@ -1860,6 +1856,9 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
+		m_descriptorImageInfoTexture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		m_descriptorImageInfoTexture.imageView = m_textureView;
+
 		return true;
 	}
 
@@ -1891,6 +1890,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			Logger::Log("Could not create texture sampler.");
 			return false;
 		}
+
+		m_descriptorImageInfoTexture.sampler = m_textureSampler;
 
 		return true;
 	}

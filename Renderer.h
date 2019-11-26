@@ -199,6 +199,7 @@ namespace MelonRenderer
 		VkDeviceMemory m_textureImageMemory;
 		VkImageView m_textureView;
 		VkSampler m_textureSampler;
+		VkDescriptorImageInfo m_descriptorImageInfoTexture = {}; //TODO: one per swapchain
 		bool CreateTexture(const char* filePath);
 		bool CreateTextureView();
 		bool CreateTextureSampler();
