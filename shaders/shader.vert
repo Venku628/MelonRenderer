@@ -20,6 +20,7 @@ void main()
 	vec4 transformedPos = vec4(pos, 1) * obj.model;
 
 	gl_Position = myBufferVals.viewProjection * transformedPos;
+	//gl_Position.y = -gl_Position.y;
 	outColor = vec4(inColor, 1);
 	outTexCoord = inTexCoord;
 }

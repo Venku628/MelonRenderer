@@ -66,7 +66,10 @@ namespace MelonRenderer
 		bool EnumeratePresentationModes(VkPhysicalDevice& device);
 		bool SelectPresentationMode(VkPresentModeKHR desiredPresentMode);
 		bool CheckPresentationSurfaceCapabilities(VkPhysicalDevice& device);
+
 		bool CreateSwapchain(VkPhysicalDevice& device);
+		bool RecreateSwapchain();
+		bool CleanupSwapchain();
 
 		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
 		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);

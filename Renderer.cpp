@@ -18,8 +18,8 @@ namespace MelonRenderer
 
 		// Vulkan clip space has inverted Y and half Z.
 		mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, -1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 0.5f, 0.0f,
+			0.0f, 1.0f, 0.0f, 0.0f, //had y at -1 before but did not work as intended? correct result now though
+			0.0f, 0.0f, 0.5f, 0.f,
 			0.0f, 0.0f, 0.5f, 1.0f);
 		m_modelViewProjection = clip*projection*view*model;
 		
@@ -38,10 +38,20 @@ namespace MelonRenderer
 
 		m_requiredDeviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
-		//TODO: favor dedicated gpu
-		//if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-
 		// TODO: remember last used device or cycle through devices until one works the first time
+		
+		for (int i = 0; i < m_physicalDevices.size(); i++)
+		{
+			if (!CheckRequiredDeviceProperties(m_physicalDevices[i]))
+			{
+				continue;
+			}
+			m_currentPhysicalDeviceIndex = i;
+			if (m_currentPhysicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+			{
+				break;
+			}
+		}
 		CreateLogicalDeviceAndFollowing(m_physicalDevices[m_currentPhysicalDeviceIndex]);
 
 
@@ -73,6 +83,8 @@ namespace MelonRenderer
 	bool Renderer::OnWindowSizeChanged()
 	{
 		std::cout << "Window resized." << std::endl;
+		
+
 		return false;
 	}
 
@@ -402,7 +414,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{
 		CheckRequiredDeviceExtensions(device);
 		CheckRequiredDeviceFeatures(device);
-		CheckRequiredDeviceProperties(device);
 		CheckQueueFamiliesAndProperties(device);
 		
 		vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
@@ -871,6 +882,40 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 				return false;
 			}
 		}
+
+		return true;
+	}
+
+	bool Renderer::RecreateSwapchain()
+	{
+		vkDeviceWaitIdle(m_logicalDevice);
+
+		CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex]);
+		CreateRenderPass();
+		CreateGraphicsPipeline();
+		CreateFramebuffers();
+		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+
+		return true;
+	}
+
+	bool Renderer::CleanupSwapchain()
+	{
+		for (auto& framebuffer: m_framebuffers) {
+			vkDestroyFramebuffer(m_logicalDevice, framebuffer, nullptr);
+		}
+
+		vkFreeCommandBuffers(m_logicalDevice, m_multipurposeCommandPool, static_cast<uint32_t>(1), &m_multipurposeCommandBuffer);
+
+		vkDestroyPipeline(m_logicalDevice, m_pipeline, nullptr);
+		vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr);
+		vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
+
+		for (auto& swapchainImageView : m_swapchainImageViews) {
+			vkDestroyImageView(m_logicalDevice, swapchainImageView, nullptr);
+		}
+
+		vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr);
 
 		return true;
 	}
