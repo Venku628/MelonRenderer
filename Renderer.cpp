@@ -23,7 +23,7 @@ namespace MelonRenderer
 			0.0f, 0.0f, 0.5f, 1.0f);
 		m_modelViewProjection = clip*projection*view*model;
 		
-
+		timeLast = timeNow = std::chrono::high_resolution_clock::now();
 
 		// TODO: handle failure with termination, maybe std quick exit?
 
@@ -1559,6 +1559,14 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
 
 		//------------------------------------
+		timeNow = std::chrono::high_resolution_clock::now();
+		float timeDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(timeNow - timeLast).count());
+		std::string logMessage = "Time passed since last tick: ";
+		Logger::Log(logMessage.append(std::to_string(static_cast<unsigned int>(timeDelta))));
+		timeLast = timeNow;
+		
+		m_drawables[1].m_transform = glm::rotate(m_drawables[1].m_transform, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));
+
 		for (auto& drawable : m_drawables)
 		{
 			drawable.Tick(m_multipurposeCommandBuffer, m_pipelineLayout);

@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <vector>
+#include <chrono>
 
 constexpr VkApplicationInfo applicationInfo =
 {
@@ -220,6 +221,13 @@ namespace MelonRenderer
 		bool CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size);
 		bool CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage);
 		//---------------------------------------
+
+		//time logic
+		//---------------------------------------
+		std::chrono::time_point<std::chrono::steady_clock> timeLast;
+		std::chrono::time_point<std::chrono::steady_clock> timeNow;
+		//---------------------------------------
+
 
 		VkFormat m_format;
 		WindowHandle m_windowHandle;
