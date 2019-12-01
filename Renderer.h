@@ -1,11 +1,11 @@
 //TODO: figure out if xcb or xlib use platform needs to be defined
 #pragma once
 
-#include "Window.h"
 #include "Shader.h"
 #include "Basics.h"
-
 #include "Drawable.h"
+
+#include <glfw3.h>
 
 #include <iostream>
 #include <vector>
@@ -30,18 +30,27 @@ struct QueueFamilyInfo
 
 #define MELON_WINDOW_NAME "MelonRenderer"
 
+#if defined _WIN32
+#define VULKAN_LIBRARY_TYPE HMODULE
+#elif defined __linux
+#include <dlfcn.h>
+#define VULKAN_LIBRARY_TYPE void*
+#endif
+
 namespace MelonRenderer
 {
-	class Renderer : public WindowEventHandlerBase
+	class Renderer 
 	{
 	public:
-		void Init(WindowHandle& windowHandle);
-		bool Tick() override;
+		void Init();
+		bool Tick();
+		void Loop();
 		void Fini();
 
-		bool OnWindowSizeChanged() override;
 
 	private:
+		bool CreateGLFWWindow();
+
 		bool LoadVulkanLibrary();
 		bool LoadExportedFunctions();
 		bool LoadGlobalFunctions();
@@ -176,7 +185,7 @@ namespace MelonRenderer
 		VkViewport m_viewport;
 		VkRect2D m_scissorRect2D;
 
-		unsigned int m_windowWidth, m_windowHeight, m_windowX, m_windowY;
+		unsigned int m_windowWidth, m_windowHeight;
 
 		//---------------------------------------
 		VkDescriptorPool m_descriptorPool;
@@ -199,6 +208,10 @@ namespace MelonRenderer
 
 		//texture
 		//---------------------------------------
+		#define TEXTURE_ARRAY_SIZE 8
+		VkDescriptorImageInfo m_textureArrayImageInfos[TEXTURE_ARRAY_SIZE];
+		VkImageView m_textureArrayViews[TEXTURE_ARRAY_SIZE];
+
 		VkImage m_textureImage;
 		VkDeviceMemory m_textureImageMemory;
 		VkImageView m_textureView;
@@ -230,7 +243,7 @@ namespace MelonRenderer
 
 
 		VkFormat m_format;
-		WindowHandle m_windowHandle;
+		GLFWwindow* m_window;
 		VkSurfaceKHR m_presentationSurface;
 		VkDevice m_logicalDevice;
 		VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties;

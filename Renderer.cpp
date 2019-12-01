@@ -6,9 +6,9 @@
 namespace MelonRenderer
 {
 
-	void MelonRenderer::Renderer::Init(WindowHandle& windowHandle)
+	void MelonRenderer::Renderer::Init()
 	{
-		m_windowHandle = windowHandle;
+		CreateGLFWWindow();
 
 		mat4 projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
 		mat4 view = glm::lookAt(vec3(-5,3,-10),
@@ -65,6 +65,29 @@ namespace MelonRenderer
 		return false;
 	}
 
+	void Renderer::Loop()
+	{
+		while (!glfwWindowShouldClose(m_window))
+		{
+			glfwPollEvents();
+
+			//TODO: use proper callbacks
+			int glfwWidth, glfwHeight;
+			glfwGetWindowSize(m_window, &glfwWidth, &glfwHeight);
+			if ((glfwWidth != m_extent.width) || (glfwHeight != m_extent.height))
+			{
+				Logger::Log("Recreating swapchain.");
+				RecreateSwapchain();
+			}
+
+
+			Tick();
+
+			Logger::Get().Print();
+		}
+
+	}
+
 	void Renderer::Fini()
 	{
 		vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr);
@@ -78,14 +101,26 @@ namespace MelonRenderer
 		dlclose(m_vulkanLibrary);
 #endif
 		m_vulkanLibrary = nullptr;
+
+		glfwDestroyWindow(m_window);
+		glfwTerminate();
 	}
 
-	bool Renderer::OnWindowSizeChanged()
+	bool Renderer::CreateGLFWWindow()
 	{
-		std::cout << "Window resized." << std::endl;
-		
+		glfwInit();
 
-		return false;
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+		m_window = glfwCreateWindow(800, 600, "Vulkan Renderer", nullptr, nullptr);
+
+		if (m_window == nullptr)
+		{
+			Logger::Log("Could not create glfw window.");
+			return false;
+		}
+
+		return true;
 	}
 
 	bool MelonRenderer::Renderer::LoadVulkanLibrary()
@@ -440,6 +475,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		//TODO: copy and add raytracing to required extensions
 		auto deviceExtensionsToActivate = m_requiredDeviceExtensions;
+		uint32_t glfwExtensionCount = 0;
+		const char** glfwExtensions;
+		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+		//deviceExtensionsToActivate.emplace_back(&glfwExtensions);
+		
 		if (m_hasRaytracingCapabilities)
 		{
 			deviceExtensionsToActivate.emplace_back("VK_KHR_get_memory_requirements2");
@@ -586,40 +626,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::CreatePresentationSurface()
 	{
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-		VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {
-			VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-			nullptr,
-			0,
-			m_windowHandle.m_hInstance,
-			m_windowHandle.m_HWnd
-		};
-
-		VkResult result = vkCreateWin32SurfaceKHR(m_vulkanInstance, &surfaceCreateInfo, nullptr, &m_presentationSurface);
-
-#elif defined VK_USE_PLATFORM_XLIB_KHR
-		VkXlibSurfaceCreateInfoKHR surfaceCreateInfo = {
-			VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-			nullptr,
-			0,
-			m_windowHandle.m_dpy,
-			m_windowHandle.m_window
-	};
-
-		VkResult result = vkCreateXlibSurfaceKHR(m_vulkanInstance, &surfaceCreateInfo, nullptr, &m_presentationSurface);
-
-#elif defined VK_USE_PLATFORM_XCB_KHR
-		VkXcbSurfaceCreateInfoKHR surfaceCreateInfo = {
-			VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-			nullptr,
-			0,
-			m_windowHandle.m_connection,
-			m_windowHandle.m_window
-		};
-
-		VkResult result = vkCreateXcbSurfaceKHR(m_vulkanInstance, &surfaceCreateInfo, nullptr, &m_presentationSurface);
-#endif
-
+		VkResult result = glfwCreateWindowSurface(m_vulkanInstance, m_window, nullptr, &m_presentationSurface);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create presentation surface.");
@@ -692,7 +699,13 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{
 		//TODO: make configureable and/or define requirements
 		uint32_t desiredNumberOfImages = 2;
-		VkExtent2D desiredSizeOfImages = { 640, 480 };
+		int glfwWidth, glfwHeight;
+		glfwGetWindowSize(m_window, &glfwWidth, &glfwHeight);
+
+		VkExtent2D desiredSizeOfImages = {};
+		desiredSizeOfImages.width = glfwWidth;
+		desiredSizeOfImages.height = glfwHeight;
+
 		VkImageUsageFlags desiredImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		VkSurfaceTransformFlagBitsKHR desiredTransform;
 
@@ -708,9 +721,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			Logger::Log("Desired number of images too high, using maximum instead.");
 		}
 
+		/*
 		//this signals that the size of the window is determined by the size of the swapchain, we only need the desired size in this case
 		if (0xFFFFFFFF == m_currentSurfaceCapabilities.currentExtent.width)
 		{
+		*/
 			if (desiredSizeOfImages.width < m_currentSurfaceCapabilities.minImageExtent.width)
 			{
 				desiredSizeOfImages.width = m_currentSurfaceCapabilities.minImageExtent.width;
@@ -732,11 +747,13 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 				desiredSizeOfImages.height = m_currentSurfaceCapabilities.minImageExtent.height;
 				Logger::Log("Desired height of images too high, using maximum instead.");
 			}
+			/*
 		}
 		else
 		{
 			desiredSizeOfImages = m_currentSurfaceCapabilities.currentExtent;
 		}
+		*/
 
 		//TODO: as soon as requirements are defined, implement bitwise checks for both
 		desiredImageUsage = m_currentSurfaceCapabilities.supportedUsageFlags;
@@ -890,11 +907,18 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{
 		vkDeviceWaitIdle(m_logicalDevice);
 
+		CleanupSwapchain();
+
+		CheckPresentationSurfaceCapabilities(m_physicalDevices[m_currentPhysicalDeviceIndex]);
 		CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex]);
-		CreateRenderPass();
-		CreateGraphicsPipeline();
-		CreateFramebuffers();
 		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+		CreateDepthBuffer();
+		CreatePipelineLayout();
+		CreateRenderPass();
+		CreateFramebuffers();
+
+		CreateGraphicsPipeline();
+
 
 		return true;
 	}
@@ -1655,8 +1679,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++, 
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			1,
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			TEXTURE_ARRAY_SIZE,
 			VK_SHADER_STAGE_FRAGMENT_BIT, 
 			nullptr
 		};
@@ -1713,7 +1737,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		descriptorPoolSizes.emplace_back(poolSizeViewProjection);
 		
 		VkDescriptorPoolSize poolSizeTextureSampler = {};
-		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 		poolSizeTextureSampler.descriptorCount = 1; //TODO: swapchainImage number
 		descriptorPoolSizes.emplace_back(poolSizeTextureSampler);
 		
@@ -1763,12 +1787,19 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		uniformBufferDescriptorSet.dstBinding = 0;
 		writes.emplace_back(uniformBufferDescriptorSet);
 		
+		for (uint32_t i = 0; i < TEXTURE_ARRAY_SIZE; i++)
+		{
+			m_textureArrayImageInfos[i].sampler = nullptr;
+			m_textureArrayImageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			m_textureArrayImageInfos[i].imageView = m_textureArrayViews[i];
+		}
+
 		VkWriteDescriptorSet imageSamplerDescriptorSet;
 		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		imageSamplerDescriptorSet.pNext = nullptr;
 		imageSamplerDescriptorSet.dstSet = m_descriptorSets[0];
-		imageSamplerDescriptorSet.descriptorCount = 1;
-		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		imageSamplerDescriptorSet.descriptorCount = TEXTURE_ARRAY_SIZE;
+		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 		imageSamplerDescriptorSet.pImageInfo = &m_descriptorImageInfoTexture;
 		imageSamplerDescriptorSet.dstArrayElement = 0;
 		imageSamplerDescriptorSet.dstBinding = 1;

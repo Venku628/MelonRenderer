@@ -27,9 +27,6 @@
     <ClInclude Include="MelonMath.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="Window.h">
-      <Filter>Headerdateien</Filter>
-    </ClInclude>
     <ClInclude Include="Shader.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
@@ -57,9 +54,6 @@
       <Filter>Quelldateien</Filter>
     </ClCompile>
     <ClCompile Include="Logger.cpp">
-      <Filter>Quelldateien</Filter>
-    </ClCompile>
-    <ClCompile Include="Window.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
     <ClCompile Include="Drawable.cpp">

@@ -4,21 +4,15 @@
 
 int main(int argc, char* argv[]) { 
 
-	MelonRenderer::Logger::Get().Print();
+	
 
-	MelonRenderer::Window window;
+
+	MelonRenderer::Logger::Get().Print();
 	MelonRenderer::Renderer test;
 
-	window.Init("Debug");
-	test.Init(window.m_windowHandle);
-
-	while (true)
-	{
-		window.Tick(test);
-		test.Tick();
-
-		MelonRenderer::Logger::Get().Print();
-	}
-	
+	test.Init();
+	test.Loop();
 	test.Fini();
+
+	return 0;
 }
