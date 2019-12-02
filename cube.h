@@ -10,8 +10,9 @@ struct Vertex {
 
 typedef uint32_t MeshIndex;
 
-struct VertexTransform {
+struct ObjectData {
 	mat4 transformMatrix;
+	uint32_t textureIndex;
 };
 
 #define ColorVertex(x, y, z) (x), (y), (z), 1.f, 0.f, 0.f

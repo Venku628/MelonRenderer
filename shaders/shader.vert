@@ -1,5 +1,9 @@
 #version 450
 
+struct Material {
+	int textureIndex;
+};
+
 layout (std140, binding = 0) uniform bufferVals {
 	mat4 viewProjection;
 } myBufferVals;
@@ -9,10 +13,12 @@ layout (location = 2) in vec2 inTexCoord;
 
 layout (location = 0) out vec4 outColor;
 layout (location = 1) out vec2 outTexCoord;
+layout (location = 2) flat out Material inMaterial;
 
 layout(push_constant) uniform PER_OBJECT
 {
     mat4 model;
+	int textureIndex;
 } obj;
 
 void main() 
@@ -20,7 +26,7 @@ void main()
 	vec4 transformedPos = vec4(pos, 1) * obj.model;
 
 	gl_Position = myBufferVals.viewProjection * transformedPos;
-	//gl_Position.y = -gl_Position.y;
 	outColor = vec4(inColor, 1);
 	outTexCoord = inTexCoord;
+	inMaterial.textureIndex = obj.textureIndex;
 }

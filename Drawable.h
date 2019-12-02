@@ -30,10 +30,12 @@ namespace MelonRenderer {
 		VkDeviceMemory m_indexBufferMemory;
 
 		//DEBUG
-		mat4 m_transform = mat4(1, 0, 0, 0,
-			0, 1, 0, -2, 
-			0, 0, 1, 0, 
-			0, 0, 0, 1);
+		ObjectData m_objectData = { mat4(1, 0, 0, 0,
+			0, 1, 0, -2,
+			0, 0, 1, 0,
+			0, 0, 0, 1),
+			0
+		};
 
 		friend class Renderer;
 	};

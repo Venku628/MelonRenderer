@@ -561,8 +561,19 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
 		//
 
-		CreateTexture("textures/texture.jpg");
-		CreateTextureView();
+		
+		CreateTexture(m_textureArray[0], m_textureArrayMemory[0], "textures/texture.jpg");
+		CreateTextureView(m_textureArrayViews[0], m_textureArray[0]);
+		
+		CreateTexture(m_textureArray[1], m_textureArrayMemory[1], "textures/texture2.jpg");
+		CreateTextureView(m_textureArrayViews[1], m_textureArray[1]);
+
+		CreateTexture(m_textureArray[2], m_textureArrayMemory[2], "textures/texture3.jpg");
+		CreateTextureView(m_textureArrayViews[2], m_textureArray[2]);
+
+		CreateTexture(m_textureArray[3], m_textureArrayMemory[3], "textures/texture4.jpg");
+		CreateTextureView(m_textureArrayViews[3], m_textureArray[3]);
+
 		CreateTextureSampler();
 
 		//---------------------------------------
@@ -572,10 +583,10 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateDrawableBuffers(m_drawables[2]);
 		CreateDrawableBuffers(m_drawables[3]);
 
-		m_drawables[0].m_transform = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawables[1].m_transform = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawables[2].m_transform = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawables[3].m_transform = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawables[0].m_objectData = { mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f), 0 };
+		m_drawables[1].m_objectData = { mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f), 1 };
+		m_drawables[2].m_objectData = { mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f), 2 };
+		m_drawables[3].m_objectData = { mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f), 3 };
 		//---------------------------------------
 
 		CreatePipelineLayout();
@@ -1548,15 +1559,15 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		vkCmdBeginRenderPass(m_multipurposeCommandBuffer , &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
 
 		//TODO: scale for multiple objects
-		VertexTransform vertexTransformMatrix{ mat4(1.f,0.f,0.f,2.f,
+		ObjectData vertexTransformMatrix{ mat4(1.f,0.f,0.f,2.f,
 			0.f,1.f,0.f,0.f,
 			0.f,0.f,1.f,0.f,
 			0.f,0.f,0.f,1.f) };
-		VertexTransform vertexTransformMatrix2{ mat4(1.f,0.f,0.f,-2.f,
+		ObjectData vertexTransformMatrix2{ mat4(1.f,0.f,0.f,-2.f,
 			0.f,1.f,0.f,0.f,
 			0.f,0.f,1.f,0.f,
 			0.f,0.f,0.f,1.f) };
-		std::vector<VertexTransform> vertexTransforms;
+		std::vector<ObjectData> vertexTransforms;
 		vertexTransforms.emplace_back(vertexTransformMatrix);
 		vertexTransforms.emplace_back(vertexTransformMatrix2);
 
@@ -1589,7 +1600,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		Logger::Log(logMessage.append(std::to_string(static_cast<unsigned int>(timeDelta))));
 		timeLast = timeNow;
 		
-		m_drawables[1].m_transform = glm::rotate(m_drawables[1].m_transform, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));
+		m_drawables[1].m_objectData.transformMatrix = glm::rotate(m_drawables[1].m_objectData.transformMatrix, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));
 
 		for (auto& drawable : m_drawables)
 		{
@@ -1679,7 +1690,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++, 
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			TEXTURE_ARRAY_SIZE,
 			VK_SHADER_STAGE_FRAGMENT_BIT, 
 			nullptr
@@ -1706,7 +1717,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkPushConstantRange pushConstantRangeTransforms = {};
 		pushConstantRangeTransforms.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRangeTransforms.offset = 0;
-		pushConstantRangeTransforms.size = sizeof(VertexTransform);
+		pushConstantRangeTransforms.size = sizeof(ObjectData);
 		pushConstantRanges.emplace_back(pushConstantRangeTransforms);
 		
 		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
@@ -1737,7 +1748,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		descriptorPoolSizes.emplace_back(poolSizeViewProjection);
 		
 		VkDescriptorPoolSize poolSizeTextureSampler = {};
-		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizeTextureSampler.descriptorCount = 1; //TODO: swapchainImage number
 		descriptorPoolSizes.emplace_back(poolSizeTextureSampler);
 		
@@ -1789,7 +1800,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		
 		for (uint32_t i = 0; i < TEXTURE_ARRAY_SIZE; i++)
 		{
-			m_textureArrayImageInfos[i].sampler = nullptr;
+			m_textureArrayImageInfos[i].sampler = m_textureSampler;
 			m_textureArrayImageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			m_textureArrayImageInfos[i].imageView = m_textureArrayViews[i];
 		}
@@ -1799,8 +1810,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		imageSamplerDescriptorSet.pNext = nullptr;
 		imageSamplerDescriptorSet.dstSet = m_descriptorSets[0];
 		imageSamplerDescriptorSet.descriptorCount = TEXTURE_ARRAY_SIZE;
-		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		imageSamplerDescriptorSet.pImageInfo = &m_descriptorImageInfoTexture;
+		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		imageSamplerDescriptorSet.pImageInfo = m_textureArrayImageInfos;
 		imageSamplerDescriptorSet.dstArrayElement = 0;
 		imageSamplerDescriptorSet.dstBinding = 1;
 		writes.emplace_back(imageSamplerDescriptorSet);
@@ -1810,7 +1821,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CreateTexture(const char* filePath)
+	bool Renderer::CreateTexture(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath)
 	{
 		//using int because of compatibility issues
 		int width, height, channels;
@@ -1861,7 +1872,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		result = vkCreateImage(m_logicalDevice, &imageInfo, nullptr, &m_textureImage);
+		result = vkCreateImage(m_logicalDevice, &imageInfo, nullptr, &texture);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create image for texture.");
@@ -1869,7 +1880,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		VkMemoryRequirements memoryRequirements;
-		vkGetImageMemoryRequirements(m_logicalDevice, m_textureImage, &memoryRequirements);
+		vkGetImageMemoryRequirements(m_logicalDevice, texture, &memoryRequirements);
 		VkMemoryAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.pNext = nullptr;
@@ -1880,33 +1891,33 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &m_textureImageMemory);
+		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &textureMemory);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not allocate memory for texture image.");
 			return false;
 		}
 
-		result = vkBindImageMemory(m_logicalDevice, m_textureImage, m_textureImageMemory, 0);
+		result = vkBindImageMemory(m_logicalDevice, texture, textureMemory, 0);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not bind memory for texture image.");
 			return false;
 		}
 
-		if (!TransitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
+		if (!TransitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
 		{
 			Logger::Log("Could not transition image layout before uplodading data to image.");
 			return false;
 		}
 
-		if (!CopyStagingBufferToImage(stagingBuffer, m_textureImage, width, height))
+		if (!CopyStagingBufferToImage(stagingBuffer, texture, width, height))
 		{
 			Logger::Log("Could not transition image layout before uplodading data to image.");
 			return false;
 		}
 
-		if (!TransitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
+		if (!TransitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
 		{
 			Logger::Log("Could not create single use command buffer for transition of image layout to be read as a texture.");
 			return false;
@@ -1918,13 +1929,13 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CreateTextureView()
+	bool Renderer::CreateTextureView(VkImageView& imageView, VkImage image)
 	{
 		VkImageViewCreateInfo viewInfo = {};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewInfo.pNext = nullptr;
 		viewInfo.flags = 0;
-		viewInfo.image = m_textureImage;
+		viewInfo.image = image;
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
 		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1933,15 +1944,12 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		viewInfo.subresourceRange.baseArrayLayer = 0;
 		viewInfo.subresourceRange.layerCount = 1;
 
-		VkResult result = vkCreateImageView(m_logicalDevice, &viewInfo, nullptr, &m_textureView);
+		VkResult result = vkCreateImageView(m_logicalDevice, &viewInfo, nullptr, &imageView);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create image view for texture.");
 			return false;
 		}
-
-		m_descriptorImageInfoTexture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_descriptorImageInfoTexture.imageView = m_textureView;
 
 		return true;
 	}
@@ -1975,7 +1983,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		m_descriptorImageInfoTexture.sampler = m_textureSampler;
+		//TODO: output? evaluate texture strategy first
+		//m_descriptorImageInfoTexture.sampler = m_textureSampler;
 
 		return true;
 	}

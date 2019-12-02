@@ -208,17 +208,16 @@ namespace MelonRenderer
 
 		//texture
 		//---------------------------------------
-		#define TEXTURE_ARRAY_SIZE 8
+		#define TEXTURE_ARRAY_SIZE 4
 		VkDescriptorImageInfo m_textureArrayImageInfos[TEXTURE_ARRAY_SIZE];
 		VkImageView m_textureArrayViews[TEXTURE_ARRAY_SIZE];
+		VkImage m_textureArray[TEXTURE_ARRAY_SIZE];
+		VkDeviceMemory m_textureArrayMemory[TEXTURE_ARRAY_SIZE];
 
-		VkImage m_textureImage;
-		VkDeviceMemory m_textureImageMemory;
-		VkImageView m_textureView;
 		VkSampler m_textureSampler;
-		VkDescriptorImageInfo m_descriptorImageInfoTexture = {}; //TODO: one per swapchain
-		bool CreateTexture(const char* filePath);
-		bool CreateTextureView();
+
+		bool CreateTexture(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath);
+		bool CreateTextureView(VkImageView& imageView, VkImage image);
 		bool CreateTextureSampler();
 
 		bool TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout);

@@ -16,7 +16,7 @@ namespace MelonRenderer {
 		vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
-			sizeof(m_transform), &m_transform);
+			sizeof(m_objectData), &m_objectData);
 		vkCmdDrawIndexed(commandBuffer, sizeof(cube_index_data) / sizeof(uint32_t), 1, 0, 0, 0);
 	}
 }
