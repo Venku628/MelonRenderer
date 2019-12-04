@@ -561,22 +561,15 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
 		//
 
-		
-		CreateTexture(m_textureArray[0], m_textureArrayMemory[0], "textures/texture.jpg");
-		CreateTextureView(m_textureArrayViews[0], m_textureArray[0]);
-		
-		CreateTexture(m_textureArray[1], m_textureArrayMemory[1], "textures/texture2.jpg");
-		CreateTextureView(m_textureArrayViews[1], m_textureArray[1]);
-
-		CreateTexture(m_textureArray[2], m_textureArrayMemory[2], "textures/texture3.jpg");
-		CreateTextureView(m_textureArrayViews[2], m_textureArray[2]);
-
-		CreateTexture(m_textureArray[3], m_textureArrayMemory[3], "textures/texture4.jpg");
-		CreateTextureView(m_textureArrayViews[3], m_textureArray[3]);
-
 		CreateTextureSampler();
 
 		//---------------------------------------
+		m_textures.resize(4);
+		CreateTexture(m_textures[0], "textures/texture.jpg");
+		CreateTexture(m_textures[1], "textures/texture2.jpg");
+		CreateTexture(m_textures[2], "textures/texture3.jpg");
+		CreateTexture(m_textures[3], "textures/texture4.jpg");
+
 		m_drawables.resize(4);
 		CreateDrawableBuffers(m_drawables[0]);
 		CreateDrawableBuffers(m_drawables[1]);
@@ -1691,7 +1684,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++, 
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			TEXTURE_ARRAY_SIZE,
+			m_textures.size(),
 			VK_SHADER_STAGE_FRAGMENT_BIT, 
 			nullptr
 		};
@@ -1797,21 +1790,14 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		uniformBufferDescriptorSet.dstArrayElement = 0;
 		uniformBufferDescriptorSet.dstBinding = 0;
 		writes.emplace_back(uniformBufferDescriptorSet);
-		
-		for (uint32_t i = 0; i < TEXTURE_ARRAY_SIZE; i++)
-		{
-			m_textureArrayImageInfos[i].sampler = m_textureSampler;
-			m_textureArrayImageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			m_textureArrayImageInfos[i].imageView = m_textureArrayViews[i];
-		}
 
 		VkWriteDescriptorSet imageSamplerDescriptorSet;
 		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		imageSamplerDescriptorSet.pNext = nullptr;
 		imageSamplerDescriptorSet.dstSet = m_descriptorSets[0];
-		imageSamplerDescriptorSet.descriptorCount = TEXTURE_ARRAY_SIZE;
+		imageSamplerDescriptorSet.descriptorCount = m_textures.size();
 		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		imageSamplerDescriptorSet.pImageInfo = m_textureArrayImageInfos;
+		imageSamplerDescriptorSet.pImageInfo = m_textureInfos.data();
 		imageSamplerDescriptorSet.dstArrayElement = 0;
 		imageSamplerDescriptorSet.dstBinding = 1;
 		writes.emplace_back(imageSamplerDescriptorSet);
@@ -1821,7 +1807,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::CreateTexture(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath)
+	bool Renderer::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath)
 	{
 		//using int because of compatibility issues
 		int width, height, channels;
@@ -1950,6 +1936,30 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			Logger::Log("Could not create image view for texture.");
 			return false;
 		}
+
+		return true;
+	}
+
+	bool Renderer::CreateTexture(Texture& texture, const char* filePath)
+	{
+		if (!CreateTextureImage(texture.m_textureImage, texture.m_textureMemory, filePath))
+		{
+			Logger::Log("Could not create texture image and memory.");
+			return false;
+		}
+
+		if (!CreateTextureView(texture.m_textureImageView, texture.m_textureImage))
+		{
+			Logger::Log("Could not create texture view.");
+			return false;
+		}
+
+		//TODO: parameter for sampler
+		VkDescriptorImageInfo textureInfo = {};
+		textureInfo.sampler = m_textureSampler;
+		textureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		textureInfo.imageView = texture.m_textureImageView;
+		m_textureInfos.emplace_back(textureInfo);
 
 		return true;
 	}

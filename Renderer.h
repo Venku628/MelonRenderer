@@ -4,6 +4,7 @@
 #include "Shader.h"
 #include "Basics.h"
 #include "Drawable.h"
+#include "Texture.h"
 
 #include <glfw3.h>
 
@@ -208,16 +209,14 @@ namespace MelonRenderer
 
 		//texture
 		//---------------------------------------
-		#define TEXTURE_ARRAY_SIZE 4
-		VkDescriptorImageInfo m_textureArrayImageInfos[TEXTURE_ARRAY_SIZE];
-		VkImageView m_textureArrayViews[TEXTURE_ARRAY_SIZE];
-		VkImage m_textureArray[TEXTURE_ARRAY_SIZE];
-		VkDeviceMemory m_textureArrayMemory[TEXTURE_ARRAY_SIZE];
+		std::vector<Texture> m_textures;
+		std::vector<VkDescriptorImageInfo> m_textureInfos;
 
 		VkSampler m_textureSampler;
 
-		bool CreateTexture(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath);
+		bool CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath);
 		bool CreateTextureView(VkImageView& imageView, VkImage image);
+		bool CreateTexture(Texture& texture, const char* filePath);
 		bool CreateTextureSampler();
 
 		bool TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout);
