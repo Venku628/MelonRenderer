@@ -1,7 +1,6 @@
 #include "Renderer.h"
 
-#define STB_IMAGE_IMPLEMENTATION 
-#include <stb_image.h>
+
 
 namespace MelonRenderer
 {
@@ -90,9 +89,9 @@ namespace MelonRenderer
 
 	void Renderer::Fini()
 	{
-		vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr);
+		vkDestroySwapchainKHR(Device::Get().m_device, m_swapchain, nullptr);
 		vkDestroySurfaceKHR(m_vulkanInstance, m_presentationSurface, nullptr);
-		vkDestroyDevice(m_logicalDevice, nullptr);
+		vkDestroyDevice(Device::Get().m_device, nullptr);
 		vkDestroyInstance(m_vulkanInstance, nullptr);
 
 #if defined _WIN32
@@ -451,7 +450,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CheckRequiredDeviceFeatures(device);
 		CheckQueueFamiliesAndProperties(device);
 		
-		vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
+		vkGetPhysicalDeviceMemoryProperties(device, &Device::Get().m_physicalDeviceMemoryProperties);
 
 		//TODO: define important queue family flags
 		constexpr VkQueueFlags basicFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT |
@@ -503,7 +502,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		deviceCreateInfo.pEnabledFeatures = nullptr; //raytracing? previously &m_currentPhysicalDeviceFeatures
 
 
-		VkResult result = vkCreateDevice(device, &deviceCreateInfo, nullptr, &m_logicalDevice);
+		VkResult result = vkCreateDevice(device, &deviceCreateInfo, nullptr, &Device::Get().m_device);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create logical device.");
@@ -561,14 +560,13 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
 		//
 
-		CreateTextureSampler();
 
+		m_textureManager.Init();
 		//---------------------------------------
-		m_textures.resize(4);
-		CreateTexture(m_textures[0], "textures/texture.jpg");
-		CreateTexture(m_textures[1], "textures/texture2.jpg");
-		CreateTexture(m_textures[2], "textures/texture3.jpg");
-		CreateTexture(m_textures[3], "textures/texture4.jpg");
+		m_textureManager.CreateTexture("textures/texture.jpg");
+		m_textureManager.CreateTexture("textures/texture2.jpg");
+		m_textureManager.CreateTexture("textures/texture3.jpg");
+		m_textureManager.CreateTexture("textures/texture4.jpg");
 
 		m_drawables.resize(4);
 		CreateDrawableBuffers(m_drawables[0]);
@@ -596,7 +594,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::LoadDeviceFunctions()
 	{
-#define DEVICE_LEVEL_VULKAN_FUNCTION( name ) name = (PFN_##name)vkGetDeviceProcAddr( m_logicalDevice, #name);	\
+#define DEVICE_LEVEL_VULKAN_FUNCTION( name ) name = (PFN_##name)vkGetDeviceProcAddr( Device::Get().m_device, #name);	\
 	if (name == nullptr)																						\
 	{std::cout << "Could not load device function named: " #name << std::endl; return false;}					\
 
@@ -607,9 +605,9 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::LoadDeviceExtensionFunctions()
 	{
-#define DEVICE_LEVEL_VULKAN_FUNCTION_FROM_EXTENSION( name, extension ) name = (PFN_##name)vkGetDeviceProcAddr( m_logicalDevice, #name);	\
+#define DEVICE_LEVEL_VULKAN_FUNCTION_FROM_EXTENSION( name, extension ) name = (PFN_##name)vkGetDeviceProcAddr( Device::Get().m_device, #name);	\
 	for(auto & requiredExtension : m_requiredDeviceExtensions){ if(std::string(requiredExtension) == std::string(extension))			\
-		{name = (PFN_##name)vkGetDeviceProcAddr( m_logicalDevice, #name);																\
+		{name = (PFN_##name)vkGetDeviceProcAddr( Device::Get().m_device, #name);																\
 	if (name == nullptr)																												\
 	{std::cout << "Could not load device function named: " #name << std::endl; return false;}}}											\
 
@@ -622,7 +620,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{
 		//TODO: define queue requirements and aquire multiple handles accordingly
 
-		vkGetDeviceQueue(m_logicalDevice, 0, 0, &m_multipurposeQueue);
+		vkGetDeviceQueue(Device::Get().m_device, 0, 0, &Device::Get().m_multipurposeQueue);
 
 
 		return true;
@@ -789,7 +787,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 				break;
 			}
 		}
-		m_format = imageFormat;
+		Device::Get().m_format = imageFormat;
 		VkColorSpaceKHR imageColorSpace = surfaceFormats[0].colorSpace;
 		for (auto& surfaceFormat : surfaceFormats)
 		{
@@ -851,7 +849,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		result = vkCreateSwapchainKHR(m_logicalDevice, &swapchainCreateInfo, nullptr, &m_swapchain);
+		result = vkCreateSwapchainKHR(Device::Get().m_device, &swapchainCreateInfo, nullptr, &m_swapchain);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create swapchain.");
@@ -860,7 +858,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		// driver may create more images than requested
 		uint32_t actualImageCount = 0;
-		result = vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchain, &actualImageCount, nullptr);
+		result = vkGetSwapchainImagesKHR(Device::Get().m_device, m_swapchain, &actualImageCount, nullptr);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not get number of swapchain images.");
@@ -868,7 +866,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		m_swapchainImages.resize(actualImageCount);
-		result = vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchain, &actualImageCount, &m_swapchainImages[0]);
+		result = vkGetSwapchainImagesKHR(Device::Get().m_device, m_swapchain, &actualImageCount, &m_swapchainImages[0]);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not enumerate swapchain images.");
@@ -896,7 +894,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			colorImageView.subresourceRange.layerCount = 1;
 
 
-			result = vkCreateImageView(m_logicalDevice, &colorImageView, nullptr, &m_swapchainImageViews[i]);
+			result = vkCreateImageView(Device::Get().m_device, &colorImageView, nullptr, &m_swapchainImageViews[i]);
 			if (result != VK_SUCCESS)
 			{
 				Logger::Log("Could not create image view.");
@@ -909,7 +907,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::RecreateSwapchain()
 	{
-		vkDeviceWaitIdle(m_logicalDevice);
+		vkDeviceWaitIdle(Device::Get().m_device);
 
 		CleanupSwapchain();
 
@@ -930,20 +928,20 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::CleanupSwapchain()
 	{
 		for (auto& framebuffer: m_framebuffers) {
-			vkDestroyFramebuffer(m_logicalDevice, framebuffer, nullptr);
+			vkDestroyFramebuffer(Device::Get().m_device, framebuffer, nullptr);
 		}
 
-		vkFreeCommandBuffers(m_logicalDevice, m_multipurposeCommandPool, static_cast<uint32_t>(1), &m_multipurposeCommandBuffer);
+		vkFreeCommandBuffers(Device::Get().m_device, m_multipurposeCommandPool, static_cast<uint32_t>(1), &m_multipurposeCommandBuffer);
 
-		vkDestroyPipeline(m_logicalDevice, m_pipeline, nullptr);
-		vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr);
-		vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
+		vkDestroyPipeline(Device::Get().m_device, m_pipeline, nullptr);
+		vkDestroyPipelineLayout(Device::Get().m_device, m_pipelineLayout, nullptr);
+		vkDestroyRenderPass(Device::Get().m_device, m_renderPass, nullptr);
 
 		for (auto& swapchainImageView : m_swapchainImageViews) {
-			vkDestroyImageView(m_logicalDevice, swapchainImageView, nullptr);
+			vkDestroyImageView(Device::Get().m_device, swapchainImageView, nullptr);
 		}
 
-		vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr);
+		vkDestroySwapchainKHR(Device::Get().m_device, m_swapchain, nullptr);
 
 		return true;
 	}
@@ -956,7 +954,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex; //TODO: make variable as soon as it is defined as a non constant
 		cmdPoolInfo.flags = flags;
 
-		VkResult result = vkCreateCommandPool(m_logicalDevice, &cmdPoolInfo, NULL, &commandPool);
+		VkResult result = vkCreateCommandPool(Device::Get().m_device, &cmdPoolInfo, NULL, &commandPool);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create command pool.");
@@ -975,7 +973,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		cmdInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		cmdInfo.commandBufferCount = 1;
 
-		VkResult result = vkAllocateCommandBuffers(m_logicalDevice, &cmdInfo, &commandBuffer);
+		VkResult result = vkAllocateCommandBuffers(Device::Get().m_device, &cmdInfo, &commandBuffer);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create command buffer.");
@@ -1009,7 +1007,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VK_IMAGE_LAYOUT_UNDEFINED
 		};
 
-		VkResult result = vkCreateImage(m_logicalDevice, &imageCreateInfo, nullptr, &m_depthBuffer);
+		VkResult result = vkCreateImage(Device::Get().m_device, &imageCreateInfo, nullptr, &m_depthBuffer);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create image for depth buffer.");
@@ -1017,7 +1015,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		VkMemoryRequirements memoryReq;
-		vkGetImageMemoryRequirements(m_logicalDevice, m_depthBuffer, &memoryReq);
+		vkGetImageMemoryRequirements(Device::Get().m_device, m_depthBuffer, &memoryReq);
 		
 		VkMemoryAllocateInfo memoryAllocInfo =
 		{
@@ -1032,8 +1030,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		vkAllocateMemory(m_logicalDevice, &memoryAllocInfo, nullptr, &m_depthBufferMemory);
-		vkBindImageMemory(m_logicalDevice, m_depthBuffer, m_depthBufferMemory, 0);
+		vkAllocateMemory(Device::Get().m_device, &memoryAllocInfo, nullptr, &m_depthBufferMemory);
+		vkBindImageMemory(Device::Get().m_device, m_depthBuffer, m_depthBufferMemory, 0);
 
 		VkImageViewCreateInfo viewInfo = {};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -1052,7 +1050,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		viewInfo.flags = 0;
 
-		result = vkCreateImageView(m_logicalDevice, &viewInfo, nullptr, &m_depthBufferView);
+		result = vkCreateImageView(Device::Get().m_device, &viewInfo, nullptr, &m_depthBufferView);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create image view for depth buffer.");
@@ -1066,10 +1064,10 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex)
 	{
 		// Search memtypes to find first index with those properties
-		for (uint32_t i = 0; i < m_physicalDeviceMemoryProperties.memoryTypeCount; i++) {
+		for (uint32_t i = 0; i < Device::Get().m_physicalDeviceMemoryProperties.memoryTypeCount; i++) {
 			if (typeBits & (1 << i)) {
 				// Type is available, does it match user properties?
-				if ((m_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
+				if ((Device::Get().m_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
 					*typeIndex = i;
 					return true;
 				}
@@ -1092,7 +1090,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			nullptr
 		};
 
-		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferCreateInfo, nullptr, &m_uniformBuffer);
+		VkResult result = vkCreateBuffer(Device::Get().m_device, &bufferCreateInfo, nullptr, &m_uniformBuffer);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create uniform buffer.");
@@ -1100,7 +1098,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		VkMemoryRequirements memoryReq;
-		vkGetBufferMemoryRequirements(m_logicalDevice, m_uniformBuffer, &memoryReq);
+		vkGetBufferMemoryRequirements(Device::Get().m_device, m_uniformBuffer, &memoryReq);
 
 		VkMemoryAllocateInfo allocateInfo = {
 			VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -1115,7 +1113,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		result = vkAllocateMemory(m_logicalDevice, &allocateInfo, nullptr, &m_uniformBufferMemory);
+		result = vkAllocateMemory(Device::Get().m_device, &allocateInfo, nullptr, &m_uniformBufferMemory);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not allocate uniform buffer memory.");
@@ -1123,16 +1121,16 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		uint8_t* pData;
-		result = vkMapMemory(m_logicalDevice, m_uniformBufferMemory, 0, memoryReq.size, 0, (void**)& pData);
+		result = vkMapMemory(Device::Get().m_device, m_uniformBufferMemory, 0, memoryReq.size, 0, (void**)& pData);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not map memory for uniform buffer memory.");
 			return false;
 		}
 		memcpy(pData, &m_modelViewProjection, sizeof(m_modelViewProjection));
-		vkUnmapMemory(m_logicalDevice, m_uniformBufferMemory); //immediatley unmap because of limited page table for gpu+cpu adresses
+		vkUnmapMemory(Device::Get().m_device, m_uniformBufferMemory); //immediatley unmap because of limited page table for gpu+cpu adresses
 
-		result = vkBindBufferMemory(m_logicalDevice, m_uniformBuffer, m_uniformBufferMemory, 0);
+		result = vkBindBufferMemory(Device::Get().m_device, m_uniformBuffer, m_uniformBufferMemory, 0);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not bind buffer to memory.");
@@ -1203,7 +1201,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			0,
 			nullptr
 		};
-		VkResult result = vkCreateRenderPass(m_logicalDevice, &renderPassInfo, nullptr, &m_renderPass);
+		VkResult result = vkCreateRenderPass(Device::Get().m_device, &renderPassInfo, nullptr, &m_renderPass);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create render pass.");
@@ -1223,7 +1221,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			code.size(),
 			reinterpret_cast<const uint32_t*>(code.data())
 		};
-		VkResult result = vkCreateShaderModule(m_logicalDevice, &shaderModuleCreateInfo, nullptr, &shaderModule);
+		VkResult result = vkCreateShaderModule(Device::Get().m_device, &shaderModuleCreateInfo, nullptr, &shaderModule);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create shader module.");
@@ -1286,7 +1284,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		for (int i = 0; i < m_swapchainImages.size(); i++)
 		{
 			attachments[0] = m_swapchainImageViews[i];
-			VkResult result = vkCreateFramebuffer(m_logicalDevice, &framebufferCreateInfo, nullptr, &m_framebuffers[i]);
+			VkResult result = vkCreateFramebuffer(Device::Get().m_device, &framebufferCreateInfo, nullptr, &m_framebuffers[i]);
 			if (result != VK_SUCCESS)
 			{
 				Logger::Log("Could not create framebuffer.");
@@ -1326,27 +1324,27 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		VkResult result = vkCreateBuffer(m_logicalDevice, &bufferInfo, nullptr, &buffer);
+		VkResult result = vkCreateBuffer(Device::Get().m_device, &bufferInfo, nullptr, &buffer);
 		if (result != VK_SUCCESS) {
 			Logger::Log("Could not create buffer.");
 			return false;
 		}
 
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(m_logicalDevice, buffer, &memRequirements);
+		vkGetBufferMemoryRequirements(Device::Get().m_device, buffer, &memRequirements);
 
 		VkMemoryAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
 		FindMemoryTypeFromProperties(memRequirements.memoryTypeBits, properties, &allocInfo.memoryTypeIndex);
 
-		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &bufferMemory);
+		result = vkAllocateMemory(Device::Get().m_device, &allocInfo, nullptr, &bufferMemory);
 		if (result != VK_SUCCESS) {
 			Logger::Log("Could not allocate buffer memory.");
 			return false;
 		}
 
-		result = vkBindBufferMemory(m_logicalDevice, buffer, bufferMemory, 0);
+		result = vkBindBufferMemory(Device::Get().m_device, buffer, bufferMemory, 0);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not bind buffer to memory.");
@@ -1483,7 +1481,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		pipeline.renderPass = m_renderPass;
 		pipeline.subpass = 0;
 
-		VkResult result = vkCreateGraphicsPipelines(m_logicalDevice, VK_NULL_HANDLE, 1, &pipeline, nullptr, &m_pipeline);
+		VkResult result = vkCreateGraphicsPipelines(Device::Get().m_device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &m_pipeline);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create graphics pipeline.");
@@ -1523,14 +1521,14 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		imageSemaphoreInfo.pNext = nullptr;
 		imageSemaphoreInfo.flags = 0;
 
-		result = vkCreateSemaphore(m_logicalDevice, &imageSemaphoreInfo, nullptr, &imageSemaphore);
+		result = vkCreateSemaphore(Device::Get().m_device, &imageSemaphoreInfo, nullptr, &imageSemaphore);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create draw semaphore.");
 			return false;
 		}
 
-		result = vkAcquireNextImageKHR(m_logicalDevice, m_swapchain, UINT64_MAX, imageSemaphore, VK_NULL_HANDLE, &m_imageIndex);
+		result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, UINT64_MAX, imageSemaphore, VK_NULL_HANDLE, &m_imageIndex);
 		if (result != VK_SUCCESS) //TODO: handle VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 		{
 			Logger::Log("Could not aquire next image for draw.");
@@ -1616,7 +1614,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		fenceInfo.pNext = nullptr;
 		fenceInfo.flags = 0;
 		VkFence drawFence;
-		vkCreateFence(m_logicalDevice, &fenceInfo, nullptr, &drawFence);
+		vkCreateFence(Device::Get().m_device, &fenceInfo, nullptr, &drawFence);
 
 		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		VkSubmitInfo submitInfo[1] = {};
@@ -1629,7 +1627,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		submitInfo[0].pCommandBuffers = cmd;
 		submitInfo[0].signalSemaphoreCount = 0;
 		submitInfo[0].pSignalSemaphores = nullptr;
-		result = vkQueueSubmit(m_multipurposeQueue, 1, submitInfo, drawFence);
+		result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, submitInfo, drawFence);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not submit draw queue.");
@@ -1648,7 +1646,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		//wait for buffer to be finished
 		do {
-			result = vkWaitForFences(m_logicalDevice, 1, &drawFence, VK_TRUE, 10000000);
+			result = vkWaitForFences(Device::Get().m_device, 1, &drawFence, VK_TRUE, 10000000);
 		} while (result == VK_TIMEOUT);
 		if (result != VK_SUCCESS)
 		{
@@ -1656,7 +1654,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			return false;
 		}
 
-		result = vkQueuePresentKHR(m_multipurposeQueue, &presentInfo);
+		result = vkQueuePresentKHR(Device::Get().m_multipurposeQueue, &presentInfo);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not present the draw queue.");
@@ -1684,7 +1682,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++, 
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			m_textures.size(),
+			m_textureManager.GetNumberTextures(),
 			VK_SHADER_STAGE_FRAGMENT_BIT, 
 			nullptr
 		};
@@ -1699,7 +1697,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			layoutBindings.data() 
 		};
 		m_descriptorSetLayouts.resize(1);
-		VkResult result = vkCreateDescriptorSetLayout(m_logicalDevice, &descriptorLayoutInfo, nullptr, m_descriptorSetLayouts.data());
+		VkResult result = vkCreateDescriptorSetLayout(Device::Get().m_device, &descriptorLayoutInfo, nullptr, m_descriptorSetLayouts.data());
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create uniform buffer descriptor set layout.");
@@ -1722,7 +1720,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			pushConstantRanges.size(),
 			pushConstantRanges.data()
 		};
-		result = vkCreatePipelineLayout(m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout);
+		result = vkCreatePipelineLayout(Device::Get().m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create pipeline layout.");
@@ -1753,7 +1751,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			descriptorPoolSizes.size(),
 			descriptorPoolSizes.data()
 		};
-		VkResult result = vkCreateDescriptorPool(m_logicalDevice, &descriptorPoolCreateInfo, nullptr, &m_descriptorPool);
+		VkResult result = vkCreateDescriptorPool(Device::Get().m_device, &descriptorPoolCreateInfo, nullptr, &m_descriptorPool);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not create descriptor pool.");
@@ -1772,7 +1770,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		allocInfo.descriptorSetCount = m_descriptorSetLayouts.size(); //m_descriptorSetLayouts.size()
 		allocInfo.pSetLayouts = m_descriptorSetLayouts.data();
 		m_descriptorSets.resize(m_descriptorSetLayouts.size());
-		VkResult result = vkAllocateDescriptorSets(m_logicalDevice, &allocInfo, m_descriptorSets.data());
+		VkResult result = vkAllocateDescriptorSets(Device::Get().m_device, &allocInfo, m_descriptorSets.data());
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not allocate descriptor set.");
@@ -1795,298 +1793,18 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		imageSamplerDescriptorSet.pNext = nullptr;
 		imageSamplerDescriptorSet.dstSet = m_descriptorSets[0];
-		imageSamplerDescriptorSet.descriptorCount = m_textures.size();
+		imageSamplerDescriptorSet.descriptorCount = m_textureManager.GetNumberTextures();
 		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		imageSamplerDescriptorSet.pImageInfo = m_textureInfos.data();
+		imageSamplerDescriptorSet.pImageInfo = m_textureManager.GetDescriptorImageInfo();
 		imageSamplerDescriptorSet.dstArrayElement = 0;
 		imageSamplerDescriptorSet.dstBinding = 1;
 		writes.emplace_back(imageSamplerDescriptorSet);
 		
-		vkUpdateDescriptorSets(m_logicalDevice, writes.size(), writes.data(), 0, nullptr);
+		vkUpdateDescriptorSets(Device::Get().m_device, writes.size(), writes.data(), 0, nullptr);
 
 		return true;
 	}
 
-	bool Renderer::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath)
-	{
-		//using int because of compatibility issues
-		int width, height, channels;
-		stbi_uc* pixelData = stbi_load(filePath, &width, &height, &channels, STBI_rgb_alpha);
-
-		if (pixelData == nullptr)
-		{
-			Logger::Log("Could not load texture from file path.");
-			return false;
-		}
-
-		VkDeviceSize imageSize = static_cast<double>(width) * static_cast<double>(height) * 4; //4 for STBI_rgb_alpha
-		
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		if (!CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory))
-		{
-			Logger::Log("Could not create staging buffer for texture.");
-			return false;
-		}
-
-		void* data;
-		VkResult result = vkMapMemory(m_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not map memory for staging buffer.");
-			return false;
-		}
-		memcpy(data, pixelData, static_cast<size_t>(imageSize));
-		stbi_image_free(pixelData);
-		vkUnmapMemory(m_logicalDevice, stagingBufferMemory);
-
-		//TODO: make subfunction if used elsewhere
-		
-		VkImageCreateInfo imageInfo = {};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.pNext = nullptr;
-		imageInfo.flags = 0;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-		imageInfo.extent.width = static_cast<uint32_t>(width);
-		imageInfo.extent.height = static_cast<uint32_t>(height);
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
-		imageInfo.arrayLayers = 1;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT; //only relevant to images used as attachments
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		result = vkCreateImage(m_logicalDevice, &imageInfo, nullptr, &texture);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create image for texture.");
-			return false;
-		}
-
-		VkMemoryRequirements memoryRequirements;
-		vkGetImageMemoryRequirements(m_logicalDevice, texture, &memoryRequirements);
-		VkMemoryAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.pNext = nullptr;
-		allocInfo.allocationSize = memoryRequirements.size;
-		if (!FindMemoryTypeFromProperties(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &allocInfo.memoryTypeIndex))
-		{
-			Logger::Log("Could find memory type from properties for texture image.");
-			return false;
-		}
-
-		result = vkAllocateMemory(m_logicalDevice, &allocInfo, nullptr, &textureMemory);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not allocate memory for texture image.");
-			return false;
-		}
-
-		result = vkBindImageMemory(m_logicalDevice, texture, textureMemory, 0);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind memory for texture image.");
-			return false;
-		}
-
-		if (!TransitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
-		{
-			Logger::Log("Could not transition image layout before uplodading data to image.");
-			return false;
-		}
-
-		if (!CopyStagingBufferToImage(stagingBuffer, texture, width, height))
-		{
-			Logger::Log("Could not transition image layout before uplodading data to image.");
-			return false;
-		}
-
-		if (!TransitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
-		{
-			Logger::Log("Could not create single use command buffer for transition of image layout to be read as a texture.");
-			return false;
-		}
-
-		vkDestroyBuffer(m_logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(m_logicalDevice, stagingBufferMemory, nullptr);
-
-		return true;
-	}
-
-	bool Renderer::CreateTextureView(VkImageView& imageView, VkImage image)
-	{
-		VkImageViewCreateInfo viewInfo = {};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.pNext = nullptr;
-		viewInfo.flags = 0;
-		viewInfo.image = image;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
-
-		VkResult result = vkCreateImageView(m_logicalDevice, &viewInfo, nullptr, &imageView);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create image view for texture.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool Renderer::CreateTexture(Texture& texture, const char* filePath)
-	{
-		if (!CreateTextureImage(texture.m_textureImage, texture.m_textureMemory, filePath))
-		{
-			Logger::Log("Could not create texture image and memory.");
-			return false;
-		}
-
-		if (!CreateTextureView(texture.m_textureImageView, texture.m_textureImage))
-		{
-			Logger::Log("Could not create texture view.");
-			return false;
-		}
-
-		//TODO: parameter for sampler
-		VkDescriptorImageInfo textureInfo = {};
-		textureInfo.sampler = m_textureSampler;
-		textureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		textureInfo.imageView = texture.m_textureImageView;
-		m_textureInfos.emplace_back(textureInfo);
-
-		return true;
-	}
-
-	bool Renderer::CreateTextureSampler()
-	{
-		VkSamplerCreateInfo samplerInfo = {};
-		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.pNext = nullptr;
-		samplerInfo.flags = 0;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.anisotropyEnable = VK_TRUE;
-		samplerInfo.maxAnisotropy = 16;
-		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 0.0f;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerInfo.unnormalizedCoordinates = VK_FALSE; //TODO: change this to true, so coords are always 0-1
-
-		VkResult result = vkCreateSampler(m_logicalDevice, &samplerInfo, nullptr, &m_textureSampler);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create texture sampler.");
-			return false;
-		}
-
-		//TODO: output? evaluate texture strategy first
-		//m_descriptorImageInfoTexture.sampler = m_textureSampler;
-
-		return true;
-	}
-
-	bool Renderer::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout)
-	{
-		VkCommandBuffer layoutTransitionCommandBuffer;
-		if (!CreateSingleUseCommand(layoutTransitionCommandBuffer))
-		{
-			Logger::Log("Could not create single use command buffer for transition of image layout.");
-			return false;
-		}
-
-		VkPipelineStageFlags sourceStageFlags, destinationStageFlags;
-
-		VkImageMemoryBarrier barrier = {};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.pNext = nullptr;
-		barrier.oldLayout = previousLayout;
-		barrier.newLayout = desiredLayout;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = image;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
-
-		if (previousLayout == VK_IMAGE_LAYOUT_UNDEFINED && desiredLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
-		{
-			barrier.srcAccessMask = 0;
-			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-			sourceStageFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-			destinationStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		}
-		else if (previousLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && desiredLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-		{
-			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-			sourceStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
-			destinationStageFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		}
-		else 
-		{
-			Logger::Log("Could find valid configuration for image layout transition.");
-			return false;
-		}
-		
-		vkCmdPipelineBarrier(layoutTransitionCommandBuffer, sourceStageFlags, destinationStageFlags, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-		if (!EndSingleUseCommand(layoutTransitionCommandBuffer))
-		{
-			Logger::Log("Could not end command buffer for image layout transition.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool Renderer::CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
-	{
-		VkCommandBuffer copyCommandBuffer;
-		if (!CreateSingleUseCommand(copyCommandBuffer))
-		{
-			Logger::Log("Could not create single use command buffer for copying buffer to image.");
-			return false;
-		}
-
-		VkBufferImageCopy copyRegion = {};
-		copyRegion.bufferOffset = 0;
-		copyRegion.bufferRowLength = 0;
-		copyRegion.bufferImageHeight = 0;
-		copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		copyRegion.imageSubresource.mipLevel = 0;
-		copyRegion.imageSubresource.baseArrayLayer = 0;
-		copyRegion.imageSubresource.layerCount = 1;
-		copyRegion.imageOffset = { 0, 0, 0 };
-		copyRegion.imageExtent = {width, height, 1};
-
-		vkCmdCopyBufferToImage(copyCommandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-
-		if (!EndSingleUseCommand(copyCommandBuffer))
-		{
-			Logger::Log("Could not end single use command buffer for copying buffer to image.");
-			return false;
-		}
-
-		return true;
-	}
 
 	bool Renderer::CreateSingleUseCommand(VkCommandBuffer& commandBuffer)
 	{
@@ -2096,7 +1814,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandPool = m_singleUseBufferCommandPool;
 		allocInfo.commandBufferCount = 1;
-		VkResult result = vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, &commandBuffer);
+		VkResult result = vkAllocateCommandBuffers(Device::Get().m_device, &allocInfo, &commandBuffer);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not allocate single use command buffer");
@@ -2137,20 +1855,20 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		submitInfo.signalSemaphoreCount = 0;
 		submitInfo.pSignalSemaphores = nullptr;
 
-		result = vkQueueSubmit(m_multipurposeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, &submitInfo, VK_NULL_HANDLE);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not submit queue for copying staging buffer.");
 			return false;
 		}
-		result = vkQueueWaitIdle(m_multipurposeQueue);
+		result = vkQueueWaitIdle(Device::Get().m_multipurposeQueue);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not wait for idle queue for copying staging buffer.");
 			return false;
 		}
 
-		vkFreeCommandBuffers(m_logicalDevice, m_singleUseBufferCommandPool, 1, &commandBuffer);
+		vkFreeCommandBuffers(Device::Get().m_device, m_singleUseBufferCommandPool, 1, &commandBuffer);
 
 		return true;
 	}
@@ -2188,7 +1906,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 
 		void* pData;
-		VkResult result = vkMapMemory(m_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, (void**)&pData);
+		VkResult result = vkMapMemory(Device::Get().m_device, stagingBufferMemory, 0, bufferSize, 0, (void**)&pData);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not bind staging buffer to memory.");
@@ -2196,7 +1914,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		}
 		memcpy(pData, data, bufferSize);
 
-		vkUnmapMemory(m_logicalDevice, stagingBufferMemory);
+		vkUnmapMemory(Device::Get().m_device, stagingBufferMemory);
 
 		if (!CreateBuffer(bufferSize, bufferUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -2208,15 +1926,15 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		CopyStagingBufferToBuffer(stagingBuffer, buffer, bufferSize);
 
-		vkDestroyBuffer(m_logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(m_logicalDevice, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(Device::Get().m_device, stagingBuffer, nullptr);
+		vkFreeMemory(Device::Get().m_device, stagingBufferMemory, nullptr);
 
 		return true;
 	}
 
 	bool Renderer::AquireNextImage()
 	{
-		VkResult result = vkAcquireNextImageKHR(m_logicalDevice, m_swapchain, 2000000000, m_semaphore, m_fence, &m_currentImageIndex);
+		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, m_semaphore, m_fence, &m_currentImageIndex);
 		if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR))
 		{
 			Logger::Log("Could not aquire next image.");
@@ -2242,7 +1960,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			nullptr
 		};
 
-		VkResult result = vkQueuePresentKHR(m_multipurposeQueue, &presentInfo);
+		VkResult result = vkQueuePresentKHR(Device::Get().m_multipurposeQueue, &presentInfo);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not present image");
