@@ -206,25 +206,7 @@ namespace MelonRenderer
 		VkCommandBuffer m_multipurposeCommandBuffer;
 		//---------------------------------------
 
-		//texture
-		//---------------------------------------
-		/*
-		std::vector<Texture> m_textures;
-		std::vector<VkDescriptorImageInfo> m_textureInfos;
-
-		VkSampler m_textureSampler;
-
-		bool CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath);
-		bool CreateTextureView(VkImageView& imageView, VkImage image);
-		bool CreateTexture(Texture& texture, const char* filePath);
-		bool CreateTextureSampler();
-
-		bool TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout);
-		bool CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-		
-		*/
 		TextureManager m_textureManager;
-		//---------------------------------------
 
 		//staging buffer
 		//---------------------------------------

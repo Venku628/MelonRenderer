@@ -227,6 +227,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Basics.h" />
+    <ClInclude Include="Buffer.h" />
     <ClInclude Include="cube.h" />
     <ClInclude Include="DescriptorManager.h" />
     <ClInclude Include="Drawable.h" />
@@ -240,6 +241,7 @@
     <ClInclude Include="TextureManager.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="DescriptorManager.cpp" />
     <ClCompile Include="Drawable.cpp" />
     <ClCompile Include="loader\VulkanFunctions.cpp" />

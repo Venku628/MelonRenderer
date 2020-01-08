@@ -1537,7 +1537,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		VkRenderPassBeginInfo renderPassBegin;
 		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassBegin.pNext = NULL;
+		renderPassBegin.pNext = nullptr;
 		renderPassBegin.renderPass = m_renderPass;
 		renderPassBegin.framebuffer = m_framebuffers[m_imageIndex];
 		renderPassBegin.renderArea.offset.x = 0;
