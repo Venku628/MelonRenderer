@@ -450,7 +450,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CheckRequiredDeviceFeatures(device);
 		CheckQueueFamiliesAndProperties(device);
 		
-		vkGetPhysicalDeviceMemoryProperties(device, &Device::Get().m_physicalDeviceMemoryProperties);
+		vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
 
 		//TODO: define important queue family flags
 		constexpr VkQueueFlags basicFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT |
@@ -561,12 +561,12 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		//
 
 
-		m_textureManager.Init();
+		m_memoryManager.Init(m_physicalDeviceMemoryProperties);
 		//---------------------------------------
-		m_textureManager.CreateTexture("textures/texture.jpg");
-		m_textureManager.CreateTexture("textures/texture2.jpg");
-		m_textureManager.CreateTexture("textures/texture3.jpg");
-		m_textureManager.CreateTexture("textures/texture4.jpg");
+		m_memoryManager.CreateTexture("textures/texture.jpg");
+		m_memoryManager.CreateTexture("textures/texture2.jpg");
+		m_memoryManager.CreateTexture("textures/texture3.jpg");
+		m_memoryManager.CreateTexture("textures/texture4.jpg");
 
 		m_drawables.resize(4);
 		CreateDrawableBuffers(m_drawables[0]);
@@ -1064,10 +1064,10 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex)
 	{
 		// Search memtypes to find first index with those properties
-		for (uint32_t i = 0; i < Device::Get().m_physicalDeviceMemoryProperties.memoryTypeCount; i++) {
+		for (uint32_t i = 0; i < m_physicalDeviceMemoryProperties.memoryTypeCount; i++) {
 			if (typeBits & (1 << i)) {
 				// Type is available, does it match user properties?
-				if ((Device::Get().m_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
+				if ((m_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
 					*typeIndex = i;
 					return true;
 				}
@@ -1682,7 +1682,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++, 
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			m_textureManager.GetNumberTextures(),
+			m_memoryManager.GetNumberTextures(),
 			VK_SHADER_STAGE_FRAGMENT_BIT, 
 			nullptr
 		};
@@ -1793,9 +1793,9 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		imageSamplerDescriptorSet.pNext = nullptr;
 		imageSamplerDescriptorSet.dstSet = m_descriptorSets[0];
-		imageSamplerDescriptorSet.descriptorCount = m_textureManager.GetNumberTextures();
+		imageSamplerDescriptorSet.descriptorCount = m_memoryManager.GetNumberTextures();
 		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		imageSamplerDescriptorSet.pImageInfo = m_textureManager.GetDescriptorImageInfo();
+		imageSamplerDescriptorSet.pImageInfo = m_memoryManager.GetDescriptorImageInfo();
 		imageSamplerDescriptorSet.dstArrayElement = 0;
 		imageSamplerDescriptorSet.dstBinding = 1;
 		writes.emplace_back(imageSamplerDescriptorSet);

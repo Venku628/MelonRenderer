@@ -4,7 +4,7 @@
 #include "Shader.h"
 #include "Basics.h"
 #include "Drawable.h"
-#include "TextureManager.h"
+#include "DeviceMemoryManager.h"
 
 #include <glfw3.h>
 
@@ -206,7 +206,7 @@ namespace MelonRenderer
 		VkCommandBuffer m_multipurposeCommandBuffer;
 		//---------------------------------------
 
-		TextureManager m_textureManager;
+		DeviceMemoryManager m_memoryManager;
 
 		//staging buffer
 		//---------------------------------------

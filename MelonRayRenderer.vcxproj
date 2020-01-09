@@ -227,9 +227,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Basics.h" />
-    <ClInclude Include="Buffer.h" />
     <ClInclude Include="cube.h" />
-    <ClInclude Include="DescriptorManager.h" />
+    <ClInclude Include="DeviceMemoryManager.h" />
     <ClInclude Include="Drawable.h" />
     <ClInclude Include="loader\VulkanFunctions.h" />
     <ClInclude Include="Logger.h" />
@@ -238,11 +237,9 @@
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Texture.h" />
-    <ClInclude Include="TextureManager.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Buffer.cpp" />
-    <ClCompile Include="DescriptorManager.cpp" />
+    <ClCompile Include="DeviceMemoryManager.cpp" />
     <ClCompile Include="Drawable.cpp" />
     <ClCompile Include="loader\VulkanFunctions.cpp" />
     <ClCompile Include="Logger.cpp" />
@@ -250,7 +247,6 @@
     <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Texture.cpp" />
-    <ClCompile Include="TextureManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="loader\ListOfVulkanFunctions.inl" />

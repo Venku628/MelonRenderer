@@ -10,6 +10,6 @@ namespace MelonRenderer {
 		VkDeviceMemory m_textureMemory;
 
 		friend class Renderer;
-		friend class TextureManager;
+		friend class DeviceMemoryManager;
 	};
 }

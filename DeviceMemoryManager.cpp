@@ -1,10 +1,10 @@
-#include "TextureManager.h"
+#include "DeviceMemoryManager.h"
 #define STB_IMAGE_IMPLEMENTATION 
 #include <stb_image.h>
 
 namespace MelonRenderer
 {
-	bool TextureManager::Init()
+	bool DeviceMemoryManager::Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties)
 	{
 		VkCommandPoolCreateInfo cmdPoolInfo = {};
 		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -21,9 +21,11 @@ namespace MelonRenderer
 
 		CreateTextureSampler();
 
+		m_physicalDeviceMemoryProperties = physicalDeviceMemoryProperties;
+
 		return true;
 	}
-	bool TextureManager::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+	bool DeviceMemoryManager::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
 	{
 		VkBufferCreateInfo bufferInfo = {};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -61,7 +63,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool TextureManager::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath)
+	bool DeviceMemoryManager::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath)
 	{
 		//using int because of compatibility issues
 		int width, height, channels;
@@ -169,7 +171,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool TextureManager::CreateTextureView(VkImageView& imageView, VkImage image)
+	bool DeviceMemoryManager::CreateTextureView(VkImageView& imageView, VkImage image)
 	{
 		VkImageViewCreateInfo viewInfo = {};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -194,7 +196,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool TextureManager::CreateTexture(const char* filePath)
+	bool DeviceMemoryManager::CreateTexture(const char* filePath)
 	{
 		Texture texture;
 
@@ -221,7 +223,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool TextureManager::CreateTextureSampler()
+	bool DeviceMemoryManager::CreateTextureSampler()
 	{
 		VkSamplerCreateInfo samplerInfo = {};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -256,7 +258,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool TextureManager::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout)
+	bool DeviceMemoryManager::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout)
 	{
 		VkCommandBuffer layoutTransitionCommandBuffer;
 		if (!CreateSingleUseCommand(layoutTransitionCommandBuffer))
@@ -314,7 +316,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool TextureManager::CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+	bool DeviceMemoryManager::CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
 	{
 		VkCommandBuffer copyCommandBuffer;
 		if (!CreateSingleUseCommand(copyCommandBuffer))
@@ -345,7 +347,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool TextureManager::CreateSingleUseCommand(VkCommandBuffer& commandBuffer)
+	bool DeviceMemoryManager::CreateSingleUseCommand(VkCommandBuffer& commandBuffer)
 	{
 		VkCommandBufferAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -375,7 +377,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool TextureManager::EndSingleUseCommand(VkCommandBuffer& commandBuffer)
+	bool DeviceMemoryManager::EndSingleUseCommand(VkCommandBuffer& commandBuffer)
 	{
 		VkResult result = vkEndCommandBuffer(commandBuffer);
 		if (result != VK_SUCCESS)
@@ -413,13 +415,13 @@ namespace MelonRenderer
 	}
 
 	//helper function from Vulkan Samples
-	bool TextureManager::FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex)
+	bool DeviceMemoryManager::FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex)
 	{
 		// Search memtypes to find first index with those properties
-		for (uint32_t i = 0; i < Device::Get().m_physicalDeviceMemoryProperties.memoryTypeCount; i++) {
+		for (uint32_t i = 0; i < m_physicalDeviceMemoryProperties.memoryTypeCount; i++) {
 			if (typeBits & (1 << i)) {
 				// Type is available, does it match user properties?
-				if ((Device::Get().m_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
+				if ((m_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
 					*typeIndex = i;
 					return true;
 				}
@@ -428,11 +430,11 @@ namespace MelonRenderer
 		// No memory types matched, return failure
 		return false;
 	}
-	uint32_t TextureManager::GetNumberTextures()
+	uint32_t DeviceMemoryManager::GetNumberTextures()
 	{
 		return static_cast<uint32_t>(m_textures.size());
 	}
-	VkDescriptorImageInfo* TextureManager::GetDescriptorImageInfo()
+	VkDescriptorImageInfo* DeviceMemoryManager::GetDescriptorImageInfo()
 	{
 		return m_textureInfos.data();
 	}
