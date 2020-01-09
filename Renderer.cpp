@@ -525,7 +525,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
 
 		//staging cmd buffer pool
-		CreateCommandBufferPool(m_singleUseBufferCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+		//CreateCommandBufferPool(m_singleUseBufferCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
 		CreateDepthBuffer();
 		CreateUniformBufferMVP();
@@ -1299,7 +1299,8 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{
 		//TODO: make drawable attribute
 		uint32_t vertexBufferSize = sizeof(cube_vertex_data);
-		if (!CreateOptimalBuffer(drawable.m_vertexBuffer, drawable.m_vertexBufferMemory, cube_vertex_data, vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
+		if (!m_memoryManager.CreateOptimalBuffer(
+			drawable.m_vertexBuffer, drawable.m_vertexBufferMemory, cube_vertex_data, vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
 		{
 			Logger::Log("Could not create vertex buffer.");
 			return false;
@@ -1307,47 +1308,10 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		//TODO: make drawable attribute
 		uint32_t indexBufferSize = sizeof(cube_index_data);
-		if (!CreateOptimalBuffer(drawable.m_indexBuffer, drawable.m_indexBufferMemory, cube_index_data, indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
+		if (!m_memoryManager.CreateOptimalBuffer(
+			drawable.m_indexBuffer, drawable.m_indexBufferMemory, cube_index_data, indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
 		{
 			Logger::Log("Could not create index buffer.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool Renderer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
-	{
-		VkBufferCreateInfo bufferInfo = {};
-		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = size;
-		bufferInfo.usage = usage;
-		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		VkResult result = vkCreateBuffer(Device::Get().m_device, &bufferInfo, nullptr, &buffer);
-		if (result != VK_SUCCESS) {
-			Logger::Log("Could not create buffer.");
-			return false;
-		}
-
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(Device::Get().m_device, buffer, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		FindMemoryTypeFromProperties(memRequirements.memoryTypeBits, properties, &allocInfo.memoryTypeIndex);
-
-		result = vkAllocateMemory(Device::Get().m_device, &allocInfo, nullptr, &bufferMemory);
-		if (result != VK_SUCCESS) {
-			Logger::Log("Could not allocate buffer memory.");
-			return false;
-		}
-
-		result = vkBindBufferMemory(Device::Get().m_device, buffer, bufferMemory, 0);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind buffer to memory.");
 			return false;
 		}
 
@@ -1801,133 +1765,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		writes.emplace_back(imageSamplerDescriptorSet);
 		
 		vkUpdateDescriptorSets(Device::Get().m_device, writes.size(), writes.data(), 0, nullptr);
-
-		return true;
-	}
-
-
-	bool Renderer::CreateSingleUseCommand(VkCommandBuffer& commandBuffer)
-	{
-		VkCommandBufferAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.pNext = nullptr;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = m_singleUseBufferCommandPool;
-		allocInfo.commandBufferCount = 1;
-		VkResult result = vkAllocateCommandBuffers(Device::Get().m_device, &allocInfo, &commandBuffer);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not allocate single use command buffer");
-			return false;
-		}
-
-		VkCommandBufferBeginInfo beginInfo = {};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.pNext = nullptr;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-		beginInfo.pInheritanceInfo = nullptr;
-		result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not begin single use command buffer");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool Renderer::EndSingleUseCommand(VkCommandBuffer& commandBuffer)
-	{
-		VkResult result = vkEndCommandBuffer(commandBuffer);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not end command buffer for copying staging buffer.");
-			return false;
-		}
-
-		VkSubmitInfo submitInfo = {};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.pNext = nullptr;
-		submitInfo.waitSemaphoreCount = 0;
-		submitInfo.pWaitSemaphores = nullptr;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer;
-		submitInfo.signalSemaphoreCount = 0;
-		submitInfo.pSignalSemaphores = nullptr;
-
-		result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, &submitInfo, VK_NULL_HANDLE);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not submit queue for copying staging buffer.");
-			return false;
-		}
-		result = vkQueueWaitIdle(Device::Get().m_multipurposeQueue);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not wait for idle queue for copying staging buffer.");
-			return false;
-		}
-
-		vkFreeCommandBuffers(Device::Get().m_device, m_singleUseBufferCommandPool, 1, &commandBuffer);
-
-		return true;
-	}
-
-	bool Renderer::CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size)
-	{
-		VkCommandBuffer copyCommandBuffer;
-
-		if (!CreateSingleUseCommand(copyCommandBuffer))
-		{
-			Logger::Log("Could not wait for idle queue for copying staging buffer.");
-			return false;
-		}
-
-		VkBufferCopy copyRegion = {};
-		copyRegion.srcOffset = 0; 
-		copyRegion.dstOffset = 0; 
-		copyRegion.size = size;
-		vkCmdCopyBuffer(copyCommandBuffer, cpuVisibleBuffer, gpuOnlyBuffer, 1, &copyRegion);
-
-		EndSingleUseCommand(copyCommandBuffer);
-
-		return true;
-	}
-
-	bool Renderer::CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage)
-	{
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		if (!CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			stagingBuffer, stagingBufferMemory))
-		{
-			Logger::Log("Could not create staging buffer.");
-			return false;
-		}
-
-		void* pData;
-		VkResult result = vkMapMemory(Device::Get().m_device, stagingBufferMemory, 0, bufferSize, 0, (void**)&pData);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind staging buffer to memory.");
-			return false;
-		}
-		memcpy(pData, data, bufferSize);
-
-		vkUnmapMemory(Device::Get().m_device, stagingBufferMemory);
-
-		if (!CreateBuffer(bufferSize, bufferUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			buffer, bufferMemory))
-		{
-			Logger::Log("Could not create buffer.");
-			return false;
-		}
-
-		CopyStagingBufferToBuffer(stagingBuffer, buffer, bufferSize);
-
-		vkDestroyBuffer(Device::Get().m_device, stagingBuffer, nullptr);
-		vkFreeMemory(Device::Get().m_device, stagingBufferMemory, nullptr);
 
 		return true;
 	}

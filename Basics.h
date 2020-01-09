@@ -21,7 +21,6 @@ public:
 	VkDevice m_device;
 	VkFormat m_format;
 	VkQueue m_multipurposeQueue;
-	//VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties; //move to BufferManager
 
 protected:
 	Device() {};

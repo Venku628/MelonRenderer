@@ -63,6 +63,44 @@ namespace MelonRenderer
 		return true;
 	}
 
+	bool DeviceMemoryManager::CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage)
+	{
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		if (!CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer, stagingBufferMemory))
+		{
+			Logger::Log("Could not create staging buffer.");
+			return false;
+		}
+
+		void* pData;
+		VkResult result = vkMapMemory(Device::Get().m_device, stagingBufferMemory, 0, bufferSize, 0, (void**)&pData);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind staging buffer to memory.");
+			return false;
+		}
+		memcpy(pData, data, bufferSize);
+
+		vkUnmapMemory(Device::Get().m_device, stagingBufferMemory);
+
+		if (!CreateBuffer(bufferSize, bufferUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			buffer, bufferMemory))
+		{
+			Logger::Log("Could not create buffer.");
+			return false;
+		}
+
+		CopyStagingBufferToBuffer(stagingBuffer, buffer, bufferSize);
+
+		vkDestroyBuffer(Device::Get().m_device, stagingBuffer, nullptr);
+		vkFreeMemory(Device::Get().m_device, stagingBufferMemory, nullptr);
+
+		return true;
+	}
+
 	bool DeviceMemoryManager::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath)
 	{
 		//using int because of compatibility issues
@@ -343,6 +381,27 @@ namespace MelonRenderer
 			Logger::Log("Could not end single use command buffer for copying buffer to image.");
 			return false;
 		}
+
+		return true;
+	}
+
+	bool DeviceMemoryManager::CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size)
+	{
+		VkCommandBuffer copyCommandBuffer;
+
+		if (!CreateSingleUseCommand(copyCommandBuffer))
+		{
+			Logger::Log("Could not wait for idle queue for copying staging buffer.");
+			return false;
+		}
+
+		VkBufferCopy copyRegion = {};
+		copyRegion.srcOffset = 0;
+		copyRegion.dstOffset = 0;
+		copyRegion.size = size;
+		vkCmdCopyBuffer(copyCommandBuffer, cpuVisibleBuffer, gpuOnlyBuffer, 1, &copyRegion);
+
+		EndSingleUseCommand(copyCommandBuffer);
 
 		return true;
 	}

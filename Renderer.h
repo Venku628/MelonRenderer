@@ -172,7 +172,6 @@ namespace MelonRenderer
 		//---------------------------------------
 		std::vector<Drawable> m_drawables;
 		bool CreateDrawableBuffers(Drawable& drawable);
-		bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 		//---------------------------------------
 
 		//---------------------------------------
@@ -208,15 +207,6 @@ namespace MelonRenderer
 
 		DeviceMemoryManager m_memoryManager;
 
-		//staging buffer
-		//---------------------------------------
-		bool CreateSingleUseCommand(VkCommandBuffer& commandBuffer);
-		bool EndSingleUseCommand(VkCommandBuffer& commandBuffer);
-		VkCommandPool m_singleUseBufferCommandPool;
-		//TODO: evaluate bulk copying of buffers within one commandbuffer, within one tick or init
-		bool CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size);
-		bool CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage);
-		//---------------------------------------
 
 		//time logic
 		//---------------------------------------

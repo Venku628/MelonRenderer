@@ -22,13 +22,17 @@ namespace MelonRenderer
 		bool Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties);
 
 		bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+		bool CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage);
+
 		bool CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath);
 		bool CreateTextureView(VkImageView& imageView, VkImage image);
 		bool CreateTexture(const char* filePath);
 		bool CreateTextureSampler();
-
 		bool TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout);
+		
 		bool CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+		bool CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size);
+
 		bool CreateSingleUseCommand(VkCommandBuffer& commandBuffer);
 		bool EndSingleUseCommand(VkCommandBuffer& commandBuffer);
 
