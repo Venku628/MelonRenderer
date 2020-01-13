@@ -37,6 +37,6 @@ namespace MelonRenderer {
 			0
 		};
 
-		friend class Renderer;
+		friend class Pipeline;
 	};
 }

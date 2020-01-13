@@ -1,10 +1,9 @@
 //TODO: figure out if xcb or xlib use platform needs to be defined
 #pragma once
 
-#include "Shader.h"
 #include "Basics.h"
-#include "Drawable.h"
 #include "DeviceMemoryManager.h"
+#include "Pipeline.h"
 
 #include <glfw3.h>
 
@@ -67,8 +66,6 @@ namespace MelonRenderer
 		bool CheckQueueFamiliesAndProperties(VkPhysicalDevice& device);
 		bool FindCompatibleQueueFamily(VkQueueFlags flags, std::vector<QueueFamilyInfo>& familyIndices);
 
-		void CreateLogicalDeviceAndFollowing(VkPhysicalDevice& device);
-
 		bool LoadDeviceFunctions();
 		bool LoadDeviceExtensionFunctions();
 
@@ -78,14 +75,23 @@ namespace MelonRenderer
 		bool SelectPresentationMode(VkPresentModeKHR desiredPresentMode);
 		bool CheckPresentationSurfaceCapabilities(VkPhysicalDevice& device);
 
-		bool CreateSwapchain(VkPhysicalDevice& device);
-		bool RecreateSwapchain();
-		bool CleanupSwapchain();
+		bool CreateLogicalDeviceAndQueue(VkPhysicalDevice& device);
+		
 
-		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
-		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
+		VkPresentModeKHR m_presentMode;
+		const uint32_t m_queueFamilyIndex = 0;
+		VkExtent3D m_extent;
+		Pipeline m_rasterizationPipeline;
 
-		std::vector<char const *> m_requiredInstanceExtensions;
+		DeviceMemoryManager m_memoryManager;
+
+		//time logic
+		//---------------------------------------
+		std::chrono::time_point<std::chrono::steady_clock> timeLast;
+		std::chrono::time_point<std::chrono::steady_clock> timeNow;
+		//---------------------------------------
+
+		std::vector<char const*> m_requiredInstanceExtensions;
 		std::vector<const char*> m_requiredDeviceExtensions;
 		std::vector<VkPhysicalDevice> m_physicalDevices;
 
@@ -96,123 +102,6 @@ namespace MelonRenderer
 		std::vector<VkPresentModeKHR> m_currentPhysicalDevicePresentModes;
 		std::vector<VkQueueFamilyProperties> m_currentQueueFamilyProperties;
 		bool m_hasRaytracingCapabilities;
-
-		const uint32_t m_numberOfSamples = 1;
-		VkExtent3D m_extent;
-
-		//TODO: evaluate seperate class for this purpose, semaphores etc. included
-		//---------------------------------------
-		VkSwapchainKHR m_swapchain;
-		std::vector<VkImage> m_swapchainImages;
-		std::vector<VkImageView> m_swapchainImageViews;
-		VkPresentModeKHR m_presentMode;
-		uint32_t m_currentImageIndex;
-		VkSemaphore m_semaphore;
-		VkFence m_fence;
-		bool AquireNextImage();
-		bool PresentImage();
-		//---------------------------------------
-
-	
-		//TODO: depth buffer class?
-		//---------------------------------------
-		VkImage m_depthBuffer;
-		VkDeviceMemory m_depthBufferMemory;
-		VkImageView m_depthBufferView;
-		VkFormat m_depthBufferFormat;
-
-		bool CreateDepthBuffer();
-		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
-		//---------------------------------------
-
-
-		//uniform buffer class? buffers should also be allocated in bulk 
-		//---------------------------------------
-		mat4 m_modelViewProjection;
-		VkBuffer m_uniformBuffer;
-		VkDeviceMemory m_uniformBufferMemory;
-
-		bool CreateUniformBufferMVP();
-		//---------------------------------------
-
-
-		//Renderpass
-		//---------------------------------------
-		VkRenderPass m_renderPass;
-
-		bool CreateRenderPass();
-		//---------------------------------------
-
-
-		//shader modules
-		//---------------------------------------
-		//this struct holds the shader modules
-		std::vector<VkPipelineShaderStageCreateInfo> m_shaderStagesV;
-
-		bool CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule);
-		bool CreateShaderModules();
-		//---------------------------------------
-
-
-		//frame buffers
-		//---------------------------------------
-		std::vector<VkFramebuffer> m_framebuffers;
-
-		bool CreateFramebuffers();
-		//---------------------------------------
-
-
-		//vertex buffer
-		//---------------------------------------
-		std::vector<VkVertexInputAttributeDescription> m_vertexInputAttributes;
-		std::vector<VkVertexInputBindingDescription> m_vertexInputBindings;
-		//---------------------------------------
-
-		//drawables
-		//---------------------------------------
-		std::vector<Drawable> m_drawables;
-		bool CreateDrawableBuffers(Drawable& drawable);
-		//---------------------------------------
-
-		//---------------------------------------
-		VkPipeline m_pipeline;
-
-		bool CreateGraphicsPipeline();
-		//---------------------------------------
-
-		bool Draw();
-		uint32_t m_imageIndex; 
-		VkViewport m_viewport;
-		VkRect2D m_scissorRect2D;
-
-		unsigned int m_windowWidth, m_windowHeight;
-
-		//---------------------------------------
-		VkDescriptorPool m_descriptorPool;
-		std::vector<VkDescriptorSet> m_descriptorSets;
-		VkDescriptorBufferInfo m_descriptorBufferInfoViewProjection;
-		std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
-		VkPipelineLayout m_pipelineLayout;
-		bool CreatePipelineLayout();
-		bool CreateDescriptorPool();
-		bool CreateDescriptorSet();
-		//---------------------------------------
-		
-		// temporarily only one of each
-		//---------------------------------------
-		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined
-		VkCommandPool m_multipurposeCommandPool;
-		VkCommandBuffer m_multipurposeCommandBuffer;
-		//---------------------------------------
-
-		DeviceMemoryManager m_memoryManager;
-
-
-		//time logic
-		//---------------------------------------
-		std::chrono::time_point<std::chrono::steady_clock> timeLast;
-		std::chrono::time_point<std::chrono::steady_clock> timeNow;
-		//---------------------------------------
 
 		GLFWwindow* m_window;
 		VkSurfaceKHR m_presentationSurface;

@@ -2,7 +2,8 @@
 
 #include "Basics.h"
 #include "Drawable.h"
-#include "Texture.h"
+#include "Shader.h"
+#include "DeviceMemoryManager.h"
 
 #include <vector>
 
@@ -10,13 +11,30 @@ namespace MelonRenderer
 {
 	class Pipeline
 	{
+		//to be moved to pipeline class
+		//--------------------------------------
+	public:
+		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager);
+		void Tick(float timeDelta);
+		void RecreateSwapchain(unsigned int width, unsigned int height);
 
-		//Renderpass
-		//---------------------------------------
-		VkRenderPass m_renderPass;
+		void Fini();
 
-		bool CreateRenderPass();
-		//---------------------------------------
+	protected:
+		//virtual void     = 0; in pipeline base
+		void DefineVertices();
+		void InitCam();
+
+		bool CreateSwapchain(VkPhysicalDevice& device);
+		bool CleanupSwapchain();
+
+		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
+		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
+
+		const uint32_t m_numberOfSamples = 1;
+		VkExtent3D m_extent;
+
+		VkPhysicalDevice& m_physicalDevice;
 
 		//---------------------------------------
 		VkSwapchainKHR m_swapchain;
@@ -30,23 +48,13 @@ namespace MelonRenderer
 		bool PresentImage();
 		//---------------------------------------
 
+		//Renderpass
 		//---------------------------------------
-		VkImage m_depthBuffer;
-		VkDeviceMemory m_depthBufferMemory;
-		VkImageView m_depthBufferView;
-		VkFormat m_depthBufferFormat;
+		VkRenderPass m_renderPass;
 
-		bool CreateDepthBuffer();
-		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
+		bool CreateRenderPass();
 		//---------------------------------------
 
-		//---------------------------------------
-		mat4 m_modelViewProjection;
-		VkBuffer m_uniformBuffer;
-		VkDeviceMemory m_uniformBufferMemory;
-
-		bool CreateUniformBufferMVP();
-		//---------------------------------------
 
 		//shader modules
 		//---------------------------------------
@@ -56,6 +64,7 @@ namespace MelonRenderer
 		bool CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule);
 		bool CreateShaderModules();
 		//---------------------------------------
+
 
 		//frame buffers
 		//---------------------------------------
@@ -75,7 +84,6 @@ namespace MelonRenderer
 		//---------------------------------------
 		std::vector<Drawable> m_drawables;
 		bool CreateDrawableBuffers(Drawable& drawable);
-		bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 		//---------------------------------------
 
 		//---------------------------------------
@@ -84,7 +92,7 @@ namespace MelonRenderer
 		bool CreateGraphicsPipeline();
 		//---------------------------------------
 
-		bool Draw();
+		bool Draw(float timeDelta);
 		uint32_t m_imageIndex;
 		VkViewport m_viewport;
 		VkRect2D m_scissorRect2D;
@@ -105,24 +113,32 @@ namespace MelonRenderer
 		// temporarily only one of each
 		//---------------------------------------
 		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined
-		VkQueue m_multipurposeQueue;
 		VkCommandPool m_multipurposeCommandPool;
 		VkCommandBuffer m_multipurposeCommandBuffer;
 		//---------------------------------------
 
+		//everything that should be partially moved to the memoryManager
+		//---------------------------------------
+		DeviceMemoryManager& m_memoryManager;
 
+		//TODO: depth buffer class?
+		VkImage m_depthBuffer;
+		VkDeviceMemory m_depthBufferMemory;
+		VkImageView m_depthBufferView;
+		VkFormat m_depthBufferFormat;
+
+		bool CreateDepthBuffer();
+		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
+
+		//uniform buffer class? buffers should also be allocated in bulk 
+		mat4 m_modelViewProjection;
+		VkBuffer m_uniformBuffer;
+		VkDeviceMemory m_uniformBufferMemory;
+
+		bool CreateUniformBufferMVP();
+		//---------------------------------------
 		
 
-		//staging buffer
-		//---------------------------------------
-		VkCommandPool m_singleUseBufferCommandPool;
-		//TODO: evaluate bulk copying of buffers within one commandbuffer, within one tick or init
-		bool CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size);
-		bool CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage);
-		bool CreateSingleUseCommand(VkCommandBuffer& commandBuffer);
-		bool EndSingleUseCommand(VkCommandBuffer& commandBuffer);
-		//---------------------------------------
-
-		friend class Renderer;
+		
 	};
 }
