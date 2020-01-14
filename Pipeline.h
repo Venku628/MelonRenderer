@@ -9,12 +9,18 @@
 
 namespace MelonRenderer
 {
+	struct OutputSurface
+	{
+		VkSurfaceCapabilitiesKHR capabilites;
+		VkSurfaceKHR surface;
+	};
+
 	class Pipeline
 	{
 		//to be moved to pipeline class
 		//--------------------------------------
 	public:
-		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager);
+		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent);
 		void Tick(float timeDelta);
 		void RecreateSwapchain(unsigned int width, unsigned int height);
 
@@ -32,9 +38,11 @@ namespace MelonRenderer
 		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
 
 		const uint32_t m_numberOfSamples = 1;
-		VkExtent3D m_extent;
+		VkExtent2D m_extent;
 
-		VkPhysicalDevice& m_physicalDevice;
+		OutputSurface m_outputSurface;
+
+		VkPhysicalDevice* m_physicalDevice;
 
 		//---------------------------------------
 		VkSwapchainKHR m_swapchain;
@@ -117,9 +125,11 @@ namespace MelonRenderer
 		VkCommandBuffer m_multipurposeCommandBuffer;
 		//---------------------------------------
 
+
+
 		//everything that should be partially moved to the memoryManager
 		//---------------------------------------
-		DeviceMemoryManager& m_memoryManager;
+		DeviceMemoryManager* m_memoryManager;
 
 		//TODO: depth buffer class?
 		VkImage m_depthBuffer;
@@ -128,7 +138,6 @@ namespace MelonRenderer
 		VkFormat m_depthBufferFormat;
 
 		bool CreateDepthBuffer();
-		bool FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
 
 		//uniform buffer class? buffers should also be allocated in bulk 
 		mat4 m_modelViewProjection;
@@ -137,8 +146,5 @@ namespace MelonRenderer
 
 		bool CreateUniformBufferMVP();
 		//---------------------------------------
-		
-
-		
 	};
 }

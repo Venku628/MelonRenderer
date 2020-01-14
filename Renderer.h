@@ -80,7 +80,7 @@ namespace MelonRenderer
 
 		VkPresentModeKHR m_presentMode;
 		const uint32_t m_queueFamilyIndex = 0;
-		VkExtent3D m_extent;
+		VkExtent2D m_extent;
 		Pipeline m_rasterizationPipeline;
 
 		DeviceMemoryManager m_memoryManager;

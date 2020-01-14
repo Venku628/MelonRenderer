@@ -42,7 +42,10 @@ namespace MelonRenderer
 
 		m_memoryManager.Init(m_physicalDeviceMemoryProperties);
 
-		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager);
+		OutputSurface outputSurface;
+		outputSurface.capabilites = m_currentSurfaceCapabilities;
+		outputSurface.surface = m_presentationSurface;
+		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
 
 
 		Logger::Log("Loading complete.");

@@ -3,10 +3,12 @@
 namespace MelonRenderer
 {
 	//TODO: move to individual pipeline creations
-	void Pipeline::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager)
+	void Pipeline::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent)
 	{
-		m_physicalDevice = physicalDevice;
-		m_memoryManager = memoryManager;
+		m_physicalDevice = &physicalDevice;
+		m_memoryManager = &memoryManager;
+		m_extent = windowExtent;
+		m_outputSurface = outputSurface;
 
 		CreateSwapchain(physicalDevice);
 
@@ -14,17 +16,17 @@ namespace MelonRenderer
 		CreateCommandBufferPool(m_multipurposeCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
 
+		DefineVertices();
+		InitCam();
+
 		CreateDepthBuffer();
 		CreateUniformBufferMVP();
 
-		DefineVertices();
-
-
 		//---------------------------------------
-		m_memoryManager.CreateTexture("textures/texture.jpg");
-		m_memoryManager.CreateTexture("textures/texture2.jpg");
-		m_memoryManager.CreateTexture("textures/texture3.jpg");
-		m_memoryManager.CreateTexture("textures/texture4.jpg");
+		m_memoryManager->CreateTexture("textures/texture.jpg");
+		m_memoryManager->CreateTexture("textures/texture2.jpg");
+		m_memoryManager->CreateTexture("textures/texture3.jpg");
+		m_memoryManager->CreateTexture("textures/texture4.jpg");
 
 		m_drawables.resize(4);
 		CreateDrawableBuffers(m_drawables[0]);
@@ -57,6 +59,20 @@ namespace MelonRenderer
 
 	void Pipeline::RecreateSwapchain(unsigned int width, unsigned int height)
 	{
+		vkDeviceWaitIdle(Device::Get().m_device);
+		CleanupSwapchain();
+
+		m_extent.width = width;
+		m_extent.height = height;
+
+		CreateSwapchain(*m_physicalDevice);
+		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+		CreateDepthBuffer();
+		CreatePipelineLayout();
+		CreateRenderPass();
+		CreateFramebuffers();
+
+		CreateGraphicsPipeline();
 	}
 
 	void Pipeline::Fini()
@@ -116,68 +132,66 @@ namespace MelonRenderer
 	{
 		//TODO: make configureable and/or define requirements
 		uint32_t desiredNumberOfImages = 2;
-		int glfwWidth, glfwHeight;
-		glfwGetWindowSize(m_window, &glfwWidth, &glfwHeight);
 
 		VkExtent2D desiredSizeOfImages = {};
-		desiredSizeOfImages.width = glfwWidth;
-		desiredSizeOfImages.height = glfwHeight;
+		desiredSizeOfImages.width = m_extent.width;
+		desiredSizeOfImages.height = m_extent.height;
 
 		VkImageUsageFlags desiredImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		VkSurfaceTransformFlagBitsKHR desiredTransform;
 
-		if (desiredNumberOfImages < m_currentSurfaceCapabilities.minImageCount)
+		if (desiredNumberOfImages < m_outputSurface.capabilites.minImageCount)
 		{
-			desiredNumberOfImages = m_currentSurfaceCapabilities.minImageCount;
+			desiredNumberOfImages = m_outputSurface.capabilites.minImageCount;
 			Logger::Log("Desired number of images too low, using minimum instead.");
 		}
 
-		if (desiredNumberOfImages > m_currentSurfaceCapabilities.maxImageCount)
+		if (desiredNumberOfImages > m_outputSurface.capabilites.maxImageCount)
 		{
-			desiredNumberOfImages = m_currentSurfaceCapabilities.maxImageCount;
+			desiredNumberOfImages = m_outputSurface.capabilites.maxImageCount;
 			Logger::Log("Desired number of images too high, using maximum instead.");
 		}
 
 		/*
 		//this signals that the size of the window is determined by the size of the swapchain, we only need the desired size in this case
-		if (0xFFFFFFFF == m_currentSurfaceCapabilities.currentExtent.width)
+		if (0xFFFFFFFF == m_outputSurface.capabilites.currentExtent.width)
 		{
 		*/
-		if (desiredSizeOfImages.width < m_currentSurfaceCapabilities.minImageExtent.width)
+		if (desiredSizeOfImages.width < m_outputSurface.capabilites.minImageExtent.width)
 		{
-			desiredSizeOfImages.width = m_currentSurfaceCapabilities.minImageExtent.width;
+			desiredSizeOfImages.width = m_outputSurface.capabilites.minImageExtent.width;
 			Logger::Log("Desired width of images too low, using minimum instead.");
 		}
-		else if (desiredSizeOfImages.width > m_currentSurfaceCapabilities.maxImageExtent.width)
+		else if (desiredSizeOfImages.width > m_outputSurface.capabilites.maxImageExtent.width)
 		{
-			desiredSizeOfImages.width = m_currentSurfaceCapabilities.minImageExtent.width;
+			desiredSizeOfImages.width = m_outputSurface.capabilites.minImageExtent.width;
 			Logger::Log("Desired width of images too high, using maximum instead.");
 		}
 
-		if (desiredSizeOfImages.height < m_currentSurfaceCapabilities.minImageExtent.height)
+		if (desiredSizeOfImages.height < m_outputSurface.capabilites.minImageExtent.height)
 		{
-			desiredSizeOfImages.height = m_currentSurfaceCapabilities.minImageExtent.height;
+			desiredSizeOfImages.height = m_outputSurface.capabilites.minImageExtent.height;
 			Logger::Log("Desired height of images too low, using minimum instead.");
 		}
-		else if (desiredSizeOfImages.height > m_currentSurfaceCapabilities.maxImageExtent.height)
+		else if (desiredSizeOfImages.height > m_outputSurface.capabilites.maxImageExtent.height)
 		{
-			desiredSizeOfImages.height = m_currentSurfaceCapabilities.minImageExtent.height;
+			desiredSizeOfImages.height = m_outputSurface.capabilites.minImageExtent.height;
 			Logger::Log("Desired height of images too high, using maximum instead.");
 		}
 		/*
 	}
 	else
 	{
-		desiredSizeOfImages = m_currentSurfaceCapabilities.currentExtent;
+		desiredSizeOfImages = m_outputSurface.capabilites.currentExtent;
 	}
 	*/
 
 	//TODO: as soon as requirements are defined, implement bitwise checks for both
-		desiredImageUsage = m_currentSurfaceCapabilities.supportedUsageFlags;
-		desiredTransform = m_currentSurfaceCapabilities.currentTransform;
+		desiredImageUsage = m_outputSurface.capabilites.supportedUsageFlags;
+		desiredTransform = m_outputSurface.capabilites.currentTransform;
 
 		uint32_t formatCount = 0;
-		VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_presentationSurface, &formatCount, nullptr);
+		VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_outputSurface.surface, &formatCount, nullptr);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not get number of physical device surface formats.");
@@ -185,7 +199,7 @@ namespace MelonRenderer
 		}
 
 		std::vector<VkSurfaceFormatKHR> surfaceFormats{ formatCount };
-		result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_presentationSurface, &formatCount, &surfaceFormats[0]);
+		result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_outputSurface.surface, &formatCount, &surfaceFormats[0]);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not get physical device surface formats.");
@@ -221,7 +235,7 @@ namespace MelonRenderer
 			VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 			nullptr,
 			0,
-			m_presentationSurface,
+			m_outputSurface.surface,
 			desiredNumberOfImages,
 			imageFormat,
 			imageColorSpace,
@@ -239,7 +253,7 @@ namespace MelonRenderer
 		};
 		swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		swapchainCreateInfo.pNext = nullptr;
-		swapchainCreateInfo.surface = m_presentationSurface;
+		swapchainCreateInfo.surface = m_outputSurface.surface;
 		swapchainCreateInfo.minImageCount = desiredNumberOfImages;
 		swapchainCreateInfo.imageFormat = imageFormat;
 		swapchainCreateInfo.imageColorSpace = imageColorSpace;
@@ -257,7 +271,7 @@ namespace MelonRenderer
 
 
 		VkBool32 deviceSupported;
-		vkGetPhysicalDeviceSurfaceSupportKHR(device, m_queueFamilyIndex, m_presentationSurface, &deviceSupported);
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, m_queueFamilyIndex, m_outputSurface.surface, &deviceSupported);
 		if (!deviceSupported)
 		{
 			Logger::Log("Presentation surface not supported by physical device.");
@@ -320,24 +334,6 @@ namespace MelonRenderer
 		return true;
 	}
 
-	void Pipeline::RecreateSwapchain(unsigned int width, unsigned int height)
-	{
-		vkDeviceWaitIdle(Device::Get().m_device);
-		CleanupSwapchain();
-
-		m_extent.width = width;
-		m_extent.height = height;
-
-		CreateSwapchain(m_physicalDevice);
-		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
-		CreateDepthBuffer();
-		CreatePipelineLayout();
-		CreateRenderPass();
-		CreateFramebuffers();
-
-		CreateGraphicsPipeline();
-	}
-
 	bool Pipeline::CleanupSwapchain()
 	{
 		for (auto& framebuffer : m_framebuffers) {
@@ -398,8 +394,10 @@ namespace MelonRenderer
 
 	bool Pipeline::CreateDepthBuffer()
 	{
-		//find a more elegant solution
-		m_extent.depth = 1;
+		VkExtent3D depthExtent;
+		depthExtent.width = m_extent.width;
+		depthExtent.height = m_extent.height;
+		depthExtent.depth = 1;
 		m_depthBufferFormat = VK_FORMAT_D16_UNORM;
 
 		VkImageCreateInfo imageCreateInfo = {
@@ -408,7 +406,7 @@ namespace MelonRenderer
 		0,
 		VK_IMAGE_TYPE_2D,
 		VK_FORMAT_D16_UNORM,
-		m_extent,
+		depthExtent,
 		1,
 		1,
 		VK_SAMPLE_COUNT_1_BIT,
@@ -437,7 +435,7 @@ namespace MelonRenderer
 			memoryReq.size,
 			0
 		};
-		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryAllocInfo.memoryTypeIndex))
+		if (!m_memoryManager->FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryAllocInfo.memoryTypeIndex))
 		{
 			Logger::Log("Could not find matching memory type from propterties.");
 			return false;
@@ -502,7 +500,7 @@ namespace MelonRenderer
 			memoryReq.size,
 			0
 		};
-		if (!FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		if (!m_memoryManager->FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 			&allocateInfo.memoryTypeIndex))
 		{
 			Logger::Log("Could not find memory type from properties for uniform buffer.");
@@ -695,7 +693,7 @@ namespace MelonRenderer
 	{
 		//TODO: make drawable attribute
 		uint32_t vertexBufferSize = sizeof(cube_vertex_data);
-		if (!m_memoryManager.CreateOptimalBuffer(
+		if (!m_memoryManager->CreateOptimalBuffer(
 			drawable.m_vertexBuffer, drawable.m_vertexBufferMemory, cube_vertex_data, vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
 		{
 			Logger::Log("Could not create vertex buffer.");
@@ -704,7 +702,7 @@ namespace MelonRenderer
 
 		//TODO: make drawable attribute
 		uint32_t indexBufferSize = sizeof(cube_index_data);
-		if (!m_memoryManager.CreateOptimalBuffer(
+		if (!m_memoryManager->CreateOptimalBuffer(
 			drawable.m_indexBuffer, drawable.m_indexBufferMemory, cube_index_data, indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
 		{
 			Logger::Log("Could not create index buffer.");
@@ -1038,7 +1036,7 @@ namespace MelonRenderer
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			m_memoryManager.GetNumberTextures(),
+			m_memoryManager->GetNumberTextures(),
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr
 		};
@@ -1149,9 +1147,9 @@ namespace MelonRenderer
 		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		imageSamplerDescriptorSet.pNext = nullptr;
 		imageSamplerDescriptorSet.dstSet = m_descriptorSets[0];
-		imageSamplerDescriptorSet.descriptorCount = m_memoryManager.GetNumberTextures();
+		imageSamplerDescriptorSet.descriptorCount = m_memoryManager->GetNumberTextures();
 		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		imageSamplerDescriptorSet.pImageInfo = m_memoryManager.GetDescriptorImageInfo();
+		imageSamplerDescriptorSet.pImageInfo = m_memoryManager->GetDescriptorImageInfo();
 		imageSamplerDescriptorSet.dstArrayElement = 0;
 		imageSamplerDescriptorSet.dstBinding = 1;
 		writes.emplace_back(imageSamplerDescriptorSet);
