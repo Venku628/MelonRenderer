@@ -95,6 +95,8 @@
     <None Include="shaders\compile.bat">
       <Filter>Quelldateien</Filter>
     </None>
+    <None Include="shaders\imgui.frag" />
+    <None Include="shaders\imgui.vert" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders\shader.frag" />

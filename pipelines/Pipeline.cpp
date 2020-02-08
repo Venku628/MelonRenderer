@@ -58,6 +58,26 @@ namespace MelonRenderer
 
 		return true;
 	}
+	bool Pipeline::CleanupSwapchain()
+	{
+		for (auto& framebuffer : m_framebuffers) {
+			vkDestroyFramebuffer(Device::Get().m_device, framebuffer, nullptr);
+		}
+
+		vkFreeCommandBuffers(Device::Get().m_device, m_multipurposeCommandPool, static_cast<uint32_t>(1), &m_multipurposeCommandBuffer);
+
+		vkDestroyPipeline(Device::Get().m_device, m_pipeline, nullptr);
+		vkDestroyPipelineLayout(Device::Get().m_device, m_pipelineLayout, nullptr);
+		vkDestroyRenderPass(Device::Get().m_device, m_renderPass, nullptr);
+
+		for (auto& swapchainImageView : m_swapchainImageViews) {
+			vkDestroyImageView(Device::Get().m_device, swapchainImageView, nullptr);
+		}
+
+		vkDestroySwapchainKHR(Device::Get().m_device, m_swapchain, nullptr);
+
+		return true;
+	}
 	bool Pipeline::CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags)
 	{
 		VkCommandPoolCreateInfo cmdBufferPoolInfo = {};

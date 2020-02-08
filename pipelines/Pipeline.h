@@ -28,7 +28,7 @@ namespace MelonRenderer
 		virtual void DefineVertices() = 0;
 
 		virtual bool CreateSwapchain(VkPhysicalDevice& device) = 0;
-		virtual bool CleanupSwapchain() = 0;
+		bool CleanupSwapchain();
 
 		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
 		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
@@ -64,6 +64,7 @@ namespace MelonRenderer
 		//---------------------------------------
 		//this struct holds the shader modules
 		std::vector<VkPipelineShaderStageCreateInfo> m_shaderStagesV;
+		//TODO: destroy the shader stages after they are used to create the graphics pipeline
 
 		bool CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule);
 		virtual bool CreateShaderModules() = 0;

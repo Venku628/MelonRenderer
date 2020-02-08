@@ -4,6 +4,9 @@
 #include "Logger.h"
 #include "MelonMath.h"
 
+//most vulkan enums are not enum class
+#pragma warning(push)
+#pragma warning(disable : 26812)
 
 // almost every vulkan function needs access to the logical device
 class Device

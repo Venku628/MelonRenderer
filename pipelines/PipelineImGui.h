@@ -18,7 +18,6 @@ namespace MelonRenderer
 		void DefineVertices() override;
 
 		bool CreateSwapchain(VkPhysicalDevice& device) override;
-		bool CleanupSwapchain() override;
 
 		const uint32_t m_numberOfSamples = 1;
 
@@ -56,5 +55,10 @@ namespace MelonRenderer
 		bool CreateDescriptorSet() override;
 		//---------------------------------------
 
+
+		bool CreateFontSampler();
+		VkSampler m_fontSampler;
+
+		VkImageView m_fontImageView;
 	};
 }

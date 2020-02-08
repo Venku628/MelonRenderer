@@ -148,11 +148,6 @@ namespace MelonRenderer
 			Logger::Log("Desired number of images too high, using maximum instead.");
 		}
 
-		/*
-		//this signals that the size of the window is determined by the size of the swapchain, we only need the desired size in this case
-		if (0xFFFFFFFF == m_outputSurface.capabilites.currentExtent.width)
-		{
-		*/
 		if (desiredSizeOfImages.width < m_outputSurface.capabilites.minImageExtent.width)
 		{
 			desiredSizeOfImages.width = m_outputSurface.capabilites.minImageExtent.width;
@@ -174,13 +169,6 @@ namespace MelonRenderer
 			desiredSizeOfImages.height = m_outputSurface.capabilites.minImageExtent.height;
 			Logger::Log("Desired height of images too high, using maximum instead.");
 		}
-		/*
-	}
-	else
-	{
-		desiredSizeOfImages = m_outputSurface.capabilites.currentExtent;
-	}
-	*/
 
 	//TODO: as soon as requirements are defined, implement bitwise checks for both
 		desiredImageUsage = m_outputSurface.capabilites.supportedUsageFlags;
@@ -227,26 +215,7 @@ namespace MelonRenderer
 		m_extent.height = desiredSizeOfImages.height;
 		m_extent.width = desiredSizeOfImages.width;
 
-		VkSwapchainCreateInfoKHR swapchainCreateInfo = {
-			VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-			nullptr,
-			0,
-			m_outputSurface.surface,
-			desiredNumberOfImages,
-			imageFormat,
-			imageColorSpace,
-			desiredSizeOfImages,
-			1,
-			desiredImageUsage,
-			VK_SHARING_MODE_EXCLUSIVE,
-			0,
-			nullptr,
-			desiredTransform,
-			VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-			m_presentMode,
-			VK_TRUE,
-			VK_NULL_HANDLE //TODO: insert old swapchain if available and destroy after
-		};
+		VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
 		swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		swapchainCreateInfo.pNext = nullptr;
 		swapchainCreateInfo.surface = m_outputSurface.surface;
@@ -326,27 +295,6 @@ namespace MelonRenderer
 				return false;
 			}
 		}
-
-		return true;
-	}
-
-	bool PipelineRasterization::CleanupSwapchain()
-	{
-		for (auto& framebuffer : m_framebuffers) {
-			vkDestroyFramebuffer(Device::Get().m_device, framebuffer, nullptr);
-		}
-
-		vkFreeCommandBuffers(Device::Get().m_device, m_multipurposeCommandPool, static_cast<uint32_t>(1), &m_multipurposeCommandBuffer);
-
-		vkDestroyPipeline(Device::Get().m_device, m_pipeline, nullptr);
-		vkDestroyPipelineLayout(Device::Get().m_device, m_pipelineLayout, nullptr);
-		vkDestroyRenderPass(Device::Get().m_device, m_renderPass, nullptr);
-
-		for (auto& swapchainImageView : m_swapchainImageViews) {
-			vkDestroyImageView(Device::Get().m_device, swapchainImageView, nullptr);
-		}
-
-		vkDestroySwapchainKHR(Device::Get().m_device, m_swapchain, nullptr);
 
 		return true;
 	}
@@ -691,10 +639,6 @@ namespace MelonRenderer
 		pipelineRasterizationInfo.depthBiasSlopeFactor = 0;
 		pipelineRasterizationInfo.lineWidth = 1.0f;
 
-		VkPipelineColorBlendStateCreateInfo pipelineColorBlendInfo;
-		pipelineColorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		pipelineColorBlendInfo.pNext = nullptr;
-		pipelineColorBlendInfo.flags = 0;
 		VkPipelineColorBlendAttachmentState colorBlendAttachment[1];
 		colorBlendAttachment[0].colorWriteMask = 0xf;
 		colorBlendAttachment[0].blendEnable = VK_FALSE;
@@ -704,6 +648,11 @@ namespace MelonRenderer
 		colorBlendAttachment[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
 		colorBlendAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 		colorBlendAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+
+		VkPipelineColorBlendStateCreateInfo pipelineColorBlendInfo;
+		pipelineColorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		pipelineColorBlendInfo.pNext = nullptr;
+		pipelineColorBlendInfo.flags = 0;
 		pipelineColorBlendInfo.attachmentCount = 1;
 		pipelineColorBlendInfo.pAttachments = colorBlendAttachment;
 		pipelineColorBlendInfo.logicOpEnable = VK_FALSE;
@@ -932,7 +881,6 @@ namespace MelonRenderer
 
 	bool PipelineRasterization::CreatePipelineLayout()
 	{
-		//TODO: split and scale
 		std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
 		unsigned int layoutBindingIndex = 0;
 

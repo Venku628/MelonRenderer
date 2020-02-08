@@ -18,7 +18,6 @@ namespace MelonRenderer
 		
 
 		bool CreateSwapchain(VkPhysicalDevice& device) override;
-		bool CleanupSwapchain() override;
 
 		const uint32_t m_numberOfSamples = 1;
 
