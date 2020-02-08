@@ -38,5 +38,6 @@ namespace MelonRenderer {
 		};
 
 		friend class Pipeline;
+		friend class PipelineRasterization;
 	};
 }

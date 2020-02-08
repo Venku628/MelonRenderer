@@ -1,7 +1,5 @@
 #include "Renderer.h"
 
-
-
 namespace MelonRenderer
 {
 
@@ -54,15 +52,15 @@ namespace MelonRenderer
 	bool Renderer::Tick()
 	{
 		timeNow = std::chrono::high_resolution_clock::now();
-		float timeDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(timeNow - timeLast).count());
+		float timeDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::nanoseconds>(timeNow - timeLast).count());
 		std::string logMessage = "Time passed since last tick: ";
 		Logger::Log(logMessage.append(std::to_string(static_cast<unsigned int>(timeDelta))));
 		timeLast = timeNow;
 
 
-		m_rasterizationPipeline.Tick(timeDelta);
+		m_rasterizationPipeline.Tick(timeDelta/10000000.f);
 
-		return false;
+		return true;
 	}
 
 	void Renderer::Loop()
@@ -80,9 +78,8 @@ namespace MelonRenderer
 				m_extent.height = glfwHeight;
 
 				Logger::Log("Recreating swapchain.");
-				m_rasterizationPipeline.RecreateSwapchain(m_extent.width, m_extent.height);
+				m_rasterizationPipeline.RecreateSwapchain(m_extent);
 			}
-
 
 			Tick();
 
@@ -522,6 +519,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		CheckPresentationSurfaceCapabilities(device);
 
+		return true;
 	}
 
 	bool Renderer::LoadDeviceFunctions()

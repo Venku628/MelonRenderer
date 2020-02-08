@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Basics.h"
-#include "Drawable.h"
-#include "Shader.h"
-#include "DeviceMemoryManager.h"
+#include "../Basics.h"
+#include "../Drawable.h"
+#include "../Shader.h"
+#include "../DeviceMemoryManager.h"
 
 #include <vector>
 
@@ -17,22 +17,18 @@ namespace MelonRenderer
 
 	class Pipeline
 	{
-		//to be moved to pipeline class
-		//--------------------------------------
 	public:
-		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent);
-		void Tick(float timeDelta);
-		void RecreateSwapchain(unsigned int width, unsigned int height);
+		virtual void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent) = 0;
+		virtual void Tick(float timeDelta) = 0;
+		virtual void RecreateSwapchain(VkExtent2D windowExtent) = 0;
 
-		void Fini();
+		virtual void Fini() = 0;
 
 	protected:
-		//virtual void     = 0; in pipeline base
-		void DefineVertices();
-		void InitCam();
+		virtual void DefineVertices() = 0;
 
-		bool CreateSwapchain(VkPhysicalDevice& device);
-		bool CleanupSwapchain();
+		virtual bool CreateSwapchain(VkPhysicalDevice& device) = 0;
+		virtual bool CleanupSwapchain() = 0;
 
 		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
 		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
@@ -52,15 +48,15 @@ namespace MelonRenderer
 		uint32_t m_currentImageIndex;
 		VkSemaphore m_semaphore;
 		VkFence m_fence;
-		bool AquireNextImage();
-		bool PresentImage();
+		virtual bool AquireNextImage() = 0;
+		bool PresentImage(VkFence* drawFence = nullptr);
 		//---------------------------------------
 
 		//Renderpass
 		//---------------------------------------
 		VkRenderPass m_renderPass;
 
-		bool CreateRenderPass();
+		virtual bool CreateRenderPass() = 0;
 		//---------------------------------------
 
 
@@ -70,7 +66,7 @@ namespace MelonRenderer
 		std::vector<VkPipelineShaderStageCreateInfo> m_shaderStagesV;
 
 		bool CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule);
-		bool CreateShaderModules();
+		virtual bool CreateShaderModules() = 0;
 		//---------------------------------------
 
 
@@ -78,7 +74,7 @@ namespace MelonRenderer
 		//---------------------------------------
 		std::vector<VkFramebuffer> m_framebuffers;
 
-		bool CreateFramebuffers();
+		virtual bool CreateFramebuffers() = 0;
 		//---------------------------------------
 
 
@@ -88,19 +84,13 @@ namespace MelonRenderer
 		std::vector<VkVertexInputBindingDescription> m_vertexInputBindings;
 		//---------------------------------------
 
-		//drawables
-		//---------------------------------------
-		std::vector<Drawable> m_drawables;
-		bool CreateDrawableBuffers(Drawable& drawable);
-		//---------------------------------------
-
 		//---------------------------------------
 		VkPipeline m_pipeline;
 
-		bool CreateGraphicsPipeline();
+		virtual bool CreateGraphicsPipeline() = 0;
 		//---------------------------------------
 
-		bool Draw(float timeDelta);
+		virtual bool Draw(float timeDelta) = 0;
 		uint32_t m_imageIndex;
 		VkViewport m_viewport;
 		VkRect2D m_scissorRect2D;
@@ -113,9 +103,9 @@ namespace MelonRenderer
 		VkDescriptorBufferInfo m_descriptorBufferInfoViewProjection;
 		std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 		VkPipelineLayout m_pipelineLayout;
-		bool CreatePipelineLayout();
-		bool CreateDescriptorPool();
-		bool CreateDescriptorSet();
+		virtual bool CreatePipelineLayout() = 0;
+		virtual bool CreateDescriptorPool() = 0;
+		virtual bool CreateDescriptorSet() = 0;
 		//---------------------------------------
 
 		// temporarily only one of each
@@ -125,26 +115,6 @@ namespace MelonRenderer
 		VkCommandBuffer m_multipurposeCommandBuffer;
 		//---------------------------------------
 
-
-
-		//everything that should be partially moved to the memoryManager
-		//---------------------------------------
 		DeviceMemoryManager* m_memoryManager;
-
-		//TODO: depth buffer class?
-		VkImage m_depthBuffer;
-		VkDeviceMemory m_depthBufferMemory;
-		VkImageView m_depthBufferView;
-		VkFormat m_depthBufferFormat;
-
-		bool CreateDepthBuffer();
-
-		//uniform buffer class? buffers should also be allocated in bulk 
-		mat4 m_modelViewProjection;
-		VkBuffer m_uniformBuffer;
-		VkDeviceMemory m_uniformBufferMemory;
-
-		bool CreateUniformBufferMVP();
-		//---------------------------------------
 	};
 }

@@ -1,9 +1,8 @@
-//TODO: figure out if xcb or xlib use platform needs to be defined
 #pragma once
 
 #include "Basics.h"
 #include "DeviceMemoryManager.h"
-#include "Pipeline.h"
+#include "pipelines/PipelineRasterization.h"
 
 #include <glfw3.h>
 
@@ -47,7 +46,6 @@ namespace MelonRenderer
 		void Loop();
 		void Fini();
 
-
 	private:
 		bool CreateGLFWWindow();
 
@@ -81,7 +79,7 @@ namespace MelonRenderer
 		VkPresentModeKHR m_presentMode;
 		const uint32_t m_queueFamilyIndex = 0;
 		VkExtent2D m_extent;
-		Pipeline m_rasterizationPipeline;
+		PipelineRasterization m_rasterizationPipeline;
 
 		DeviceMemoryManager m_memoryManager;
 

@@ -1,9 +1,9 @@
-#include "Pipeline.h"
+#include "PipelineRasterization.h"
 
 namespace MelonRenderer
 {
 	//TODO: move to individual pipeline creations
-	void Pipeline::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent)
+	void PipelineRasterization::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent)
 	{
 		m_physicalDevice = &physicalDevice;
 		m_memoryManager = &memoryManager;
@@ -52,18 +52,17 @@ namespace MelonRenderer
 		CreateGraphicsPipeline();
 	}
 
-	void Pipeline::Tick(float timeDelta)
+	void PipelineRasterization::Tick(float timeDelta)
 	{
 		Draw(timeDelta);
 	}
 
-	void Pipeline::RecreateSwapchain(unsigned int width, unsigned int height)
+	void PipelineRasterization::RecreateSwapchain(VkExtent2D windowExtent)
 	{
 		vkDeviceWaitIdle(Device::Get().m_device);
 		CleanupSwapchain();
 
-		m_extent.width = width;
-		m_extent.height = height;
+		m_extent = windowExtent;
 
 		CreateSwapchain(*m_physicalDevice);
 		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
@@ -75,22 +74,20 @@ namespace MelonRenderer
 		CreateGraphicsPipeline();
 	}
 
-	void Pipeline::Fini()
+	void PipelineRasterization::Fini()
 	{
 		vkDestroySwapchainKHR(Device::Get().m_device, m_swapchain, nullptr);
 	}
 
-	void Pipeline::DefineVertices()
+	void PipelineRasterization::DefineVertices()
 	{
-		//
 		VkVertexInputBindingDescription vertexInputBinding;
 		vertexInputBinding.binding = 0;
 		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		vertexInputBinding.stride = sizeof(Vertex);
 		m_vertexInputBindings.emplace_back(vertexInputBinding);
-		//
+		
 
-		//
 		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor, vertexAttributeUV;
 		vertexAttributePosition.binding = 0;
 		vertexAttributePosition.location = 0;
@@ -109,10 +106,9 @@ namespace MelonRenderer
 		vertexAttributeUV.format = VK_FORMAT_R32G32_SFLOAT;
 		vertexAttributeUV.offset = sizeof(float) * 6;
 		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
-		//
 	}
 
-	void Pipeline::InitCam()
+	void PipelineRasterization::InitCam()
 	{
 		mat4 projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
 		mat4 view = glm::lookAt(vec3(-5, 3, -10),
@@ -128,7 +124,7 @@ namespace MelonRenderer
 		m_modelViewProjection = clip * projection * view * model;
 	}
 
-	bool Pipeline::CreateSwapchain(VkPhysicalDevice& device)
+	bool PipelineRasterization::CreateSwapchain(VkPhysicalDevice& device)
 	{
 		//TODO: make configureable and/or define requirements
 		uint32_t desiredNumberOfImages = 2;
@@ -334,7 +330,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::CleanupSwapchain()
+	bool PipelineRasterization::CleanupSwapchain()
 	{
 		for (auto& framebuffer : m_framebuffers) {
 			vkDestroyFramebuffer(Device::Get().m_device, framebuffer, nullptr);
@@ -355,44 +351,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags)
-	{
-		VkCommandPoolCreateInfo cmdPoolInfo = {};
-		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		cmdPoolInfo.pNext = NULL;
-		cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex; //TODO: make variable as soon as it is defined as a non constant
-		cmdPoolInfo.flags = flags;
-
-		VkResult result = vkCreateCommandPool(Device::Get().m_device, &cmdPoolInfo, NULL, &commandPool);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create command pool.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool Pipeline::CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer)
-	{
-		VkCommandBufferAllocateInfo cmdInfo = {};
-		cmdInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		cmdInfo.pNext = NULL;
-		cmdInfo.commandPool = commandPool;
-		cmdInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		cmdInfo.commandBufferCount = 1;
-
-		VkResult result = vkAllocateCommandBuffers(Device::Get().m_device, &cmdInfo, &commandBuffer);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create command buffer.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool Pipeline::CreateDepthBuffer()
+	bool PipelineRasterization::CreateDepthBuffer()
 	{
 		VkExtent3D depthExtent;
 		depthExtent.width = m_extent.width;
@@ -471,7 +430,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::CreateUniformBufferMVP()
+	bool PipelineRasterization::CreateUniformBufferMVP()
 	{
 		VkBufferCreateInfo bufferCreateInfo = {
 			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -540,7 +499,7 @@ namespace MelonRenderer
 	}
 
 	//simple render pass with color and depth buffer in one subpass
-	bool Pipeline::CreateRenderPass()
+	bool PipelineRasterization::CreateRenderPass()
 	{
 		VkAttachmentDescription attachments[2];
 		attachments[0].format = VK_FORMAT_B8G8R8A8_UNORM; //TODO is this correct? this is BRG instead of RGB
@@ -602,30 +561,10 @@ namespace MelonRenderer
 			return false;
 		}
 
-
 		return true;
 	}
 
-	bool Pipeline::CreateShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule)
-	{
-		VkShaderModuleCreateInfo shaderModuleCreateInfo = {
-			VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-			nullptr,
-			0,
-			code.size(),
-			reinterpret_cast<const uint32_t*>(code.data())
-		};
-		VkResult result = vkCreateShaderModule(Device::Get().m_device, &shaderModuleCreateInfo, nullptr, &shaderModule);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create shader module.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool Pipeline::CreateShaderModules()
+	bool PipelineRasterization::CreateShaderModules()
 	{
 		auto vertShaderCode = readFile("shaders/vert.spv");
 		auto fragShaderCode = readFile("shaders/frag.spv");
@@ -652,11 +591,10 @@ namespace MelonRenderer
 		m_shaderStagesV.emplace_back(vertexShader);
 		m_shaderStagesV.emplace_back(fragmentShader);
 
-		//TODO: rework function to create all necessary shader modules and handle errors accordingly
 		return true;
 	}
 
-	bool Pipeline::CreateFramebuffers()
+	bool PipelineRasterization::CreateFramebuffers()
 	{
 		//reuse depthbuffer for all framebuffers
 		VkImageView attachments[2];
@@ -689,7 +627,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::CreateDrawableBuffers(Drawable& drawable)
+	bool PipelineRasterization::CreateDrawableBuffers(Drawable& drawable)
 	{
 		//TODO: make drawable attribute
 		uint32_t vertexBufferSize = sizeof(cube_vertex_data);
@@ -712,7 +650,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::CreateGraphicsPipeline()
+	bool PipelineRasterization::CreateGraphicsPipeline()
 	{
 		VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
 		VkPipelineDynamicStateCreateInfo dynamicState = {};
@@ -849,7 +787,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::Draw(float timeDelta)
+	bool PipelineRasterization::Draw(float timeDelta)
 	{
 		//TODO: make helper function
 		VkCommandBufferBeginInfo cmdBufferInfo = {};
@@ -943,7 +881,7 @@ namespace MelonRenderer
 		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
 
 		//------------------------------------
-		
+
 
 		m_drawables[1].m_objectData.transformMatrix = glm::rotate(m_drawables[1].m_objectData.transformMatrix, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));
 
@@ -961,8 +899,6 @@ namespace MelonRenderer
 			return false;
 		}
 
-		//TODO: change this 
-		const VkCommandBuffer cmd[] = { m_multipurposeCommandBuffer };
 		VkFenceCreateInfo fenceInfo;
 		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fenceInfo.pNext = nullptr;
@@ -978,6 +914,7 @@ namespace MelonRenderer
 		submitInfo[0].pWaitSemaphores = &imageSemaphore;
 		submitInfo[0].pWaitDstStageMask = &pipelineStageFlags;
 		submitInfo[0].commandBufferCount = 1;
+		const VkCommandBuffer cmd[] = { m_multipurposeCommandBuffer };
 		submitInfo[0].pCommandBuffers = cmd;
 		submitInfo[0].signalSemaphoreCount = 0;
 		submitInfo[0].pSignalSemaphores = nullptr;
@@ -988,37 +925,12 @@ namespace MelonRenderer
 			return false;
 		}
 
-		VkPresentInfoKHR presentInfo;
-		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		presentInfo.pNext = nullptr;
-		presentInfo.swapchainCount = 1;
-		presentInfo.pSwapchains = &m_swapchain;
-		presentInfo.pImageIndices = &m_imageIndex;
-		presentInfo.pWaitSemaphores = nullptr;
-		presentInfo.waitSemaphoreCount = 0;
-		presentInfo.pResults = nullptr;
-
-		//wait for buffer to be finished
-		do {
-			result = vkWaitForFences(Device::Get().m_device, 1, &drawFence, VK_TRUE, 10000000);
-		} while (result == VK_TIMEOUT);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not wait for draw fences.");
-			return false;
-		}
-
-		result = vkQueuePresentKHR(Device::Get().m_multipurposeQueue, &presentInfo);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not present the draw queue.");
-			return false;
-		}
+		PresentImage(&drawFence);
 
 		return true;
 	}
 
-	bool Pipeline::CreatePipelineLayout()
+	bool PipelineRasterization::CreatePipelineLayout()
 	{
 		//TODO: split and scale
 		std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
@@ -1084,7 +996,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::CreateDescriptorPool()
+	bool PipelineRasterization::CreateDescriptorPool()
 	{
 		std::vector<VkDescriptorPoolSize> descriptorPoolSizes;
 		VkDescriptorPoolSize poolSizeViewProjection = {};
@@ -1115,7 +1027,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::CreateDescriptorSet()
+	bool PipelineRasterization::CreateDescriptorSet()
 	{
 		VkDescriptorSetAllocateInfo allocInfo;
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1159,7 +1071,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Pipeline::AquireNextImage()
+	bool PipelineRasterization::AquireNextImage()
 	{
 		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, m_semaphore, m_fence, &m_currentImageIndex);
 		if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR))
@@ -1172,29 +1084,4 @@ namespace MelonRenderer
 
 		return true;
 	}
-
-	bool Pipeline::PresentImage()
-	{
-		//TODO: adjust to multiple swapchains etc
-		VkPresentInfoKHR presentInfo = {
-			VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-			nullptr,
-			1, //semaphore array size
-			&m_semaphore,
-			1, //swapchain array size
-			&m_swapchain,
-			&m_currentImageIndex,
-			nullptr
-		};
-
-		VkResult result = vkQueuePresentKHR(Device::Get().m_multipurposeQueue, &presentInfo);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not present image");
-			return false;
-		}
-
-		return true;
-	}
-
 }

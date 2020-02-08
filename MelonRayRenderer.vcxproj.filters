@@ -42,10 +42,16 @@
     <ClInclude Include="Texture.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="Pipeline.h">
+    <ClInclude Include="DeviceMemoryManager.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="DeviceMemoryManager.h">
+    <ClInclude Include="pipelines\Pipeline.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="pipelines\PipelineRasterization.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="pipelines\PipelineImGui.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>
@@ -68,10 +74,16 @@
     <ClCompile Include="Texture.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
-    <ClCompile Include="Pipeline.cpp">
+    <ClCompile Include="DeviceMemoryManager.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
-    <ClCompile Include="DeviceMemoryManager.cpp">
+    <ClCompile Include="pipelines\Pipeline.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="pipelines\PipelineRasterization.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="pipelines\PipelineImGui.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>
