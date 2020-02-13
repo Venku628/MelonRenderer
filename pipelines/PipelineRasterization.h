@@ -21,10 +21,6 @@ namespace MelonRenderer
 
 		const uint32_t m_numberOfSamples = 1;
 
-		//---------------------------------------
-		bool AquireNextImage() override;
-		//---------------------------------------
-
 		//Renderpass
 		//---------------------------------------
 		bool CreateRenderPass() override;

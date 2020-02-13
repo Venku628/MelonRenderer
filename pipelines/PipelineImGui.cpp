@@ -1,18 +1,60 @@
 #include "PipelineImGui.h"
+#include "../imgui/imgui.h"
 
 namespace MelonRenderer
 {
-	void PipelineImGui::Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent)
+	void PipelineImGui::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent)
 	{
+		m_physicalDevice = &physicalDevice;
+		m_memoryManager = &memoryManager;
+		m_extent = windowExtent;
+		m_outputSurface = outputSurface;
+
+		CreateSwapchain(physicalDevice);
+
+		//rendering cmd buffer
+		CreateCommandBufferPool(m_multipurposeCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+
+		DefineVertices();
+
+		CreateFontTexture();
+
+		CreatePipelineLayout();
+		CreateDescriptorPool();
+		CreateDescriptorSet();
+
+		CreateRenderPass();
+		CreateShaderModules();
+		CreateFramebuffers();
+
+		CreateGraphicsPipeline();
 	}
+
 	void PipelineImGui::Tick(float timeDelta)
 	{
+		Draw(timeDelta);
 	}
+
 	void PipelineImGui::RecreateSwapchain(VkExtent2D windowExtent)
 	{
+		vkDeviceWaitIdle(Device::Get().m_device);
+		CleanupSwapchain();
+
+		m_extent = windowExtent;
+
+		CreateSwapchain(*m_physicalDevice);
+		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+		CreatePipelineLayout();
+		CreateRenderPass();
+		CreateFramebuffers();
+
+		CreateGraphicsPipeline();
 	}
+
 	void PipelineImGui::Fini()
 	{
+		CleanupSwapchain();
 	}
 
 	void PipelineImGui::DefineVertices()
@@ -210,11 +252,6 @@ namespace MelonRenderer
 		}
 
 		return true;
-	}
-	
-	bool PipelineImGui::AquireNextImage()
-	{
-		return false;
 	}
 	
 	bool PipelineImGui::CreateRenderPass()
@@ -443,7 +480,161 @@ namespace MelonRenderer
 	}
 	bool PipelineImGui::Draw(float timeDelta)
 	{
-		return false;
+		//TODO: make helper function
+		VkCommandBufferBeginInfo cmdBufferInfo = {};
+		cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		cmdBufferInfo.pNext = nullptr;
+		cmdBufferInfo.flags = 0;
+		cmdBufferInfo.pInheritanceInfo = nullptr;
+
+		VkResult result = vkBeginCommandBuffer(m_multipurposeCommandBuffer, &cmdBufferInfo);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not begin command buffer for draw.");
+			return false;
+		}
+
+		VkClearValue clearValues[2];
+		clearValues[0].color.float32[0] = 0.2f;
+		clearValues[0].color.float32[1] = 0.2f;
+		clearValues[0].color.float32[2] = 0.2f;
+		clearValues[0].color.float32[3] = 0.2f;
+		clearValues[1].depthStencil.depth = 1.0f;
+		clearValues[1].depthStencil.stencil = 0;
+
+		VkSemaphore imageSemaphore;
+		VkSemaphoreCreateInfo imageSemaphoreInfo;
+		imageSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		imageSemaphoreInfo.pNext = nullptr;
+		imageSemaphoreInfo.flags = 0;
+
+		result = vkCreateSemaphore(Device::Get().m_device, &imageSemaphoreInfo, nullptr, &imageSemaphore);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create draw semaphore.");
+			return false;
+		}
+
+		result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, UINT64_MAX, imageSemaphore, VK_NULL_HANDLE, &m_imageIndex);
+		if (result != VK_SUCCESS) //TODO: handle VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
+		{
+			Logger::Log("Could not aquire next image for draw.");
+			return false;
+		}
+
+		VkRenderPassBeginInfo renderPassBegin;
+		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBegin.pNext = nullptr;
+		renderPassBegin.renderPass = m_renderPass;
+		renderPassBegin.framebuffer = m_framebuffers[m_imageIndex];
+		renderPassBegin.renderArea.offset.x = 0;
+		renderPassBegin.renderArea.offset.y = 0;
+		renderPassBegin.renderArea.extent.width = m_extent.width;
+		renderPassBegin.renderArea.extent.height = m_extent.height;
+		renderPassBegin.clearValueCount = 2;
+		renderPassBegin.pClearValues = clearValues;
+
+		vkCmdBeginRenderPass(m_multipurposeCommandBuffer, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
+
+		CreateImGuiDrawDataBuffer();
+		CreateRenderState();
+
+		ImDrawData* imguiDrawData = ImGui::GetDrawData();
+		// Will project scissor/clipping rectangles into framebuffer space
+		ImVec2 clip_off = imguiDrawData->DisplayPos;         // (0,0) unless using multi-viewports
+		ImVec2 clip_scale = imguiDrawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
+		// Render command lists
+		// (Because we merged all buffers into a single one, we maintain our own offset into them)
+		int vertexOffset = 0;
+		int indexOffset = 0;
+		for (int n = 0; n < imguiDrawData->CmdListsCount; n++)
+		{
+			const ImDrawList* imguiCmdList = imguiDrawData->CmdLists[n];
+			for (int cmd_i = 0; cmd_i < imguiCmdList->CmdBuffer.Size; cmd_i++)
+			{
+				const ImDrawCmd* currentCommandBuffer = &imguiCmdList->CmdBuffer[cmd_i];
+				if (currentCommandBuffer->UserCallback != NULL)
+				{
+					// User callback, registered via ImDrawList::AddCallback()
+					// (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
+					if (currentCommandBuffer->UserCallback == ImDrawCallback_ResetRenderState)
+						CreateRenderState();
+					else
+						currentCommandBuffer->UserCallback(imguiCmdList, currentCommandBuffer);
+				}
+				else
+				{
+					// Project scissor/clipping rectangles into framebuffer space
+					ImVec4 clip_rect;
+					clip_rect.x = (currentCommandBuffer->ClipRect.x - clip_off.x) * clip_scale.x;
+					clip_rect.y = (currentCommandBuffer->ClipRect.y - clip_off.y) * clip_scale.y;
+					clip_rect.z = (currentCommandBuffer->ClipRect.z - clip_off.x) * clip_scale.x;
+					clip_rect.w = (currentCommandBuffer->ClipRect.w - clip_off.y) * clip_scale.y;
+
+					if (clip_rect.x < m_extent.width && clip_rect.y < m_extent.height && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
+					{
+						// Negative offsets are illegal for vkCmdSetScissor
+						if (clip_rect.x < 0.0f)
+							clip_rect.x = 0.0f;
+						if (clip_rect.y < 0.0f)
+							clip_rect.y = 0.0f;
+
+						// Apply scissor/clipping rectangle
+						VkRect2D scissor;
+						scissor.offset.x = (int32_t)(clip_rect.x);
+						scissor.offset.y = (int32_t)(clip_rect.y);
+						scissor.extent.width = (uint32_t)(clip_rect.z - clip_rect.x);
+						scissor.extent.height = (uint32_t)(clip_rect.w - clip_rect.y);
+						vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &scissor);
+
+						// Draw
+						vkCmdDrawIndexed(m_multipurposeCommandBuffer, currentCommandBuffer->ElemCount, 1, currentCommandBuffer->IdxOffset + indexOffset, 
+							currentCommandBuffer->VtxOffset + vertexOffset, 0);
+					}
+				}
+			}
+			indexOffset += imguiCmdList->IdxBuffer.Size;
+			vertexOffset += imguiCmdList->VtxBuffer.Size;
+		}
+
+		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
+		result = vkEndCommandBuffer(m_multipurposeCommandBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not end command buffer for draw.");
+			return false;
+		}
+
+		VkFenceCreateInfo fenceInfo;
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceInfo.pNext = nullptr;
+		fenceInfo.flags = 0;
+		VkFence drawFence;
+		vkCreateFence(Device::Get().m_device, &fenceInfo, nullptr, &drawFence);
+
+		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		VkSubmitInfo submitInfo[1] = {};
+		submitInfo[0].pNext = nullptr;
+		submitInfo[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo[0].waitSemaphoreCount = 1;
+		submitInfo[0].pWaitSemaphores = &imageSemaphore;
+		submitInfo[0].pWaitDstStageMask = &pipelineStageFlags;
+		submitInfo[0].commandBufferCount = 1;
+		const VkCommandBuffer cmd[] = { m_multipurposeCommandBuffer };
+		submitInfo[0].pCommandBuffers = cmd;
+		submitInfo[0].signalSemaphoreCount = 0;
+		submitInfo[0].pSignalSemaphores = nullptr;
+		result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, submitInfo, drawFence);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not submit draw queue.");
+			return false;
+		}
+
+		PresentImage(&drawFence);
+
+		return true;
 	}
 	bool PipelineImGui::CreatePipelineLayout()
 	{
@@ -573,6 +764,141 @@ namespace MelonRenderer
 			Logger::Log("Could not create font sampler.");
 			return false;
 		}
+
+		return true;
+	}
+	bool PipelineImGui::CreateRenderState()
+	{
+		vkCmdBindPipeline(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+		vkCmdBindDescriptorSets(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
+			m_descriptorSets.data(), 0, nullptr);
+
+		VkBuffer vertex_buffers[1] = { m_vertexBuffer };
+		VkDeviceSize vertex_offset[1] = { 0 };
+		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, vertex_buffers, vertex_offset);
+		vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, sizeof(ImDrawIdx) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+
+		m_viewport.height = (float)m_extent.height;
+		m_viewport.width = (float)m_extent.width;
+		m_viewport.minDepth = (float)0.0f;
+		m_viewport.maxDepth = (float)1.0f;
+		m_viewport.x = 0;
+		m_viewport.y = 0;
+		vkCmdSetViewport(m_multipurposeCommandBuffer, 0, 1, &m_viewport);
+
+		float scale[2];
+		scale[0] = 2.0f / m_extent.width;
+		scale[1] = 2.0f / m_extent.height;
+		float translate[2];
+		translate[0] = -1.0f - 0 * scale[0]; //for single viewpoint apps
+		translate[1] = -1.0f - 0 * scale[1];
+		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 0, sizeof(float) * 2, scale);
+		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
+
+		return true;
+	}
+	bool PipelineImGui::CreateImGuiDrawDataBuffer()
+	{
+		ImDrawData* imguiDrawData = ImGui::GetDrawData();
+
+		// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
+		int fb_width = (int)(imguiDrawData->DisplaySize.x * imguiDrawData->FramebufferScale.x);
+		int fb_height = (int)(imguiDrawData->DisplaySize.y * imguiDrawData->FramebufferScale.y);
+		if (fb_width <= 0 || fb_height <= 0 || imguiDrawData->TotalVtxCount == 0)
+			return true;
+
+		VkResult result;
+
+		// Create or resize the vertex/index buffers
+		size_t vertexBufferSize = imguiDrawData->TotalVtxCount * sizeof(ImDrawVert);
+		size_t indexBufferSize = imguiDrawData->TotalIdxCount * sizeof(ImDrawIdx);
+		if (m_vertexBuffer == VK_NULL_HANDLE || m_vertexBufferSize < vertexBufferSize)
+		{
+			if (m_vertexBuffer != VK_NULL_HANDLE)
+				vkDestroyBuffer(Device::Get().m_device, m_vertexBuffer, nullptr);
+			if (m_vertexBufferMemory != VK_NULL_HANDLE)
+				vkFreeMemory(Device::Get().m_device, m_vertexBufferMemory, nullptr);
+
+			VkDeviceSize vertexBufferSizeAligned = ((vertexBufferSize - 1) / 256 + 1) * 256;
+			m_memoryManager->CreateBuffer(vertexBufferSizeAligned, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+				m_vertexBuffer, m_vertexBufferMemory);
+			m_vertexBufferSize = vertexBufferSize;
+		}
+
+		if (m_indexBuffer == VK_NULL_HANDLE || m_indexBufferSize < indexBufferSize)
+		{
+			if (m_indexBuffer != VK_NULL_HANDLE)
+				vkDestroyBuffer(Device::Get().m_device, m_indexBuffer, nullptr);
+			if (m_indexBufferMemory != VK_NULL_HANDLE)
+				vkFreeMemory(Device::Get().m_device, m_indexBufferMemory, nullptr);
+
+			VkDeviceSize indexBufferSizeAligned = ((indexBufferSize - 1) / 256 + 1) * 256;
+			m_memoryManager->CreateBuffer(indexBufferSizeAligned, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+				m_indexBuffer, m_indexBufferMemory);
+			m_indexBufferSize = indexBufferSize;
+		}
+			
+		// Upload vertex/index data into a single contiguous GPU buffer
+		ImDrawVert* vertexData = NULL;
+		ImDrawIdx* indexData = NULL;
+		result = vkMapMemory(Device::Get().m_device, m_vertexBufferMemory, 0, vertexBufferSize, 0, (void**)(&vertexData));
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map memory for imgui vertex buffer.");
+			return false;
+		}
+		result = vkMapMemory(Device::Get().m_device, m_indexBufferMemory, 0, indexBufferSize, 0, (void**)(&indexData));
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map memory for imgui index buffer.");
+			return false;
+		}
+
+		for (int n = 0; n < imguiDrawData->CmdListsCount; n++)
+		{
+			const ImDrawList* imguiCmdList = imguiDrawData->CmdLists[n];
+			memcpy(vertexData, imguiCmdList->VtxBuffer.Data, imguiCmdList->VtxBuffer.Size * sizeof(ImDrawVert));
+			memcpy(indexData, imguiCmdList->IdxBuffer.Data, imguiCmdList->IdxBuffer.Size * sizeof(ImDrawIdx));
+			vertexData += imguiCmdList->VtxBuffer.Size;
+			indexData += imguiCmdList->IdxBuffer.Size;
+		}
+		VkMappedMemoryRange range[2] = {};
+		range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+		range[0].memory = m_vertexBufferMemory;
+		range[0].size = VK_WHOLE_SIZE;
+		range[1].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+		range[1].memory = m_indexBufferMemory;
+		range[1].size = VK_WHOLE_SIZE;
+		result = vkFlushMappedMemoryRanges(Device::Get().m_device, 2, range);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map memory for imgui index buffer.");
+			return false;
+		}
+		vkUnmapMemory(Device::Get().m_device, m_vertexBufferMemory);
+		vkUnmapMemory(Device::Get().m_device, m_indexBufferMemory);
+
+		return true;
+	}
+	bool PipelineImGui::CreateFontTexture()
+	{
+		int width, height;
+		unsigned char* pixelData;
+		ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixelData, &width, &height);
+
+		if (!m_memoryManager->CreateTextureImage(m_fontImage, m_fontImageMemory, pixelData, width, height))
+		{
+			Logger::Log("Could not create texture image and memory.");
+			return false;
+		}
+
+		if (!m_memoryManager->CreateTextureView(m_fontImageView, m_fontImage))
+		{
+			Logger::Log("Could not create texture view.");
+			return false;
+		}
+
+		ImGui::GetIO().Fonts->TexID = (ImTextureID)(intptr_t)m_fontImage;
 
 		return true;
 	}

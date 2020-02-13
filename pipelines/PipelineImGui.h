@@ -1,13 +1,12 @@
 #pragma once
 #include "Pipeline.h"
-#include "imgui.h"
 
 namespace MelonRenderer
 {
 	class PipelineImGui : public Pipeline
 	{
 	public:
-		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent) override;
+		void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent) override;
 		void Tick(float timeDelta) override;
 		void RecreateSwapchain(VkExtent2D windowExtent) override;
 
@@ -20,10 +19,6 @@ namespace MelonRenderer
 		bool CreateSwapchain(VkPhysicalDevice& device) override;
 
 		const uint32_t m_numberOfSamples = 1;
-
-		//---------------------------------------
-		bool AquireNextImage() override;
-		//---------------------------------------
 
 		//Renderpass
 		//---------------------------------------
@@ -59,6 +54,18 @@ namespace MelonRenderer
 		bool CreateFontSampler();
 		VkSampler m_fontSampler;
 
+		bool CreateRenderState();
+		bool CreateImGuiDrawDataBuffer();
+		bool CreateFontTexture();
+		VkBuffer m_vertexBuffer;
+		VkBuffer m_indexBuffer;
+		VkDeviceMemory m_vertexBufferMemory;
+		VkDeviceMemory m_indexBufferMemory;
+		VkDeviceSize m_vertexBufferSize;
+		VkDeviceSize m_indexBufferSize;
+
+		VkImage m_fontImage;
+		VkDeviceMemory m_fontImageMemory;
 		VkImageView m_fontImageView;
 	};
 }

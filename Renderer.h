@@ -3,6 +3,7 @@
 #include "Basics.h"
 #include "DeviceMemoryManager.h"
 #include "pipelines/PipelineRasterization.h"
+#include "pipelines/PipelineImGui.h"
 
 #include <glfw3.h>
 
@@ -79,7 +80,9 @@ namespace MelonRenderer
 		VkPresentModeKHR m_presentMode;
 		const uint32_t m_queueFamilyIndex = 0;
 		VkExtent2D m_extent;
+
 		PipelineRasterization m_rasterizationPipeline;
+		PipelineImGui m_imguiPipeline;
 
 		DeviceMemoryManager m_memoryManager;
 

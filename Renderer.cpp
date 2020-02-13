@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "imgui/imgui.h"
 
 namespace MelonRenderer
 {
@@ -43,8 +44,15 @@ namespace MelonRenderer
 		OutputSurface outputSurface;
 		outputSurface.capabilites = m_currentSurfaceCapabilities;
 		outputSurface.surface = m_presentationSurface;
-		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
 
+		ImGui::CreateContext();
+		ImGui::StyleColorsDark();
+		ImGui::GetIO().BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+		ImGui::GetIO().DisplaySize.x = 800;
+		ImGui::GetIO().DisplaySize.y = 600;
+
+		//m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
+		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
 
 		Logger::Log("Loading complete.");
 	}
@@ -58,7 +66,8 @@ namespace MelonRenderer
 		timeLast = timeNow;
 
 
-		m_rasterizationPipeline.Tick(timeDelta/10000000.f);
+		//m_rasterizationPipeline.Tick(timeDelta/10000000.f);
+		m_imguiPipeline.Tick(timeDelta/10000000.f);
 
 		return true;
 	}
@@ -77,10 +86,19 @@ namespace MelonRenderer
 				m_extent.width = glfwWidth;
 				m_extent.height = glfwHeight;
 
-				Logger::Log("Recreating swapchain.");
-				m_rasterizationPipeline.RecreateSwapchain(m_extent);
-			}
+				ImGui::GetIO().DisplaySize.x = glfwWidth;
+				ImGui::GetIO().DisplaySize.y = glfwHeight;
 
+				Logger::Log("Recreating swapchain.");
+				m_imguiPipeline.RecreateSwapchain(m_extent);
+				//m_rasterizationPipeline.RecreateSwapchain(m_extent);
+			}
+			
+			ImGui::NewFrame();
+			bool showDemoWindow = true;
+			ImGui::ShowDemoWindow(&showDemoWindow);
+
+			ImGui::Render();
 			Tick();
 
 			Logger::Get().Print();
@@ -90,6 +108,7 @@ namespace MelonRenderer
 
 	void Renderer::Fini()
 	{
+		ImGui::DestroyContext();
 		
 		vkDestroySurfaceKHR(m_vulkanInstance, m_presentationSurface, nullptr);
 		vkDestroyDevice(Device::Get().m_device, nullptr);

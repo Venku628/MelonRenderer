@@ -2,7 +2,6 @@
 
 namespace MelonRenderer
 {
-	//TODO: move to individual pipeline creations
 	void PipelineRasterization::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent)
 	{
 		m_physicalDevice = &physicalDevice;
@@ -1015,20 +1014,6 @@ namespace MelonRenderer
 		writes.emplace_back(imageSamplerDescriptorSet);
 
 		vkUpdateDescriptorSets(Device::Get().m_device, writes.size(), writes.data(), 0, nullptr);
-
-		return true;
-	}
-
-	bool PipelineRasterization::AquireNextImage()
-	{
-		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, m_semaphore, m_fence, &m_currentImageIndex);
-		if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR))
-		{
-			Logger::Log("Could not aquire next image.");
-			return false;
-		}
-
-		//TODO: if VK_ERROR_OUT_OF_DATE_KHR, swapchain has to be recreated
 
 		return true;
 	}

@@ -1,8 +1,20 @@
 #include "Pipeline.h"
 
-
 namespace MelonRenderer
 {
+	bool Pipeline::AquireNextImage()
+	{
+		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, m_semaphore, m_fence, &m_currentImageIndex);
+		if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR))
+		{
+			Logger::Log("Could not aquire next image.");
+			return false;
+		}
+
+		//TODO: if VK_ERROR_OUT_OF_DATE_KHR, swapchain has to be recreated
+
+		return true;
+	}
 	bool Pipeline::PresentImage(VkFence* drawFence)
 	{
 		//TODO: add more parameters

@@ -18,7 +18,7 @@ namespace MelonRenderer
 	class Pipeline
 	{
 	public:
-		virtual void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent) = 0;
+		virtual void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent) = 0;
 		virtual void Tick(float timeDelta) = 0;
 		virtual void RecreateSwapchain(VkExtent2D windowExtent) = 0;
 
@@ -48,7 +48,7 @@ namespace MelonRenderer
 		uint32_t m_currentImageIndex;
 		VkSemaphore m_semaphore;
 		VkFence m_fence;
-		virtual bool AquireNextImage() = 0;
+		bool AquireNextImage();
 		bool PresentImage(VkFence* drawFence = nullptr);
 		//---------------------------------------
 

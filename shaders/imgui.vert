@@ -1,32 +1,15 @@
-#version 450
+#version 450 core
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aUV;
+layout(location = 2) in vec4 aColor;
+layout(push_constant) uniform uPushConstant { vec2 uScale; vec2 uTranslate; } pc;
 
-struct Material {
-	int textureIndex;
-};
+out gl_PerVertex { vec4 gl_Position; };
+layout(location = 0) out struct { vec4 Color; vec2 UV; } Out;
 
-layout (std140, binding = 0) uniform bufferVals {
-	mat4 viewProjection;
-} myBufferVals;
-layout (location = 0) in vec3 pos;
-layout (location = 1) in vec3 inColor;
-layout (location = 2) in vec2 inTexCoord;
-
-layout (location = 0) out vec4 outColor;
-layout (location = 1) out vec2 outTexCoord;
-layout (location = 2) flat out Material inMaterial;
-
-layout(push_constant) uniform PER_OBJECT
+void main()
 {
-    mat4 model;
-	int textureIndex;
-} obj;
-
-void main() 
-{
-	vec4 transformedPos = vec4(pos, 1) * obj.model;
-
-	gl_Position = myBufferVals.viewProjection * transformedPos;
-	outColor = vec4(inColor, 1);
-	outTexCoord = inTexCoord;
-	inMaterial.textureIndex = obj.textureIndex;
+    Out.Color = aColor;
+    Out.UV = aUV;
+    gl_Position = vec4(aPos * pc.uScale + pc.uTranslate, 0, 1);
 }

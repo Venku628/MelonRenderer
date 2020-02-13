@@ -101,18 +101,8 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, const char* filePath)
+	bool DeviceMemoryManager::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, unsigned char* pixelData, int width, int height)
 	{
-		//using int because of compatibility issues
-		int width, height, channels;
-		stbi_uc* pixelData = stbi_load(filePath, &width, &height, &channels, STBI_rgb_alpha);
-
-		if (pixelData == nullptr)
-		{
-			Logger::Log("Could not load texture from file path.");
-			return false;
-		}
-
 		VkDeviceSize imageSize = static_cast<double>(width)* static_cast<double>(height) * 4; //4 for STBI_rgb_alpha
 
 		VkBuffer stagingBuffer;
@@ -238,7 +228,15 @@ namespace MelonRenderer
 	{
 		Texture texture;
 
-		if (!CreateTextureImage(texture.m_textureImage, texture.m_textureMemory, filePath))
+		int width, height, channels;
+		unsigned char* pixelData = stbi_load(filePath, &width, &height, &channels, STBI_rgb_alpha);
+		if (pixelData == nullptr)
+		{
+			Logger::Log("Could not load texture from file path.");
+			return false;
+		}
+
+		if (!CreateTextureImage(texture.m_textureImage, texture.m_textureMemory, pixelData, width, height))
 		{
 			Logger::Log("Could not create texture image and memory.");
 			return false;
