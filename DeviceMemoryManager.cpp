@@ -4,7 +4,7 @@
 
 namespace MelonRenderer
 {
-	bool DeviceMemoryManager::Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties)
+	bool DeviceMemoryManager::Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties, DeviceMemoryManager & memoryManager, VkExtent2D windowExtent)
 	{
 		VkCommandPoolCreateInfo cmdPoolInfo = {};
 		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;

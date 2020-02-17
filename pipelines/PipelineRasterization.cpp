@@ -2,24 +2,12 @@
 
 namespace MelonRenderer
 {
-	void PipelineRasterization::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent)
+	void PipelineRasterization::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkExtent2D windowExtent)
 	{
 		m_physicalDevice = &physicalDevice;
 		m_memoryManager = &memoryManager;
 		m_extent = windowExtent;
-		m_outputSurface = outputSurface;
-
-		CreateSwapchain(physicalDevice);
-
-		m_commandBuffers.resize(m_swapchainImages.size());
-		m_commandPools.resize(m_swapchainImages.size());
-		for (int i = 0; i < m_swapchainImages.size(); i++)
-		{
-			CreateCommandBufferPool(m_commandPools[i], VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-			CreateCommandBuffer(m_commandPools[i], m_commandBuffers[i]);
-		}
 		
-
 		DefineVertices();
 		InitCam();
 
@@ -48,10 +36,7 @@ namespace MelonRenderer
 		CreateDescriptorPool();
 		CreateDescriptorSet();
 
-		CreateRenderPass();
 		CreateShaderModules();
-		CreateFramebuffers();
-
 
 		CreateGraphicsPipeline();
 	}
@@ -61,34 +46,22 @@ namespace MelonRenderer
 		Draw(timeDelta);
 	}
 
-	void PipelineRasterization::RecreateSwapchain(VkExtent2D windowExtent)
+	void PipelineRasterization::RecreateOutput(VkExtent2D windowExtent)
 	{
 		vkDeviceWaitIdle(Device::Get().m_device);
-		CleanupSwapchain();
+		CleanupOutput();
 
 		m_extent = windowExtent;
 
-		CreateSwapchain(*m_physicalDevice);
-
-		m_commandBuffers.resize(m_swapchainImages.size());
-		m_commandPools.resize(m_swapchainImages.size());
-		for (int i = 0; i < m_swapchainImages.size(); i++)
-		{
-			CreateCommandBufferPool(m_commandPools[i], VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-			CreateCommandBuffer(m_commandPools[i], m_commandBuffers[i]);
-		}
-
 		CreateDepthBuffer();
 		CreatePipelineLayout();
-		CreateRenderPass();
-		CreateFramebuffers();
 
 		CreateGraphicsPipeline();
 	}
 
 	void PipelineRasterization::Fini()
 	{
-		vkDestroySwapchainKHR(Device::Get().m_device, m_swapchain, nullptr);
+		
 	}
 
 	void PipelineRasterization::DefineVertices()
@@ -133,181 +106,6 @@ namespace MelonRenderer
 			0.0f, 0.0f, 0.5f, 0.f,
 			0.0f, 0.0f, 0.5f, 1.0f);
 		m_modelViewProjection = clip * projection * view * model;
-	}
-
-	bool PipelineRasterization::CreateSwapchain(VkPhysicalDevice& device)
-	{
-		//TODO: make configureable and/or define requirements
-		uint32_t desiredNumberOfImages = 2;
-
-		VkExtent2D desiredSizeOfImages = {};
-		desiredSizeOfImages.width = m_extent.width;
-		desiredSizeOfImages.height = m_extent.height;
-
-		VkImageUsageFlags desiredImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		VkSurfaceTransformFlagBitsKHR desiredTransform;
-
-		if (desiredNumberOfImages < m_outputSurface.capabilites.minImageCount)
-		{
-			desiredNumberOfImages = m_outputSurface.capabilites.minImageCount;
-			Logger::Log("Desired number of images too low, using minimum instead.");
-		}
-
-		if (desiredNumberOfImages > m_outputSurface.capabilites.maxImageCount)
-		{
-			desiredNumberOfImages = m_outputSurface.capabilites.maxImageCount;
-			Logger::Log("Desired number of images too high, using maximum instead.");
-		}
-
-		if (desiredSizeOfImages.width < m_outputSurface.capabilites.minImageExtent.width)
-		{
-			desiredSizeOfImages.width = m_outputSurface.capabilites.minImageExtent.width;
-			Logger::Log("Desired width of images too low, using minimum instead.");
-		}
-		else if (desiredSizeOfImages.width > m_outputSurface.capabilites.maxImageExtent.width)
-		{
-			desiredSizeOfImages.width = m_outputSurface.capabilites.minImageExtent.width;
-			Logger::Log("Desired width of images too high, using maximum instead.");
-		}
-
-		if (desiredSizeOfImages.height < m_outputSurface.capabilites.minImageExtent.height)
-		{
-			desiredSizeOfImages.height = m_outputSurface.capabilites.minImageExtent.height;
-			Logger::Log("Desired height of images too low, using minimum instead.");
-		}
-		else if (desiredSizeOfImages.height > m_outputSurface.capabilites.maxImageExtent.height)
-		{
-			desiredSizeOfImages.height = m_outputSurface.capabilites.minImageExtent.height;
-			Logger::Log("Desired height of images too high, using maximum instead.");
-		}
-
-	//TODO: as soon as requirements are defined, implement bitwise checks for both
-		desiredImageUsage = m_outputSurface.capabilites.supportedUsageFlags;
-		desiredTransform = m_outputSurface.capabilites.currentTransform;
-
-		uint32_t formatCount = 0;
-		VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_outputSurface.surface, &formatCount, nullptr);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not get number of physical device surface formats.");
-			return false;
-		}
-
-		std::vector<VkSurfaceFormatKHR> surfaceFormats{ formatCount };
-		result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_outputSurface.surface, &formatCount, &surfaceFormats[0]);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not get physical device surface formats.");
-			return false;
-		}
-
-		//TODO: define format requirement
-		VkFormat imageFormat = surfaceFormats[0].format;
-		for (auto& surfaceFormat : surfaceFormats)
-		{
-			if (surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM)
-			{
-				imageFormat = surfaceFormat.format;
-				break;
-			}
-		}
-		Device::Get().m_format = imageFormat;
-		VkColorSpaceKHR imageColorSpace = surfaceFormats[0].colorSpace;
-		for (auto& surfaceFormat : surfaceFormats)
-		{
-			if (surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-			{
-				imageColorSpace = surfaceFormat.colorSpace;
-				break;
-			}
-		}
-
-		//store values for later use
-		m_extent.height = desiredSizeOfImages.height;
-		m_extent.width = desiredSizeOfImages.width;
-
-		VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
-		swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		swapchainCreateInfo.pNext = nullptr;
-		swapchainCreateInfo.surface = m_outputSurface.surface;
-		swapchainCreateInfo.minImageCount = desiredNumberOfImages;
-		swapchainCreateInfo.imageFormat = imageFormat;
-		swapchainCreateInfo.imageColorSpace = imageColorSpace;
-		swapchainCreateInfo.imageExtent = desiredSizeOfImages;
-		swapchainCreateInfo.imageArrayLayers = 1;
-		swapchainCreateInfo.imageUsage = desiredImageUsage;
-		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		swapchainCreateInfo.queueFamilyIndexCount = 0;
-		swapchainCreateInfo.pQueueFamilyIndices = nullptr;
-		swapchainCreateInfo.preTransform = desiredTransform;
-		swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		swapchainCreateInfo.presentMode = m_presentMode;
-		swapchainCreateInfo.clipped = VK_TRUE;
-		swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE; //TODO: insert old swapchain if available and destroy after
-
-
-		VkBool32 deviceSupported;
-		vkGetPhysicalDeviceSurfaceSupportKHR(device, m_queueFamilyIndex, m_outputSurface.surface, &deviceSupported);
-		if (!deviceSupported)
-		{
-			Logger::Log("Presentation surface not supported by physical device.");
-			return false;
-		}
-
-		result = vkCreateSwapchainKHR(Device::Get().m_device, &swapchainCreateInfo, nullptr, &m_swapchain);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create swapchain.");
-			return false;
-		}
-
-		// driver may create more images than requested
-		uint32_t actualImageCount = 0;
-		result = vkGetSwapchainImagesKHR(Device::Get().m_device, m_swapchain, &actualImageCount, nullptr);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not get number of swapchain images.");
-			return false;
-		}
-
-		m_swapchainImages.resize(actualImageCount);
-		result = vkGetSwapchainImagesKHR(Device::Get().m_device, m_swapchain, &actualImageCount, &m_swapchainImages[0]);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not enumerate swapchain images.");
-			return false;
-		}
-
-		m_swapchainImageViews.resize(actualImageCount);
-		for (unsigned int i = 0; i < actualImageCount; i++)
-		{
-			VkImageViewCreateInfo colorImageView = {};
-			colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			colorImageView.pNext = NULL;
-			colorImageView.flags = 0;
-			colorImageView.image = m_swapchainImages[i];
-			colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			colorImageView.format = imageFormat;
-			colorImageView.components.r = VK_COMPONENT_SWIZZLE_R;
-			colorImageView.components.g = VK_COMPONENT_SWIZZLE_G;
-			colorImageView.components.b = VK_COMPONENT_SWIZZLE_B;
-			colorImageView.components.a = VK_COMPONENT_SWIZZLE_A;
-			colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			colorImageView.subresourceRange.baseMipLevel = 0;
-			colorImageView.subresourceRange.levelCount = 1;
-			colorImageView.subresourceRange.baseArrayLayer = 0;
-			colorImageView.subresourceRange.layerCount = 1;
-
-
-			result = vkCreateImageView(Device::Get().m_device, &colorImageView, nullptr, &m_swapchainImageViews[i]);
-			if (result != VK_SUCCESS)
-			{
-				Logger::Log("Could not create image view.");
-				return false;
-			}
-		}
-
-		return true;
 	}
 
 	bool PipelineRasterization::CreateDepthBuffer()
@@ -457,72 +255,6 @@ namespace MelonRenderer
 		return true;
 	}
 
-	//simple render pass with color and depth buffer in one subpass
-	bool PipelineRasterization::CreateRenderPass()
-	{
-		VkAttachmentDescription attachments[2];
-		attachments[0].format = VK_FORMAT_B8G8R8A8_UNORM; //TODO is this correct? this is BRG instead of RGB
-		attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; //VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-		attachments[0].flags = 0;
-
-		attachments[1].format = m_depthBufferFormat;
-		attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		attachments[1].flags = 0;
-
-		VkAttachmentReference colorReference = {};
-		colorReference.attachment = 0;
-		colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference depthReference = {};
-		depthReference.attachment = 1;
-		depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkSubpassDescription subpassDescription = {
-			0,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			0,
-			nullptr,
-			1,
-			&colorReference,
-			nullptr,
-			&depthReference,
-			0,
-			nullptr
-		};
-
-		VkRenderPassCreateInfo renderPassInfo = {
-			VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-			nullptr,
-			0,
-			2,
-			attachments,
-			1,
-			&subpassDescription,
-			0,
-			nullptr
-		};
-		VkResult result = vkCreateRenderPass(Device::Get().m_device, &renderPassInfo, nullptr, &m_renderPass);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create render pass.");
-			return false;
-		}
-
-		return true;
-	}
-
 	bool PipelineRasterization::CreateShaderModules()
 	{
 		auto vertShaderCode = readFile("shaders/vert.spv");
@@ -549,39 +281,6 @@ namespace MelonRenderer
 
 		m_shaderStagesV.emplace_back(vertexShader);
 		m_shaderStagesV.emplace_back(fragmentShader);
-
-		return true;
-	}
-
-	bool PipelineRasterization::CreateFramebuffers()
-	{
-		//reuse depthbuffer for all framebuffers
-		VkImageView attachments[2];
-		attachments[1] = m_depthBufferView;
-
-		VkFramebufferCreateInfo framebufferCreateInfo = {
-			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-			nullptr,
-			0,
-			m_renderPass,
-			2,
-			attachments,
-			m_extent.width,
-			m_extent.height,
-			1
-		};
-
-		m_framebuffers.resize(m_swapchainImages.size());
-		for (int i = 0; i < m_swapchainImages.size(); i++)
-		{
-			attachments[0] = m_swapchainImageViews[i];
-			VkResult result = vkCreateFramebuffer(Device::Get().m_device, &framebufferCreateInfo, nullptr, &m_framebuffers[i]);
-			if (result != VK_SUCCESS)
-			{
-				Logger::Log("Could not create framebuffer.");
-				return false;
-			}
-		}
 
 		return true;
 	}
@@ -749,62 +448,6 @@ namespace MelonRenderer
 
 	bool PipelineRasterization::Draw(float timeDelta)
 	{
-		//TODO: make helper function
-		VkCommandBufferBeginInfo cmdBufferInfo = {};
-		cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		cmdBufferInfo.pNext = nullptr;
-		cmdBufferInfo.flags = 0;
-		cmdBufferInfo.pInheritanceInfo = nullptr;
-
-		VkResult result = vkBeginCommandBuffer(m_commandBuffers[m_imageIndex], &cmdBufferInfo);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not begin command buffer for draw.");
-			return false;
-		}
-
-		VkClearValue clearValues[2];
-		clearValues[0].color.float32[0] = 0.2f;
-		clearValues[0].color.float32[1] = 0.2f;
-		clearValues[0].color.float32[2] = 0.2f;
-		clearValues[0].color.float32[3] = 0.2f;
-		clearValues[1].depthStencil.depth = 1.0f;
-		clearValues[1].depthStencil.stencil = 0;
-
-		VkSemaphore imageSemaphore;
-		VkSemaphoreCreateInfo imageSemaphoreInfo;
-		imageSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		imageSemaphoreInfo.pNext = nullptr;
-		imageSemaphoreInfo.flags = 0;
-
-		result = vkCreateSemaphore(Device::Get().m_device, &imageSemaphoreInfo, nullptr, &imageSemaphore);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create draw semaphore.");
-			return false;
-		}
-
-		result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, UINT64_MAX, imageSemaphore, VK_NULL_HANDLE, &m_imageIndex);
-		if (result != VK_SUCCESS) //TODO: handle VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
-		{
-			Logger::Log("Could not aquire next image for draw.");
-			return false;
-		}
-
-		VkRenderPassBeginInfo renderPassBegin;
-		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassBegin.pNext = nullptr;
-		renderPassBegin.renderPass = m_renderPass;
-		renderPassBegin.framebuffer = m_framebuffers[m_imageIndex];
-		renderPassBegin.renderArea.offset.x = 0;
-		renderPassBegin.renderArea.offset.y = 0;
-		renderPassBegin.renderArea.extent.width = m_extent.width;
-		renderPassBegin.renderArea.extent.height = m_extent.height;
-		renderPassBegin.clearValueCount = 2;
-		renderPassBegin.pClearValues = clearValues;
-
-		vkCmdBeginRenderPass(m_commandBuffers[m_imageIndex], &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
-
 		//TODO: scale for multiple objects
 		ObjectData vertexTransformMatrix{ mat4(1.f,0.f,0.f,2.f,
 			0.f,1.f,0.f,0.f,
@@ -850,42 +493,6 @@ namespace MelonRenderer
 			drawable.Tick(m_commandBuffers[m_imageIndex], m_pipelineLayout);
 		}
 		//------------------------------------
-
-		vkCmdEndRenderPass(m_commandBuffers[m_imageIndex]);
-		result = vkEndCommandBuffer(m_commandBuffers[m_imageIndex]);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not end command buffer for draw.");
-			return false;
-		}
-
-		VkFenceCreateInfo fenceInfo;
-		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fenceInfo.pNext = nullptr;
-		fenceInfo.flags = 0;
-		VkFence drawFence;
-		vkCreateFence(Device::Get().m_device, &fenceInfo, nullptr, &drawFence);
-
-		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		VkSubmitInfo submitInfo[1] = {};
-		submitInfo[0].pNext = nullptr;
-		submitInfo[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo[0].waitSemaphoreCount = 1;
-		submitInfo[0].pWaitSemaphores = &imageSemaphore;
-		submitInfo[0].pWaitDstStageMask = &pipelineStageFlags;
-		submitInfo[0].commandBufferCount = 1;
-		const VkCommandBuffer cmd[] = { m_commandBuffers[m_imageIndex] };
-		submitInfo[0].pCommandBuffers = cmd;
-		submitInfo[0].signalSemaphoreCount = 0;
-		submitInfo[0].pSignalSemaphores = nullptr;
-		result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, submitInfo, drawFence);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not submit draw queue.");
-			return false;
-		}
-
-		//PresentImage(&drawFence);
 
 		return true;
 	}

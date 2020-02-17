@@ -244,6 +244,7 @@
     <ClInclude Include="pipelines\Pipeline.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="Swapchain.h" />
     <ClInclude Include="Texture.h" />
   </ItemGroup>
   <ItemGroup>
@@ -260,6 +261,7 @@
     <ClCompile Include="pipelines\PipelineRasterization.cpp" />
     <ClCompile Include="pipelines\Pipeline.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Swapchain.cpp" />
     <ClCompile Include="Texture.cpp" />
   </ItemGroup>
   <ItemGroup>

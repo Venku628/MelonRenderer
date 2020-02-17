@@ -6,6 +6,7 @@ namespace MelonRenderer
 
 	void MelonRenderer::Renderer::Init()
 	{
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		CreateGLFWWindow();
 
 		timeLast = timeNow = std::chrono::high_resolution_clock::now();
@@ -50,8 +51,8 @@ namespace MelonRenderer
 		ImGui::GetIO().DisplaySize.y = defaultHeight;
 		GlfwInputInit();
 
-		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
-		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
+		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_extent);
+		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_extent);
 
 		Logger::Log("Loading complete.");
 	}
@@ -65,9 +66,10 @@ namespace MelonRenderer
 		Logger::Log(logMessage.append(std::to_string(fps)));
 		timeLast = timeNow;
 
-
+		BeginRenderpass();
 		m_rasterizationPipeline.Tick(timeDelta/10000000.f);
 		m_imguiPipeline.Tick(timeDelta/10000000.f);
+		EndRenderpass();
 
 		return true;
 	}
@@ -92,8 +94,8 @@ namespace MelonRenderer
 				ImGui::GetIO().DisplaySize.y = glfwHeight;
 
 				Logger::Log("Recreating swapchain.");
-				m_rasterizationPipeline.RecreateSwapchain(m_extent);
-				m_imguiPipeline.RecreateSwapchain(m_extent);
+				m_rasterizationPipeline.RecreateOutput(m_extent);
+				m_imguiPipeline.RecreateOutput(m_extent);
 			}
 			
 			GlfwInputTick();
@@ -258,7 +260,8 @@ namespace MelonRenderer
 
 #ifdef _DEBUG
 		std::vector<const char*> validationLayers = {
-			"VK_LAYER_KHRONOS_validation"
+			//"VK_LAYER_KHRONOS_validation",
+			"VK_LAYER_LUNARG_standard_validation"
 		};
 		instanceCreateInfo.enabledLayerCount = static_cast<unsigned int>(validationLayers.size());
 		instanceCreateInfo.ppEnabledLayerNames = validationLayers.data();
@@ -540,6 +543,127 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		CheckPresentationSurfaceCapabilities(device);
 
+		return true;
+	}
+
+	bool Renderer::CreateRenderpass()
+	{ 
+		VkAttachmentDescription colorAttachment = {};
+		colorAttachment.format = VK_FORMAT_B8G8R8A8_UNORM; //TODO: parameter
+		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		VkAttachmentDescription depthAttachment = {};
+		depthAttachment.format = VK_FORMAT_D16_UNORM; //TODO: parameter
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference colorAttachmentReference = {};
+		colorAttachmentReference.attachment = 0;
+		colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthAttachmentReference = {};
+		depthAttachmentReference.attachment = 1;
+		depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpasses[2];
+		subpasses[0] = {};
+		subpasses[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpasses[0].colorAttachmentCount = 1;
+		subpasses[0].pColorAttachments = &colorAttachmentReference;
+		subpasses[0].pDepthStencilAttachment = nullptr;
+
+		subpasses[1] = {};
+		subpasses[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpasses[1].colorAttachmentCount = 1;
+		subpasses[1].pColorAttachments = &colorAttachmentReference;
+		subpasses[1].pDepthStencilAttachment = &depthAttachmentReference;
+
+		VkSubpassDependency dependency = {};
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = 0;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.srcAccessMask = 0;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+		VkSubpassDependency dependencies[2];
+
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		dependencies[1].srcSubpass = 0;
+		dependencies[1].dstSubpass = 1;  // VK_SUBPASS_EXTERNAL;
+		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[1].srcAccessMask =	VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		VkAttachmentDescription attachments[2] = { colorAttachment, depthAttachment };
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = 2;
+		renderPassInfo.pAttachments = attachments;
+		renderPassInfo.subpassCount = 2;
+		renderPassInfo.pSubpasses = subpasses;
+		renderPassInfo.dependencyCount = 2;
+		renderPassInfo.pDependencies = dependencies;
+		VkResult result = vkCreateRenderPass(Device::Get().m_device, &renderPassInfo, nullptr, &m_renderpass);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create renderpass.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::BeginRenderpass()
+	{
+		VkClearValue clearValues[2];
+		clearValues[0].color.float32[0] = 0.45f;
+		clearValues[0].color.float32[1] = 0.55f;
+		clearValues[0].color.float32[2] = 0.6f;
+		clearValues[0].color.float32[3] = 1.f;
+		clearValues[0].depthStencil.depth = 1.f;
+		clearValues[0].depthStencil.stencil = 0.f;
+		
+
+		VkRenderPassBeginInfo renderPassBegin = {};
+		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBegin.pNext = nullptr;
+		renderPassBegin.renderPass = m_renderpass;
+		renderPassBegin.framebuffer = m_framebuffers[m_imageIndex];
+		renderPassBegin.renderArea.offset.x = 0;
+		renderPassBegin.renderArea.offset.y = 0;
+		renderPassBegin.renderArea.extent.width = m_extent.width;
+		renderPassBegin.renderArea.extent.height = m_extent.height;
+		renderPassBegin.clearValueCount = 1;
+		renderPassBegin.pClearValues = clearValues;
+		vkCmdBeginRenderPass(m_commandBuffers[m_imageIndex], &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
+
+		return true;
+	}
+
+	bool Renderer::EndRenderpass()
+	{
+		vkCmdEndRenderPass(m_commandBuffer[m_frameIndex]);
 		return true;
 	}
 

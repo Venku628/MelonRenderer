@@ -9,26 +9,19 @@
 
 namespace MelonRenderer
 {
-	struct OutputSurface
-	{
-		VkSurfaceCapabilitiesKHR capabilites;
-		VkSurfaceKHR surface;
-	};
-
 	class Pipeline
 	{
 	public:
-		virtual void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, OutputSurface outputSurface, VkExtent2D windowExtent) = 0;
+		virtual void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkExtent2D windowExtent) = 0;
 		virtual void Tick(float timeDelta) = 0;
-		virtual void RecreateSwapchain(VkExtent2D windowExtent) = 0;
+		virtual void RecreateOutput(VkExtent2D windowExtent) = 0;
 
 		virtual void Fini() = 0;
 
 	protected:
 		virtual void DefineVertices() = 0;
 
-		virtual bool CreateSwapchain(VkPhysicalDevice& device) = 0;
-		bool CleanupSwapchain();
+		bool CleanupOutput();
 
 		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
 		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
@@ -36,27 +29,12 @@ namespace MelonRenderer
 		const uint32_t m_numberOfSamples = 1;
 		VkExtent2D m_extent;
 
-		OutputSurface m_outputSurface;
-
 		VkPhysicalDevice* m_physicalDevice;
 
 		//---------------------------------------
-		VkSwapchainKHR m_swapchain;
-		std::vector<VkImage> m_swapchainImages;
-		std::vector<VkImageView> m_swapchainImageViews;
 		VkPresentModeKHR m_presentMode;
 		VkFence m_fence;
-		bool AquireNextImage();
-		bool PresentImage(VkFence* drawFence = nullptr);
 		//---------------------------------------
-
-		//Renderpass
-		//---------------------------------------
-		VkRenderPass m_renderPass;
-
-		virtual bool CreateRenderPass() = 0;
-		//---------------------------------------
-
 
 		//shader modules
 		//---------------------------------------
@@ -68,15 +46,6 @@ namespace MelonRenderer
 		virtual bool CreateShaderModules() = 0;
 		//---------------------------------------
 
-
-		//frame buffers
-		//---------------------------------------
-		std::vector<VkFramebuffer> m_framebuffers;
-
-		virtual bool CreateFramebuffers() = 0;
-		//---------------------------------------
-
-
 		//vertex buffer
 		//---------------------------------------
 		std::vector<VkVertexInputAttributeDescription> m_vertexInputAttributes;
@@ -85,12 +54,10 @@ namespace MelonRenderer
 
 		//---------------------------------------
 		VkPipeline m_pipeline;
-
 		virtual bool CreateGraphicsPipeline() = 0;
 		//---------------------------------------
 
 		virtual bool Draw(float timeDelta) = 0;
-		uint32_t m_imageIndex;
 		VkViewport m_viewport;
 		VkRect2D m_scissorRect2D;
 
@@ -103,13 +70,6 @@ namespace MelonRenderer
 		virtual bool CreatePipelineLayout() = 0;
 		virtual bool CreateDescriptorPool() = 0;
 		virtual bool CreateDescriptorSet() = 0;
-		//---------------------------------------
-
-		// temporarily only one of each
-		//---------------------------------------
-		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined
-		std::vector<VkCommandPool> m_commandPools;
-		std::vector<VkCommandBuffer> m_commandBuffers;
 		//---------------------------------------
 
 		DeviceMemoryManager* m_memoryManager;

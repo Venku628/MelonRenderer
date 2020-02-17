@@ -4,6 +4,7 @@
 #include "DeviceMemoryManager.h"
 #include "pipelines/PipelineRasterization.h"
 #include "pipelines/PipelineImGui.h"
+#include "Swapchain.h"
 
 #include <glfw3.h>
 #include "imgui/imgui.h"
@@ -105,6 +106,13 @@ namespace MelonRenderer
 
 		bool CreateLogicalDeviceAndQueue(VkPhysicalDevice& device);
 
+		//single renderpass for all pipelines
+		bool CreateRenderpass();
+		bool BeginRenderpass();
+		bool EndRenderpass();
+
+		VkRenderPass m_renderpass;
+
 		//input
 		//-------------------------------------
 		bool GlfwInputInit();
@@ -119,6 +127,8 @@ namespace MelonRenderer
 		VkPresentModeKHR m_presentMode;
 		const uint32_t m_queueFamilyIndex = 0;
 		VkExtent2D m_extent;
+
+		Swapchain m_swapchain;
 
 		PipelineRasterization m_rasterizationPipeline;
 		PipelineImGui m_imguiPipeline;
@@ -148,6 +158,5 @@ namespace MelonRenderer
 		VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties;
 		VkInstance m_vulkanInstance;
 		VULKAN_LIBRARY_TYPE m_vulkanLibrary;
-		
 	};
 }

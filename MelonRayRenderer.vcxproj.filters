@@ -72,6 +72,9 @@
     <ClInclude Include="imgui\imstb_truetype.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="Swapchain.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -114,6 +117,9 @@
       <Filter>Quelldateien</Filter>
     </ClCompile>
     <ClCompile Include="imgui\imgui_widgets.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Swapchain.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>
