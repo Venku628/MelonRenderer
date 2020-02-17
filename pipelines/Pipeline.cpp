@@ -4,12 +4,14 @@ namespace MelonRenderer
 {
 	bool Pipeline::AquireNextImage()
 	{
-		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, m_semaphore, m_fence, &m_currentImageIndex);
+		/*
+		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, m_semaphore, m_fence, &m_imageIndex);
 		if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR))
 		{
 			Logger::Log("Could not aquire next image.");
 			return false;
 		}
+		*/
 
 		//TODO: if VK_ERROR_OUT_OF_DATE_KHR, swapchain has to be recreated
 
@@ -32,9 +34,7 @@ namespace MelonRenderer
 		VkResult result;
 		if (drawFence != nullptr)
 		{
-			do {
-				result = vkWaitForFences(Device::Get().m_device, 1, drawFence, VK_TRUE, 10000000);
-			} while (result == VK_TIMEOUT);
+			result = vkWaitForFences(Device::Get().m_device, 1, drawFence, VK_TRUE, UINT64_MAX);
 			if (result != VK_SUCCESS)
 			{
 				Logger::Log("Could not wait for draw fences.");
@@ -76,7 +76,10 @@ namespace MelonRenderer
 			vkDestroyFramebuffer(Device::Get().m_device, framebuffer, nullptr);
 		}
 
-		vkFreeCommandBuffers(Device::Get().m_device, m_multipurposeCommandPool, static_cast<uint32_t>(1), &m_multipurposeCommandBuffer);
+		for (int i = 0; i < m_commandPools.size(); i++)
+		{
+			vkFreeCommandBuffers(Device::Get().m_device, m_commandPools[i], static_cast<uint32_t>(1), &m_commandBuffers[i]);
+		}
 
 		vkDestroyPipeline(Device::Get().m_device, m_pipeline, nullptr);
 		vkDestroyPipelineLayout(Device::Get().m_device, m_pipelineLayout, nullptr);

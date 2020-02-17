@@ -12,13 +12,18 @@ namespace MelonRenderer
 
 		CreateSwapchain(physicalDevice);
 
-		//rendering cmd buffer
-		CreateCommandBufferPool(m_multipurposeCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+		m_commandBuffers.resize(m_swapchainImages.size());
+		m_commandPools.resize(m_swapchainImages.size());
+		for (int i = 0; i < m_swapchainImages.size(); i++)
+		{
+			CreateCommandBufferPool(m_commandPools[i], VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+			CreateCommandBuffer(m_commandPools[i], m_commandBuffers[i]);
+		}
 
 		DefineVertices();
 
 		CreateFontTexture();
+		CreateFence();
 
 		CreatePipelineLayout();
 		CreateDescriptorPool();
@@ -44,7 +49,15 @@ namespace MelonRenderer
 		m_extent = windowExtent;
 
 		CreateSwapchain(*m_physicalDevice);
-		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+
+		m_commandBuffers.resize(m_swapchainImages.size());
+		m_commandPools.resize(m_swapchainImages.size());
+		for (int i = 0; i < m_swapchainImages.size(); i++)
+		{
+			CreateCommandBufferPool(m_commandPools[i], VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+			CreateCommandBuffer(m_commandPools[i], m_commandBuffers[i]);
+		}
+
 		CreatePipelineLayout();
 		CreateRenderPass();
 		CreateFramebuffers();
@@ -226,7 +239,7 @@ namespace MelonRenderer
 		colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		colorImageView.pNext = NULL;
 		colorImageView.flags = 0;
-		//colorImageView.image = m_swapchainImages[i]      in for below
+		//colorImageView.image = m_swapchainImages[i]      //in for loop below 
 		colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		colorImageView.format = imageFormat;
 		colorImageView.components.r = VK_COMPONENT_SWIZZLE_R;
@@ -267,9 +280,9 @@ namespace MelonRenderer
 		attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		attachments[0].flags = 0;
 
-		VkAttachmentReference colorReference = {};
-		colorReference.attachment = 0;
-		colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		VkAttachmentReference colorAttachment = {};
+		colorAttachment.attachment = 0;
+		colorAttachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDescription subpassDescription = {};
 		subpassDescription.flags = 0;
@@ -277,7 +290,7 @@ namespace MelonRenderer
 		subpassDescription.inputAttachmentCount = 0;
 		subpassDescription.pInputAttachments = nullptr;
 		subpassDescription.colorAttachmentCount = 1;
-		subpassDescription.pColorAttachments = &colorReference;
+		subpassDescription.pColorAttachments = &colorAttachment;
 		subpassDescription.pResolveAttachments = nullptr;
 		subpassDescription.pDepthStencilAttachment = nullptr;
 		subpassDescription.preserveAttachmentCount = 0;
@@ -396,7 +409,7 @@ namespace MelonRenderer
 		pipelineInputAssemblyInfo.flags = 0;
 		pipelineInputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-		VkPipelineRasterizationStateCreateInfo pipelineRasterizationInfo;
+		VkPipelineRasterizationStateCreateInfo pipelineRasterizationInfo = {};
 		pipelineRasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		pipelineRasterizationInfo.pNext = nullptr;
 		pipelineRasterizationInfo.flags = 0;
@@ -415,7 +428,7 @@ namespace MelonRenderer
 		colorBlendAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		colorBlendAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 
-		VkPipelineColorBlendStateCreateInfo pipelineColorBlendInfo;
+		VkPipelineColorBlendStateCreateInfo pipelineColorBlendInfo = {};
 		pipelineColorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		pipelineColorBlendInfo.pNext = nullptr;
 		pipelineColorBlendInfo.flags = 0;
@@ -429,7 +442,7 @@ namespace MelonRenderer
 		pipelineViewportInfo.viewportCount = 1;
 		pipelineViewportInfo.scissorCount = 1;
 
-		VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilInfo;
+		VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilInfo = {};
 		pipelineDepthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 		pipelineDepthStencilInfo.pNext = nullptr;
 		pipelineDepthStencilInfo.flags = 0;
@@ -437,7 +450,7 @@ namespace MelonRenderer
 		pipelineDepthStencilInfo.depthWriteEnable = VK_FALSE;
 
 		//setup for no multisampling for now, imgui does not profit a lot from MSAA according to it´s documentation
-		VkPipelineMultisampleStateCreateInfo pipelineMultisampleInfo;
+		VkPipelineMultisampleStateCreateInfo pipelineMultisampleInfo = {};
 		pipelineMultisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		pipelineMultisampleInfo.pNext = nullptr;
 		pipelineMultisampleInfo.flags = 0;
@@ -448,7 +461,7 @@ namespace MelonRenderer
 		pipelineMultisampleInfo.alphaToOneEnable = VK_FALSE;
 		pipelineMultisampleInfo.minSampleShading = 0.0;
 
-		VkGraphicsPipelineCreateInfo pipeline;
+		VkGraphicsPipelineCreateInfo pipeline = {};
 		pipeline.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipeline.pNext = nullptr;
 		pipeline.flags = 0;
@@ -478,51 +491,70 @@ namespace MelonRenderer
 
 		return true;
 	}
+
 	bool PipelineImGui::Draw(float timeDelta)
 	{
-		//TODO: make helper function
-		VkCommandBufferBeginInfo cmdBufferInfo = {};
-		cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		cmdBufferInfo.pNext = nullptr;
-		cmdBufferInfo.flags = 0;
-		cmdBufferInfo.pInheritanceInfo = nullptr;
-
-		VkResult result = vkBeginCommandBuffer(m_multipurposeCommandBuffer, &cmdBufferInfo);
+		VkSemaphore imageAquiredSemaphore;
+		VkSemaphoreCreateInfo semaphoreInfo;
+		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		semaphoreInfo.pNext = nullptr;
+		semaphoreInfo.flags = 0;
+		VkResult result = vkCreateSemaphore(Device::Get().m_device, &semaphoreInfo, nullptr, &imageAquiredSemaphore);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not begin command buffer for draw.");
+			Logger::Log("Could not create image aquired semaphore.");
 			return false;
 		}
 
-		VkClearValue clearValues[2];
-		clearValues[0].color.float32[0] = 0.2f;
-		clearValues[0].color.float32[1] = 0.2f;
-		clearValues[0].color.float32[2] = 0.2f;
-		clearValues[0].color.float32[3] = 0.2f;
-		clearValues[1].depthStencil.depth = 1.0f;
-		clearValues[1].depthStencil.stencil = 0;
-
-		VkSemaphore imageSemaphore;
-		VkSemaphoreCreateInfo imageSemaphoreInfo;
-		imageSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		imageSemaphoreInfo.pNext = nullptr;
-		imageSemaphoreInfo.flags = 0;
-
-		result = vkCreateSemaphore(Device::Get().m_device, &imageSemaphoreInfo, nullptr, &imageSemaphore);
+		VkSemaphore renderCompleteSemaphore;
+		result = vkCreateSemaphore(Device::Get().m_device, &semaphoreInfo, nullptr, &renderCompleteSemaphore);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not create draw semaphore.");
+			Logger::Log("Could not create render complete semaphore.");
 			return false;
 		}
 
-		result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, UINT64_MAX, imageSemaphore, VK_NULL_HANDLE, &m_imageIndex);
+		result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, UINT64_MAX, imageAquiredSemaphore, VK_NULL_HANDLE, &m_imageIndex);
 		if (result != VK_SUCCESS) //TODO: handle VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 		{
 			Logger::Log("Could not aquire next image for draw.");
 			return false;
 		}
 
-		VkRenderPassBeginInfo renderPassBegin;
+
+		result = vkWaitForFences(Device::Get().m_device, 1, &m_fence, VK_TRUE, UINT64_MAX);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not wait for draw fences.");
+			return false;
+		}
+
+		result = vkResetFences(Device::Get().m_device, 1, &m_fence);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not reset draw fences.");
+			return false;
+		}
+
+		VkClearValue clearValues[1];
+		clearValues[0].color.float32[0] = 0.45f;
+		clearValues[0].color.float32[1] = 0.55f;
+		clearValues[0].color.float32[2] = 0.6f;
+		clearValues[0].color.float32[3] = 1.f;
+
+		VkCommandBufferBeginInfo cmdBufferInfo = {};
+		cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		cmdBufferInfo.pNext = nullptr;
+		cmdBufferInfo.flags = 0;
+		cmdBufferInfo.pInheritanceInfo = nullptr;
+		result = vkBeginCommandBuffer(m_commandBuffers[m_imageIndex], &cmdBufferInfo);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not begin command buffer for draw.");
+			return false;
+		}
+
+		VkRenderPassBeginInfo renderPassBegin = {};
 		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassBegin.pNext = nullptr;
 		renderPassBegin.renderPass = m_renderPass;
@@ -531,111 +563,123 @@ namespace MelonRenderer
 		renderPassBegin.renderArea.offset.y = 0;
 		renderPassBegin.renderArea.extent.width = m_extent.width;
 		renderPassBegin.renderArea.extent.height = m_extent.height;
-		renderPassBegin.clearValueCount = 2;
+		renderPassBegin.clearValueCount = 1;
 		renderPassBegin.pClearValues = clearValues;
+		vkCmdBeginRenderPass(m_commandBuffers[m_imageIndex], &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
 
-		vkCmdBeginRenderPass(m_multipurposeCommandBuffer, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
-
-		CreateImGuiDrawDataBuffer();
-		CreateRenderState();
-
-		ImDrawData* imguiDrawData = ImGui::GetDrawData();
-		// Will project scissor/clipping rectangles into framebuffer space
-		ImVec2 clip_off = imguiDrawData->DisplayPos;         // (0,0) unless using multi-viewports
-		ImVec2 clip_scale = imguiDrawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
-
-		// Render command lists
-		// (Because we merged all buffers into a single one, we maintain our own offset into them)
-		int vertexOffset = 0;
-		int indexOffset = 0;
-		for (int n = 0; n < imguiDrawData->CmdListsCount; n++)
+		if(CreateImGuiDrawDataBuffer())
 		{
-			const ImDrawList* imguiCmdList = imguiDrawData->CmdLists[n];
-			for (int cmd_i = 0; cmd_i < imguiCmdList->CmdBuffer.Size; cmd_i++)
+			CreateRenderState();
+
+			ImDrawData* imguiDrawData = ImGui::GetDrawData();
+			// Will project scissor/clipping rectangles into framebuffer space
+			ImVec2 clipOff = imguiDrawData->DisplayPos;         // (0,0) unless using multi-viewports
+			ImVec2 clipScale = imguiDrawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
+			// Render command lists
+			// (Because we merged all buffers into a single one, we maintain our own offset into them)
+			int vertexOffset = 0;
+			int indexOffset = 0;
+			for (int n = 0; n < imguiDrawData->CmdListsCount; n++)
 			{
-				const ImDrawCmd* currentCommandBuffer = &imguiCmdList->CmdBuffer[cmd_i];
-				if (currentCommandBuffer->UserCallback != NULL)
+				const ImDrawList* imguiCmdList = imguiDrawData->CmdLists[n];
+				for (int cmd_i = 0; cmd_i < imguiCmdList->CmdBuffer.Size; cmd_i++)
 				{
-					// User callback, registered via ImDrawList::AddCallback()
-					// (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-					if (currentCommandBuffer->UserCallback == ImDrawCallback_ResetRenderState)
-						CreateRenderState();
-					else
-						currentCommandBuffer->UserCallback(imguiCmdList, currentCommandBuffer);
-				}
-				else
-				{
-					// Project scissor/clipping rectangles into framebuffer space
-					ImVec4 clip_rect;
-					clip_rect.x = (currentCommandBuffer->ClipRect.x - clip_off.x) * clip_scale.x;
-					clip_rect.y = (currentCommandBuffer->ClipRect.y - clip_off.y) * clip_scale.y;
-					clip_rect.z = (currentCommandBuffer->ClipRect.z - clip_off.x) * clip_scale.x;
-					clip_rect.w = (currentCommandBuffer->ClipRect.w - clip_off.y) * clip_scale.y;
-
-					if (clip_rect.x < m_extent.width && clip_rect.y < m_extent.height && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
+					const ImDrawCmd* imguiDrawCommand = &imguiCmdList->CmdBuffer[cmd_i];
+					if (imguiDrawCommand->UserCallback != NULL)
 					{
-						// Negative offsets are illegal for vkCmdSetScissor
-						if (clip_rect.x < 0.0f)
-							clip_rect.x = 0.0f;
-						if (clip_rect.y < 0.0f)
-							clip_rect.y = 0.0f;
+						// User callback, registered via ImDrawList::AddCallback()
+						// (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
+						if (imguiDrawCommand->UserCallback == ImDrawCallback_ResetRenderState)
+							CreateRenderState();
+						else
+							imguiDrawCommand->UserCallback(imguiCmdList, imguiDrawCommand);
+					}
+					else
+					{
+						// Project scissor/clipping rectangles into framebuffer space
+						ImVec4 clip_rect;
+						clip_rect.x = (imguiDrawCommand->ClipRect.x - clipOff.x) * clipScale.x;
+						clip_rect.y = (imguiDrawCommand->ClipRect.y - clipOff.y) * clipScale.y;
+						clip_rect.z = (imguiDrawCommand->ClipRect.z - clipOff.x) * clipScale.x;
+						clip_rect.w = (imguiDrawCommand->ClipRect.w - clipOff.y) * clipScale.y;
 
-						// Apply scissor/clipping rectangle
-						VkRect2D scissor;
-						scissor.offset.x = (int32_t)(clip_rect.x);
-						scissor.offset.y = (int32_t)(clip_rect.y);
-						scissor.extent.width = (uint32_t)(clip_rect.z - clip_rect.x);
-						scissor.extent.height = (uint32_t)(clip_rect.w - clip_rect.y);
-						vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &scissor);
+						if (clip_rect.x < m_extent.width && clip_rect.y < m_extent.height && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
+						{
+							// Negative offsets are illegal for vkCmdSetScissor
+							if (clip_rect.x < 0.0f)
+								clip_rect.x = 0.0f;
+							if (clip_rect.y < 0.0f)
+								clip_rect.y = 0.0f;
 
-						// Draw
-						vkCmdDrawIndexed(m_multipurposeCommandBuffer, currentCommandBuffer->ElemCount, 1, currentCommandBuffer->IdxOffset + indexOffset, 
-							currentCommandBuffer->VtxOffset + vertexOffset, 0);
+							// Apply scissor/clipping rectangle
+							VkRect2D scissor;
+							scissor.offset.x = (int32_t)(clip_rect.x);
+							scissor.offset.y = (int32_t)(clip_rect.y);
+							scissor.extent.width = (uint32_t)(clip_rect.z - clip_rect.x);
+							scissor.extent.height = (uint32_t)(clip_rect.w - clip_rect.y);
+							vkCmdSetScissor(m_commandBuffers[m_imageIndex], 0, 1, &scissor);
+
+							// Draw
+
+							vkCmdDrawIndexed(m_commandBuffers[m_imageIndex], imguiDrawCommand->ElemCount, 1, imguiDrawCommand->IdxOffset + indexOffset,
+								imguiDrawCommand->VtxOffset + vertexOffset, 0);
+
+						}
 					}
 				}
+				indexOffset += imguiCmdList->IdxBuffer.Size;
+				vertexOffset += imguiCmdList->VtxBuffer.Size;
 			}
-			indexOffset += imguiCmdList->IdxBuffer.Size;
-			vertexOffset += imguiCmdList->VtxBuffer.Size;
 		}
 
-		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
-		result = vkEndCommandBuffer(m_multipurposeCommandBuffer);
+		vkCmdEndRenderPass(m_commandBuffers[m_imageIndex]);
+		result = vkEndCommandBuffer(m_commandBuffers[m_imageIndex]);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not end command buffer for draw.");
 			return false;
 		}
 
-		VkFenceCreateInfo fenceInfo;
-		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fenceInfo.pNext = nullptr;
-		fenceInfo.flags = 0;
-		VkFence drawFence;
-		vkCreateFence(Device::Get().m_device, &fenceInfo, nullptr, &drawFence);
-
 		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		VkSubmitInfo submitInfo[1] = {};
 		submitInfo[0].pNext = nullptr;
 		submitInfo[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submitInfo[0].waitSemaphoreCount = 1;
-		submitInfo[0].pWaitSemaphores = &imageSemaphore;
+		submitInfo[0].pWaitSemaphores = &imageAquiredSemaphore;
 		submitInfo[0].pWaitDstStageMask = &pipelineStageFlags;
 		submitInfo[0].commandBufferCount = 1;
-		const VkCommandBuffer cmd[] = { m_multipurposeCommandBuffer };
+		const VkCommandBuffer cmd[] = { m_commandBuffers[m_imageIndex] };
 		submitInfo[0].pCommandBuffers = cmd;
-		submitInfo[0].signalSemaphoreCount = 0;
-		submitInfo[0].pSignalSemaphores = nullptr;
-		result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, submitInfo, drawFence);
+		submitInfo[0].signalSemaphoreCount = 1; 
+		submitInfo[0].pSignalSemaphores = &renderCompleteSemaphore;
+		result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, submitInfo, m_fence);
 		if (result != VK_SUCCESS)
-		{
+		{			
 			Logger::Log("Could not submit draw queue.");
 			return false;
 		}
 
-		PresentImage(&drawFence);
+		VkPresentInfoKHR presentInfo;
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.pNext = nullptr;
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = &m_swapchain;
+		presentInfo.pImageIndices = &m_imageIndex;
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = &renderCompleteSemaphore;
+		presentInfo.pResults = nullptr;
+
+		result = vkQueuePresentKHR(Device::Get().m_multipurposeQueue, &presentInfo);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not present the draw queue.");
+			return false;
+		}
 
 		return true;
 	}
+
 	bool PipelineImGui::CreatePipelineLayout()
 	{
 		if (!m_fontSampler)
@@ -649,18 +693,15 @@ namespace MelonRenderer
 		binding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		binding[0].pImmutableSamplers = &m_fontSampler;
 
-		VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {
-			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			nullptr,
-			0,
-			1,
-			binding
-		};
+		VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {};
+		descriptorLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		descriptorLayoutInfo.bindingCount = 1;
+		descriptorLayoutInfo.pBindings = binding;
 		m_descriptorSetLayouts.resize(1);
 		VkResult result = vkCreateDescriptorSetLayout(Device::Get().m_device, &descriptorLayoutInfo, nullptr, m_descriptorSetLayouts.data());
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not create uniform buffer descriptor set layout.");
+			Logger::Log("Could not create descriptor set layout.");
 			return false;
 		}
 
@@ -687,6 +728,7 @@ namespace MelonRenderer
 
 		return true;
 	}
+
 	bool PipelineImGui::CreateDescriptorPool()
 	{
 		VkDescriptorPoolSize descriptorPoolSizes[1];
@@ -710,6 +752,7 @@ namespace MelonRenderer
 
 		return true;
 	}
+
 	bool PipelineImGui::CreateDescriptorSet()
 	{
 		VkDescriptorSetAllocateInfo allocInfo;
@@ -745,6 +788,7 @@ namespace MelonRenderer
 
 		return true;
 	}
+
 	bool PipelineImGui::CreateFontSampler()
 	{
 		VkSamplerCreateInfo samplerCreateInfo = {};
@@ -767,24 +811,36 @@ namespace MelonRenderer
 
 		return true;
 	}
+
+	bool PipelineImGui::CreateFence()
+	{
+		VkFenceCreateInfo fenceInfo = {};
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceInfo.pNext = nullptr;
+		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+		vkCreateFence(Device::Get().m_device, &fenceInfo, nullptr, &m_fence);
+
+		return true;
+	}
+
 	bool PipelineImGui::CreateRenderState()
 	{
-		vkCmdBindPipeline(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-		vkCmdBindDescriptorSets(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
+		vkCmdBindPipeline(m_commandBuffers[m_imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+		vkCmdBindDescriptorSets(m_commandBuffers[m_imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
 			m_descriptorSets.data(), 0, nullptr);
 
 		VkBuffer vertex_buffers[1] = { m_vertexBuffer };
 		VkDeviceSize vertex_offset[1] = { 0 };
-		vkCmdBindVertexBuffers(m_multipurposeCommandBuffer, 0, 1, vertex_buffers, vertex_offset);
-		vkCmdBindIndexBuffer(m_multipurposeCommandBuffer, m_indexBuffer, 0, sizeof(ImDrawIdx) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(m_commandBuffers[m_imageIndex], 0, 1, vertex_buffers, vertex_offset);
+		vkCmdBindIndexBuffer(m_commandBuffers[m_imageIndex], m_indexBuffer, 0, sizeof(ImDrawIdx) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
-		m_viewport.height = (float)m_extent.height;
 		m_viewport.width = (float)m_extent.width;
+		m_viewport.height = (float)m_extent.height;
 		m_viewport.minDepth = (float)0.0f;
 		m_viewport.maxDepth = (float)1.0f;
 		m_viewport.x = 0;
 		m_viewport.y = 0;
-		vkCmdSetViewport(m_multipurposeCommandBuffer, 0, 1, &m_viewport);
+		vkCmdSetViewport(m_commandBuffers[m_imageIndex], 0, 1, &m_viewport);
 
 		float scale[2];
 		scale[0] = 2.0f / m_extent.width;
@@ -792,11 +848,12 @@ namespace MelonRenderer
 		float translate[2];
 		translate[0] = -1.0f - 0 * scale[0]; //for single viewpoint apps
 		translate[1] = -1.0f - 0 * scale[1];
-		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 0, sizeof(float) * 2, scale);
-		vkCmdPushConstants(m_multipurposeCommandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
+		vkCmdPushConstants(m_commandBuffers[m_imageIndex], m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 0, sizeof(float) * 2, scale);
+		vkCmdPushConstants(m_commandBuffers[m_imageIndex], m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
 
 		return true;
 	}
+
 	bool PipelineImGui::CreateImGuiDrawDataBuffer()
 	{
 		ImDrawData* imguiDrawData = ImGui::GetDrawData();
@@ -805,7 +862,7 @@ namespace MelonRenderer
 		int fb_width = (int)(imguiDrawData->DisplaySize.x * imguiDrawData->FramebufferScale.x);
 		int fb_height = (int)(imguiDrawData->DisplaySize.y * imguiDrawData->FramebufferScale.y);
 		if (fb_width <= 0 || fb_height <= 0 || imguiDrawData->TotalVtxCount == 0)
-			return true;
+			return false;
 
 		VkResult result;
 
@@ -854,9 +911,9 @@ namespace MelonRenderer
 			return false;
 		}
 
-		for (int n = 0; n < imguiDrawData->CmdListsCount; n++)
+		for (int i = 0; i < imguiDrawData->CmdListsCount; i++)
 		{
-			const ImDrawList* imguiCmdList = imguiDrawData->CmdLists[n];
+			const ImDrawList* imguiCmdList = imguiDrawData->CmdLists[i];
 			memcpy(vertexData, imguiCmdList->VtxBuffer.Data, imguiCmdList->VtxBuffer.Size * sizeof(ImDrawVert));
 			memcpy(indexData, imguiCmdList->IdxBuffer.Data, imguiCmdList->IdxBuffer.Size * sizeof(ImDrawIdx));
 			vertexData += imguiCmdList->VtxBuffer.Size;
@@ -880,6 +937,7 @@ namespace MelonRenderer
 
 		return true;
 	}
+
 	bool PipelineImGui::CreateFontTexture()
 	{
 		int width, height;

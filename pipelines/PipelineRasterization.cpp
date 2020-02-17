@@ -11,9 +11,14 @@ namespace MelonRenderer
 
 		CreateSwapchain(physicalDevice);
 
-		//rendering cmd buffer
-		CreateCommandBufferPool(m_multipurposeCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+		m_commandBuffers.resize(m_swapchainImages.size());
+		m_commandPools.resize(m_swapchainImages.size());
+		for (int i = 0; i < m_swapchainImages.size(); i++)
+		{
+			CreateCommandBufferPool(m_commandPools[i], VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+			CreateCommandBuffer(m_commandPools[i], m_commandBuffers[i]);
+		}
+		
 
 		DefineVertices();
 		InitCam();
@@ -64,7 +69,15 @@ namespace MelonRenderer
 		m_extent = windowExtent;
 
 		CreateSwapchain(*m_physicalDevice);
-		CreateCommandBuffer(m_multipurposeCommandPool, m_multipurposeCommandBuffer);
+
+		m_commandBuffers.resize(m_swapchainImages.size());
+		m_commandPools.resize(m_swapchainImages.size());
+		for (int i = 0; i < m_swapchainImages.size(); i++)
+		{
+			CreateCommandBufferPool(m_commandPools[i], VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+			CreateCommandBuffer(m_commandPools[i], m_commandBuffers[i]);
+		}
+
 		CreateDepthBuffer();
 		CreatePipelineLayout();
 		CreateRenderPass();
@@ -85,8 +98,7 @@ namespace MelonRenderer
 		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		vertexInputBinding.stride = sizeof(Vertex);
 		m_vertexInputBindings.emplace_back(vertexInputBinding);
-		
-
+	
 		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor, vertexAttributeUV;
 		vertexAttributePosition.binding = 0;
 		vertexAttributePosition.location = 0;
@@ -353,6 +365,7 @@ namespace MelonRenderer
 		VkImageViewCreateInfo viewInfo = {};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewInfo.pNext = nullptr;
+		viewInfo.flags = 0;
 		viewInfo.image = m_depthBuffer;
 		viewInfo.format = VK_FORMAT_D16_UNORM;
 		viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
@@ -365,7 +378,6 @@ namespace MelonRenderer
 		viewInfo.subresourceRange.baseArrayLayer = 0;
 		viewInfo.subresourceRange.layerCount = 1;
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.flags = 0;
 
 		result = vkCreateImageView(Device::Get().m_device, &viewInfo, nullptr, &m_depthBufferView);
 		if (result != VK_SUCCESS)
@@ -456,7 +468,7 @@ namespace MelonRenderer
 		attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; //VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 		attachments[0].flags = 0;
 
 		attachments[1].format = m_depthBufferFormat;
@@ -623,7 +635,7 @@ namespace MelonRenderer
 		pipelineInputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		pipelineInputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
-		VkPipelineRasterizationStateCreateInfo pipelineRasterizationInfo;
+		VkPipelineRasterizationStateCreateInfo pipelineRasterizationInfo = {};
 		pipelineRasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		pipelineRasterizationInfo.pNext = nullptr;
 		pipelineRasterizationInfo.flags = 0;
@@ -744,7 +756,7 @@ namespace MelonRenderer
 		cmdBufferInfo.flags = 0;
 		cmdBufferInfo.pInheritanceInfo = nullptr;
 
-		VkResult result = vkBeginCommandBuffer(m_multipurposeCommandBuffer, &cmdBufferInfo);
+		VkResult result = vkBeginCommandBuffer(m_commandBuffers[m_imageIndex], &cmdBufferInfo);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not begin command buffer for draw.");
@@ -791,7 +803,7 @@ namespace MelonRenderer
 		renderPassBegin.clearValueCount = 2;
 		renderPassBegin.pClearValues = clearValues;
 
-		vkCmdBeginRenderPass(m_multipurposeCommandBuffer, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(m_commandBuffers[m_imageIndex], &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
 
 		//TODO: scale for multiple objects
 		ObjectData vertexTransformMatrix{ mat4(1.f,0.f,0.f,2.f,
@@ -807,10 +819,10 @@ namespace MelonRenderer
 		vertexTransforms.emplace_back(vertexTransformMatrix2);
 
 
-		vkCmdBindPipeline(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+		vkCmdBindPipeline(m_commandBuffers[m_imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 		std::vector<uint32_t> dynamicOffsets;
 		//dynamicOffsets.emplace_back(0);
-		vkCmdBindDescriptorSets(m_multipurposeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
+		vkCmdBindDescriptorSets(m_commandBuffers[m_imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
 			m_descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
 
 
@@ -820,13 +832,13 @@ namespace MelonRenderer
 		m_viewport.maxDepth = (float)1.0f;
 		m_viewport.x = 0;
 		m_viewport.y = 0;
-		vkCmdSetViewport(m_multipurposeCommandBuffer, 0, 1, &m_viewport);
+		vkCmdSetViewport(m_commandBuffers[m_imageIndex], 0, 1, &m_viewport);
 
 		m_scissorRect2D.extent.width = m_extent.width;
 		m_scissorRect2D.extent.height = m_extent.height;
 		m_scissorRect2D.offset.x = 0;
 		m_scissorRect2D.offset.y = 0;
-		vkCmdSetScissor(m_multipurposeCommandBuffer, 0, 1, &m_scissorRect2D);
+		vkCmdSetScissor(m_commandBuffers[m_imageIndex], 0, 1, &m_scissorRect2D);
 
 		//------------------------------------
 
@@ -835,12 +847,12 @@ namespace MelonRenderer
 
 		for (auto& drawable : m_drawables)
 		{
-			drawable.Tick(m_multipurposeCommandBuffer, m_pipelineLayout);
+			drawable.Tick(m_commandBuffers[m_imageIndex], m_pipelineLayout);
 		}
 		//------------------------------------
 
-		vkCmdEndRenderPass(m_multipurposeCommandBuffer);
-		result = vkEndCommandBuffer(m_multipurposeCommandBuffer);
+		vkCmdEndRenderPass(m_commandBuffers[m_imageIndex]);
+		result = vkEndCommandBuffer(m_commandBuffers[m_imageIndex]);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not end command buffer for draw.");
@@ -862,7 +874,7 @@ namespace MelonRenderer
 		submitInfo[0].pWaitSemaphores = &imageSemaphore;
 		submitInfo[0].pWaitDstStageMask = &pipelineStageFlags;
 		submitInfo[0].commandBufferCount = 1;
-		const VkCommandBuffer cmd[] = { m_multipurposeCommandBuffer };
+		const VkCommandBuffer cmd[] = { m_commandBuffers[m_imageIndex] };
 		submitInfo[0].pCommandBuffers = cmd;
 		submitInfo[0].signalSemaphoreCount = 0;
 		submitInfo[0].pSignalSemaphores = nullptr;
@@ -873,7 +885,7 @@ namespace MelonRenderer
 			return false;
 		}
 
-		PresentImage(&drawFence);
+		//PresentImage(&drawFence);
 
 		return true;
 	}

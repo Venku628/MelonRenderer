@@ -45,8 +45,6 @@ namespace MelonRenderer
 		std::vector<VkImage> m_swapchainImages;
 		std::vector<VkImageView> m_swapchainImageViews;
 		VkPresentModeKHR m_presentMode;
-		uint32_t m_currentImageIndex;
-		VkSemaphore m_semaphore;
 		VkFence m_fence;
 		bool AquireNextImage();
 		bool PresentImage(VkFence* drawFence = nullptr);
@@ -96,8 +94,6 @@ namespace MelonRenderer
 		VkViewport m_viewport;
 		VkRect2D m_scissorRect2D;
 
-		unsigned int m_windowWidth, m_windowHeight;
-
 		//---------------------------------------
 		VkDescriptorPool m_descriptorPool;
 		std::vector<VkDescriptorSet> m_descriptorSets;
@@ -112,8 +108,8 @@ namespace MelonRenderer
 		// temporarily only one of each
 		//---------------------------------------
 		const uint32_t m_queueFamilyIndex = 0; // debug for this system until requirements defined
-		VkCommandPool m_multipurposeCommandPool;
-		VkCommandBuffer m_multipurposeCommandBuffer;
+		std::vector<VkCommandPool> m_commandPools;
+		std::vector<VkCommandBuffer> m_commandBuffers;
 		//---------------------------------------
 
 		DeviceMemoryManager* m_memoryManager;

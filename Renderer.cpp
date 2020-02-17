@@ -1,5 +1,5 @@
 #include "Renderer.h"
-#include "imgui/imgui.h"
+
 
 namespace MelonRenderer
 {
@@ -22,8 +22,6 @@ namespace MelonRenderer
 		EnumeratePhysicalDevices();
 
 		m_requiredDeviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-		// TODO: remember last used device or cycle through devices until one works the first time
 		
 		for (int i = 0; i < m_physicalDevices.size(); i++)
 		{
@@ -48,10 +46,11 @@ namespace MelonRenderer
 		ImGui::CreateContext();
 		ImGui::StyleColorsDark();
 		ImGui::GetIO().BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
-		ImGui::GetIO().DisplaySize.x = 800;
-		ImGui::GetIO().DisplaySize.y = 600;
+		ImGui::GetIO().DisplaySize.x = defaultWidth;
+		ImGui::GetIO().DisplaySize.y = defaultHeight;
+		GlfwInputInit();
 
-		//m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
+		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
 		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, outputSurface, m_extent);
 
 		Logger::Log("Loading complete.");
@@ -61,12 +60,13 @@ namespace MelonRenderer
 	{
 		timeNow = std::chrono::high_resolution_clock::now();
 		float timeDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::nanoseconds>(timeNow - timeLast).count());
-		std::string logMessage = "Time passed since last tick: ";
-		Logger::Log(logMessage.append(std::to_string(static_cast<unsigned int>(timeDelta))));
+		float fps = 1000000.f / timeDelta;
+		std::string logMessage = "FPS: ";
+		Logger::Log(logMessage.append(std::to_string(fps)));
 		timeLast = timeNow;
 
 
-		//m_rasterizationPipeline.Tick(timeDelta/10000000.f);
+		m_rasterizationPipeline.Tick(timeDelta/10000000.f);
 		m_imguiPipeline.Tick(timeDelta/10000000.f);
 
 		return true;
@@ -76,6 +76,8 @@ namespace MelonRenderer
 	{
 		while (!glfwWindowShouldClose(m_window))
 		{
+			Logger::Get().Print();
+
 			glfwPollEvents();
 
 			//TODO: use proper callbacks
@@ -90,20 +92,18 @@ namespace MelonRenderer
 				ImGui::GetIO().DisplaySize.y = glfwHeight;
 
 				Logger::Log("Recreating swapchain.");
+				m_rasterizationPipeline.RecreateSwapchain(m_extent);
 				m_imguiPipeline.RecreateSwapchain(m_extent);
-				//m_rasterizationPipeline.RecreateSwapchain(m_extent);
 			}
 			
+			GlfwInputTick();
 			ImGui::NewFrame();
 			bool showDemoWindow = true;
 			ImGui::ShowDemoWindow(&showDemoWindow);
 
 			ImGui::Render();
 			Tick();
-
-			Logger::Get().Print();
 		}
-
 	}
 
 	void Renderer::Fini()
@@ -131,7 +131,9 @@ namespace MelonRenderer
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-		m_window = glfwCreateWindow(800, 600, "Vulkan Renderer", nullptr, nullptr);
+		m_window = glfwCreateWindow(defaultWidth, defaultHeight, "Vulkan Renderer", nullptr, nullptr);
+		m_extent.width = defaultWidth;
+		m_extent.height = defaultHeight;
 
 		if (m_window == nullptr)
 		{
@@ -539,6 +541,218 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		CheckPresentationSurfaceCapabilities(device);
 
 		return true;
+	}
+
+	bool Renderer::GlfwInputInit()
+	{
+		// Setup back-end capabilities flags
+		ImGuiIO& io = ImGui::GetIO();
+		io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;  
+		io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;        
+		io.BackendPlatformName = "MelonRenderer";
+
+		// Keyboard mapping. ImGui will use those indices to peek into the io.KeysDown[] array.
+		io.KeyMap[ImGuiKey_Tab] = GLFW_KEY_TAB;
+		io.KeyMap[ImGuiKey_LeftArrow] = GLFW_KEY_LEFT;
+		io.KeyMap[ImGuiKey_RightArrow] = GLFW_KEY_RIGHT;
+		io.KeyMap[ImGuiKey_UpArrow] = GLFW_KEY_UP;
+		io.KeyMap[ImGuiKey_DownArrow] = GLFW_KEY_DOWN;
+		io.KeyMap[ImGuiKey_PageUp] = GLFW_KEY_PAGE_UP;
+		io.KeyMap[ImGuiKey_PageDown] = GLFW_KEY_PAGE_DOWN;
+		io.KeyMap[ImGuiKey_Home] = GLFW_KEY_HOME;
+		io.KeyMap[ImGuiKey_End] = GLFW_KEY_END;
+		io.KeyMap[ImGuiKey_Insert] = GLFW_KEY_INSERT;
+		io.KeyMap[ImGuiKey_Delete] = GLFW_KEY_DELETE;
+		io.KeyMap[ImGuiKey_Backspace] = GLFW_KEY_BACKSPACE;
+		io.KeyMap[ImGuiKey_Space] = GLFW_KEY_SPACE;
+		io.KeyMap[ImGuiKey_Enter] = GLFW_KEY_ENTER;
+		io.KeyMap[ImGuiKey_Escape] = GLFW_KEY_ESCAPE;
+		io.KeyMap[ImGuiKey_KeyPadEnter] = GLFW_KEY_KP_ENTER;
+		io.KeyMap[ImGuiKey_A] = GLFW_KEY_A;
+		io.KeyMap[ImGuiKey_C] = GLFW_KEY_C;
+		io.KeyMap[ImGuiKey_V] = GLFW_KEY_V;
+		io.KeyMap[ImGuiKey_X] = GLFW_KEY_X;
+		io.KeyMap[ImGuiKey_Y] = GLFW_KEY_Y;
+		io.KeyMap[ImGuiKey_Z] = GLFW_KEY_Z;
+
+		io.SetClipboardTextFn = SetClipboardText;
+		io.GetClipboardTextFn = GetClipboardText;
+		io.ClipboardUserData = m_window;
+		
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_Arrow] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_TextInput] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_ResizeNS] = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_ResizeEW] = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_Hand] = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_ResizeAll] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_ResizeNESW] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_ResizeNWSE] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+		m_inputData.m_mouseCursors[ImGuiMouseCursor_NotAllowed] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+
+		glfwSetWindowUserPointer(m_window, reinterpret_cast<void*>(&m_inputData));
+
+		m_inputData.m_prevUserCallbackMousebutton = glfwSetMouseButtonCallback(m_window, MouseButtonCallback);
+		m_inputData.m_prevUserCallbackScroll = glfwSetScrollCallback(m_window, ScrollCallback);
+		m_inputData.m_prevUserCallbackKey = glfwSetKeyCallback(m_window, KeyCallback);
+		m_inputData.m_prevUserCallbackChar = glfwSetCharCallback(m_window, CharCallback);
+
+		return true;
+	}
+
+	bool Renderer::GlfwInputTick()
+	{
+		if (!GlfwUpdateMousePosAndButtons())
+			return false;
+		if (!GlfwUpdateMouseCursor())
+			return false;
+		if (!GlfwUpdateGamepads())
+			return false;
+
+		return true;
+	}
+
+	bool Renderer::GlfwUpdateMousePosAndButtons()
+	{
+		// Update buttons
+		ImGuiIO& io = ImGui::GetIO();
+		for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); i++)
+		{
+			// If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
+			io.MouseDown[i] = m_inputData.m_mouseButtonPressed[i] || glfwGetMouseButton(m_window, i) != 0;
+			m_inputData.m_mouseButtonPressed[i] = false;
+		}
+
+		// Update mouse position
+		const ImVec2 mouse_pos_backup = io.MousePos;
+		io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
+
+		const bool focused = glfwGetWindowAttrib(m_window, GLFW_FOCUSED) != 0;
+		if (focused)
+		{
+			if (io.WantSetMousePos)
+			{
+				glfwSetCursorPos(m_window, (double)mouse_pos_backup.x, (double)mouse_pos_backup.y);
+			}
+			else
+			{
+				double mouse_x, mouse_y;
+				glfwGetCursorPos(m_window, &mouse_x, &mouse_y);
+				io.MousePos = ImVec2((float)mouse_x, (float)mouse_y);
+			}
+		}
+
+		return false;
+	}
+
+	bool Renderer::GlfwUpdateMouseCursor()
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		if ((io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange) || glfwGetInputMode(m_window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
+			return true;
+
+		ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
+		if (imgui_cursor == ImGuiMouseCursor_None || io.MouseDrawCursor)
+		{
+			// Hide OS mouse cursor if imgui is drawing it or if it wants no cursor
+			glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+		}
+		else
+		{
+			// Show OS mouse cursor
+			// FIXME-PLATFORM: Unfocused windows seems to fail changing the mouse cursor with GLFW 3.2, but 3.3 works here.
+			glfwSetCursor(m_window, m_inputData.m_mouseCursors[imgui_cursor] ? m_inputData.m_mouseCursors[imgui_cursor] : m_inputData.m_mouseCursors[ImGuiMouseCursor_Arrow]);
+			glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+		return true;
+	}
+
+	bool Renderer::GlfwUpdateGamepads()
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		memset(io.NavInputs, 0, sizeof(io.NavInputs));
+		if ((io.ConfigFlags & ImGuiConfigFlags_NavEnableGamepad) == 0)
+			return true;
+
+		// Update gamepad inputs
+#define MAP_BUTTON(NAV_NO, BUTTON_NO)       { if (buttons_count > BUTTON_NO && buttons[BUTTON_NO] == GLFW_PRESS) io.NavInputs[NAV_NO] = 1.0f; }
+#define MAP_ANALOG(NAV_NO, AXIS_NO, V0, V1) { float v = (axes_count > AXIS_NO) ? axes[AXIS_NO] : V0; v = (v - V0) / (V1 - V0); if (v > 1.0f) v = 1.0f; if (io.NavInputs[NAV_NO] < v) io.NavInputs[NAV_NO] = v; }
+		int axes_count = 0, buttons_count = 0;
+		const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axes_count);
+		const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &buttons_count);
+		MAP_BUTTON(ImGuiNavInput_Activate, 0);     // Cross / A
+		MAP_BUTTON(ImGuiNavInput_Cancel, 1);     // Circle / B
+		MAP_BUTTON(ImGuiNavInput_Menu, 2);     // Square / X
+		MAP_BUTTON(ImGuiNavInput_Input, 3);     // Triangle / Y
+		MAP_BUTTON(ImGuiNavInput_DpadLeft, 13);    // D-Pad Left
+		MAP_BUTTON(ImGuiNavInput_DpadRight, 11);    // D-Pad Right
+		MAP_BUTTON(ImGuiNavInput_DpadUp, 10);    // D-Pad Up
+		MAP_BUTTON(ImGuiNavInput_DpadDown, 12);    // D-Pad Down
+		MAP_BUTTON(ImGuiNavInput_FocusPrev, 4);     // L1 / LB
+		MAP_BUTTON(ImGuiNavInput_FocusNext, 5);     // R1 / RB
+		MAP_BUTTON(ImGuiNavInput_TweakSlow, 4);     // L1 / LB
+		MAP_BUTTON(ImGuiNavInput_TweakFast, 5);     // R1 / RB
+		MAP_ANALOG(ImGuiNavInput_LStickLeft, 0, -0.3f, -0.9f);
+		MAP_ANALOG(ImGuiNavInput_LStickRight, 0, +0.3f, +0.9f);
+		MAP_ANALOG(ImGuiNavInput_LStickUp, 1, +0.3f, +0.9f);
+		MAP_ANALOG(ImGuiNavInput_LStickDown, 1, -0.3f, -0.9f);
+#undef MAP_BUTTON
+#undef MAP_ANALOG
+		if (axes_count > 0 && buttons_count > 0)
+			io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
+		else
+			io.BackendFlags &= ~ImGuiBackendFlags_HasGamepad;
+		
+		return true;
+	}
+
+	void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+	{
+		GlfwInputData* inputData = reinterpret_cast<GlfwInputData*>(glfwGetWindowUserPointer(window));
+		if (inputData->m_prevUserCallbackMousebutton != NULL)
+			inputData->m_prevUserCallbackMousebutton(window, button, action, mods);
+
+		if (action == GLFW_PRESS && button >= 0 && button < IM_ARRAYSIZE(inputData->m_mouseButtonPressed))
+			inputData->m_mouseButtonPressed[button] = true;
+	}
+
+	void ScrollCallback(GLFWwindow* window, double xOffset, double yOffset)
+	{
+		GlfwInputData* inputData = reinterpret_cast<GlfwInputData*>(glfwGetWindowUserPointer(window));
+		if (inputData->m_prevUserCallbackScroll != NULL)
+			inputData->m_prevUserCallbackScroll(window, xOffset, yOffset);
+
+		ImGuiIO& io = ImGui::GetIO();
+		io.MouseWheelH += (float)xOffset;
+		io.MouseWheel += (float)yOffset;
+	}
+
+	void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		GlfwInputData* inputData = reinterpret_cast<GlfwInputData*>(glfwGetWindowUserPointer(window));
+		if (inputData->m_prevUserCallbackKey != NULL)
+			inputData->m_prevUserCallbackKey(window, key, scancode, action, mods);
+
+		ImGuiIO& io = ImGui::GetIO();
+		if (action == GLFW_PRESS)
+			io.KeysDown[key] = true;
+		if (action == GLFW_RELEASE)
+			io.KeysDown[key] = false;
+
+		// Modifiers are not reliable across systems
+		io.KeyCtrl = io.KeysDown[GLFW_KEY_LEFT_CONTROL] || io.KeysDown[GLFW_KEY_RIGHT_CONTROL];
+		io.KeyShift = io.KeysDown[GLFW_KEY_LEFT_SHIFT] || io.KeysDown[GLFW_KEY_RIGHT_SHIFT];
+		io.KeyAlt = io.KeysDown[GLFW_KEY_LEFT_ALT] || io.KeysDown[GLFW_KEY_RIGHT_ALT];
+		io.KeySuper = io.KeysDown[GLFW_KEY_LEFT_SUPER] || io.KeysDown[GLFW_KEY_RIGHT_SUPER];
+	}
+
+	void CharCallback(GLFWwindow* window, unsigned int ch)
+	{
+		GlfwInputData* inputData = reinterpret_cast<GlfwInputData*>(glfwGetWindowUserPointer(window));
+		if (inputData->m_prevUserCallbackChar != NULL)
+			inputData->m_prevUserCallbackChar(window, ch);
+
+		ImGui::GetIO().AddInputCharacter(ch);
 	}
 
 	bool Renderer::LoadDeviceFunctions()

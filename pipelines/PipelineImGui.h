@@ -54,6 +54,9 @@ namespace MelonRenderer
 		bool CreateFontSampler();
 		VkSampler m_fontSampler;
 
+		bool CreateFence();
+		VkFence m_fence;
+
 		bool CreateRenderState();
 		bool CreateImGuiDrawDataBuffer();
 		bool CreateFontTexture();
@@ -67,5 +70,7 @@ namespace MelonRenderer
 		VkImage m_fontImage;
 		VkDeviceMemory m_fontImageMemory;
 		VkImageView m_fontImageView;
+
+		bool debugimgui = false;
 	};
 }

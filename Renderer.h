@@ -6,6 +6,7 @@
 #include "pipelines/PipelineImGui.h"
 
 #include <glfw3.h>
+#include "imgui/imgui.h"
 
 #include <iostream>
 #include <vector>
@@ -39,6 +40,34 @@ struct QueueFamilyInfo
 
 namespace MelonRenderer
 {
+	const unsigned int defaultWidth = 1280, defaultHeight = 720;
+
+	void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+	void ScrollCallback(GLFWwindow* window, double xOffset, double yOffset);
+	void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	void CharCallback(GLFWwindow* window, unsigned int c);
+
+	static const char* GetClipboardText(void* user_data)
+	{
+		return glfwGetClipboardString((GLFWwindow*)user_data);
+	}
+
+	static void SetClipboardText(void* user_data, const char* text)
+	{
+		glfwSetClipboardString((GLFWwindow*)user_data, text);
+	}
+
+	struct GlfwInputData
+	{
+		bool m_mouseButtonPressed[5] = { false, false, false, false, false };
+		GLFWcursor* m_mouseCursors[ImGuiMouseCursor_COUNT] = {};
+
+		GLFWmousebuttonfun m_prevUserCallbackMousebutton = NULL;
+		GLFWscrollfun m_prevUserCallbackScroll = NULL;
+		GLFWkeyfun m_prevUserCallbackKey = NULL;
+		GLFWcharfun m_prevUserCallbackChar = NULL;
+	};
+
 	class Renderer 
 	{
 	public:
@@ -75,7 +104,17 @@ namespace MelonRenderer
 		bool CheckPresentationSurfaceCapabilities(VkPhysicalDevice& device);
 
 		bool CreateLogicalDeviceAndQueue(VkPhysicalDevice& device);
+
+		//input
+		//-------------------------------------
+		bool GlfwInputInit();
+		bool GlfwInputTick();
+		bool GlfwUpdateMousePosAndButtons();
+		bool GlfwUpdateMouseCursor();
+		bool GlfwUpdateGamepads();
 		
+		GlfwInputData m_inputData;
+		//-------------------------------------
 
 		VkPresentModeKHR m_presentMode;
 		const uint32_t m_queueFamilyIndex = 0;
