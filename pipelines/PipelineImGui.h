@@ -6,10 +6,8 @@ namespace MelonRenderer
 	class PipelineImGui : public Pipeline
 	{
 	public:
-		void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkExtent2D windowExtent) override;
-		void Tick(float timeDelta) override;
-		void RecreateOutput(VkExtent2D windowExtent) override;
-
+		void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) override;
+		void Tick(VkCommandBuffer& commanduffer, float timeDelta) override;
 		void Fini() override;
 
 	protected:
@@ -27,7 +25,7 @@ namespace MelonRenderer
 		bool CreateGraphicsPipeline() override;
 		//---------------------------------------
 
-		bool Draw(float timeDelta) override;
+		bool Draw(VkCommandBuffer& commandBuffer, float timeDelta) override;
 
 
 		//---------------------------------------
@@ -42,7 +40,7 @@ namespace MelonRenderer
 
 		bool CreateFence();
 
-		bool CreateRenderState();
+		bool CreateRenderState(VkCommandBuffer& commandBuffer);
 		bool CreateImGuiDrawDataBuffer();
 		bool CreateFontTexture();
 		VkBuffer m_vertexBuffer;

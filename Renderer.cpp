@@ -51,8 +51,14 @@ namespace MelonRenderer
 		ImGui::GetIO().DisplaySize.y = defaultHeight;
 		GlfwInputInit();
 
-		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_extent);
-		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_extent);
+		CreateRenderpass();
+
+		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
+		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
+
+		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
+		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
+		
 
 		Logger::Log("Loading complete.");
 	}
@@ -66,10 +72,14 @@ namespace MelonRenderer
 		Logger::Log(logMessage.append(std::to_string(fps)));
 		timeLast = timeNow;
 
-		BeginRenderpass();
-		m_rasterizationPipeline.Tick(timeDelta/10000000.f);
-		m_imguiPipeline.Tick(timeDelta/10000000.f);
-		EndRenderpass();
+		m_swapchain.AquireNextImage();
+		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
+		BeginRenderpass(commandBuffer);
+		m_rasterizationPipeline.Tick(commandBuffer, timeDelta/1000000.f);
+		vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
+		m_imguiPipeline.Tick(commandBuffer, timeDelta/1000000.f);
+		EndRenderpass(commandBuffer);
+		m_swapchain.PresentImage();
 
 		return true;
 	}
@@ -93,9 +103,7 @@ namespace MelonRenderer
 				ImGui::GetIO().DisplaySize.x = glfwWidth;
 				ImGui::GetIO().DisplaySize.y = glfwHeight;
 
-				Logger::Log("Recreating swapchain.");
-				m_rasterizationPipeline.RecreateOutput(m_extent);
-				m_imguiPipeline.RecreateOutput(m_extent);
+				Resize();
 			}
 			
 			GlfwInputTick();
@@ -634,36 +642,67 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		return true;
 	}
 
-	bool Renderer::BeginRenderpass()
+	bool Renderer::BeginRenderpass(VkCommandBuffer& commandBuffer)
 	{
+		VkCommandBufferBeginInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		VkResult result = vkBeginCommandBuffer(commandBuffer, &info);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not begin command buffer in render pass begin.");
+			return false;
+		}
+
 		VkClearValue clearValues[2];
 		clearValues[0].color.float32[0] = 0.45f;
 		clearValues[0].color.float32[1] = 0.55f;
 		clearValues[0].color.float32[2] = 0.6f;
 		clearValues[0].color.float32[3] = 1.f;
-		clearValues[0].depthStencil.depth = 1.f;
-		clearValues[0].depthStencil.stencil = 0.f;
-		
+		clearValues[1].depthStencil.depth = 1.f;
+		clearValues[1].depthStencil.stencil = 0.f;
 
 		VkRenderPassBeginInfo renderPassBegin = {};
 		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassBegin.pNext = nullptr;
 		renderPassBegin.renderPass = m_renderpass;
-		renderPassBegin.framebuffer = m_framebuffers[m_imageIndex];
+		renderPassBegin.framebuffer = m_swapchain.GetFramebuffer();
 		renderPassBegin.renderArea.offset.x = 0;
 		renderPassBegin.renderArea.offset.y = 0;
 		renderPassBegin.renderArea.extent.width = m_extent.width;
 		renderPassBegin.renderArea.extent.height = m_extent.height;
-		renderPassBegin.clearValueCount = 1;
+		renderPassBegin.clearValueCount = 2;
 		renderPassBegin.pClearValues = clearValues;
-		vkCmdBeginRenderPass(m_commandBuffers[m_imageIndex], &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(commandBuffer, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
 
 		return true;
 	}
 
-	bool Renderer::EndRenderpass()
+	bool Renderer::EndRenderpass(VkCommandBuffer& commandBuffer)
 	{
-		vkCmdEndRenderPass(m_commandBuffer[m_frameIndex]);
+		vkCmdEndRenderPass(commandBuffer);
+
+		VkResult result = vkEndCommandBuffer(commandBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not end command buffer at end of render pass.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Renderer::Resize()
+	{
+		OutputSurface outputSurface;
+		outputSurface.capabilites = m_currentSurfaceCapabilities;
+		outputSurface.surface = m_presentationSurface;
+
+		m_rasterizationPipeline.RecreateOutput(m_extent);
+		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
+		m_swapchain.CleanupSwapchain(true);
+		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex] ,&m_renderpass, outputSurface, m_extent);
+
 		return true;
 	}
 

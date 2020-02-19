@@ -12,24 +12,18 @@ namespace MelonRenderer
 	class Pipeline
 	{
 	public:
-		virtual void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkExtent2D windowExtent) = 0;
-		virtual void Tick(float timeDelta) = 0;
-		virtual void RecreateOutput(VkExtent2D windowExtent) = 0;
-
+		virtual void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) = 0;
+		virtual void Tick(VkCommandBuffer& commanduffer, float timeDelta) = 0;
 		virtual void Fini() = 0;
 
 	protected:
 		virtual void DefineVertices() = 0;
 
-		bool CleanupOutput();
-
-		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
-		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
-
 		const uint32_t m_numberOfSamples = 1;
 		VkExtent2D m_extent;
 
 		VkPhysicalDevice* m_physicalDevice;
+		VkRenderPass* m_renderPass;
 
 		//---------------------------------------
 		VkPresentModeKHR m_presentMode;
@@ -57,7 +51,7 @@ namespace MelonRenderer
 		virtual bool CreateGraphicsPipeline() = 0;
 		//---------------------------------------
 
-		virtual bool Draw(float timeDelta) = 0;
+		virtual bool Draw(VkCommandBuffer& commandBuffer, float timeDelta) = 0;
 		VkViewport m_viewport;
 		VkRect2D m_scissorRect2D;
 

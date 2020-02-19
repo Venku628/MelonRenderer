@@ -12,10 +12,15 @@ namespace MelonRenderer
 		return m_framebuffers[m_imageIndex];
 	}
 
+	std::vector<VkImageView>* Swapchain::GetAttachmentPointer()
+	{
+		return &m_attachments;
+	}
+
 	bool Swapchain::AquireNextImage()
 	{
 		
-		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, nullptr, nullptr, &m_imageIndex);
+		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, m_presentCompleteSemaphores[m_imageIndex], nullptr, &m_imageIndex);
 		if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR))
 		{
 			Logger::Log("Could not aquire next image.");
@@ -28,19 +33,36 @@ namespace MelonRenderer
 
 	bool Swapchain::PresentImage(VkFence* drawFence)
 	{
-		//TODO: add more parameters
+		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		VkSubmitInfo submitInfo[1] = {};
+		submitInfo[0].pNext = nullptr;
+		submitInfo[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo[0].waitSemaphoreCount = 1;
+		submitInfo[0].pWaitSemaphores = &m_presentCompleteSemaphores[m_imageIndex];
+		submitInfo[0].pWaitDstStageMask = &pipelineStageFlags;
+		submitInfo[0].commandBufferCount = 1;
+		const VkCommandBuffer cmd[] = { m_commandBuffers[m_imageIndex] };
+		submitInfo[0].pCommandBuffers = cmd;
+		submitInfo[0].signalSemaphoreCount = 1;
+		submitInfo[0].pSignalSemaphores = &m_renderCompleteSemaphores[m_imageIndex];
+		VkResult result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, submitInfo, m_fence);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not submit draw queue.");
+			return false;
+		}
+
 		VkPresentInfoKHR presentInfo;
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		presentInfo.pNext = nullptr;
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = &m_swapchain;
 		presentInfo.pImageIndices = &m_imageIndex;
-		presentInfo.pWaitSemaphores = nullptr;
-		presentInfo.waitSemaphoreCount = 0;
+		presentInfo.pWaitSemaphores = &m_renderCompleteSemaphores[m_imageIndex];
+		presentInfo.waitSemaphoreCount = 1;
 		presentInfo.pResults = nullptr;
 
-		//wait for buffer to be finished
-		VkResult result;
+		//wait for command buffer to be finished, if fence set
 		if (drawFence != nullptr)
 		{
 			result = vkWaitForFences(Device::Get().m_device, 1, drawFence, VK_TRUE, UINT64_MAX);
@@ -63,10 +85,6 @@ namespace MelonRenderer
 
 	bool Swapchain::CreateFramebuffers()
 	{
-		//imgui uses no depth buffer
-		//TODO: get attachments from pipelines maybe?
-
-
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferCreateInfo.pNext = nullptr;
@@ -141,8 +159,35 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Swapchain::CreateSwapchain(VkPhysicalDevice& device, VkExtent2D& extent)
+	bool Swapchain::CreateSemaphores()
 	{
+		VkSemaphoreCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		for (int i = 0; i < m_swapchainSize; i++)
+		{
+			VkResult result = vkCreateSemaphore(Device::Get().m_device, &info, nullptr, &m_renderCompleteSemaphores[i]);
+			if (result != VK_SUCCESS)
+			{
+				Logger::Log("Could not create render complete semaphore.");
+				return false;
+			}
+
+			result = vkCreateSemaphore(Device::Get().m_device, &info, nullptr, &m_presentCompleteSemaphores[i]);
+			if (result != VK_SUCCESS)
+			{
+				Logger::Log("Could not create render complete semaphore.");
+				return false;
+			}
+		}
+
+
+		return true;
+	}
+
+	bool Swapchain::CreateSwapchain(VkPhysicalDevice& device, VkRenderPass* renderPass, OutputSurface outputSurface, VkExtent2D& extent)
+	{
+		m_outputSurface = outputSurface;
+		m_renderpass = renderPass;
 		uint32_t desiredNumberOfImages = 2;
 
 		if (desiredNumberOfImages < m_outputSurface.capabilites.minImageCount)
@@ -235,8 +280,10 @@ namespace MelonRenderer
 		swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 		swapchainCreateInfo.presentMode = m_presentMode;
 		swapchainCreateInfo.clipped = VK_TRUE;
-		swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE; //TODO: insert old swapchain if available and destroy after
-
+		if (m_oldSwapchain != VK_NULL_HANDLE)
+			swapchainCreateInfo.oldSwapchain = m_oldSwapchain;
+		else
+			swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE; 
 
 		VkBool32 deviceSupported;
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, m_queueFamilyIndex, m_outputSurface.surface, &deviceSupported);
@@ -266,6 +313,8 @@ namespace MelonRenderer
 		m_framebuffers.resize(m_swapchainSize);
 		m_commandPools.resize(m_swapchainSize);
 		m_commandBuffers.resize(m_swapchainSize);
+		m_renderCompleteSemaphores.resize(m_swapchainSize);
+		m_presentCompleteSemaphores.resize(m_swapchainSize);
 
 		result = vkGetSwapchainImagesKHR(Device::Get().m_device, m_swapchain, &m_swapchainSize, &m_outputImages[0]);
 		if (result != VK_SUCCESS)
@@ -303,15 +352,35 @@ namespace MelonRenderer
 			}
 		}
 
+		CreateFramebuffers();
+		CreateCommandPoolsAndBuffers();
+		CreateSemaphores();
+
 		return true;
 	}
 
-	bool Swapchain::CleanupSwapchain()
+	bool Swapchain::CleanupSwapchain(bool preserveSwapchain)
 	{
-		for (auto& swapchainImageView : m_outputImageViews) {
-			vkDestroyImageView(Device::Get().m_device, swapchainImageView, nullptr);
+		vkDeviceWaitIdle(Device::Get().m_device);
+		for (int i = 0; i < m_swapchainSize; i++) {
+			vkDestroyImageView(Device::Get().m_device, m_outputImageViews[i], nullptr);
+			vkDestroyImage(Device::Get().m_device, m_outputImages[i], nullptr);
+			vkDestroyFramebuffer(Device::Get().m_device, m_framebuffers[i], nullptr);
+			vkFreeCommandBuffers(Device::Get().m_device, m_commandPools[i], 1, &m_commandBuffers[i]);
+			vkDestroyCommandPool(Device::Get().m_device, m_commandPools[i], nullptr);
+			vkDestroySemaphore(Device::Get().m_device, m_renderCompleteSemaphores[i], nullptr);
+			vkDestroySemaphore(Device::Get().m_device, m_presentCompleteSemaphores[i], nullptr);
 		}
-		vkDestroySwapchainKHR(Device::Get().m_device, m_swapchain, nullptr);
+
+		if (preserveSwapchain)
+		{
+			m_oldSwapchain = m_swapchain;
+			m_swapchain = VK_NULL_HANDLE;
+		}
+		else
+		{
+			vkDestroySwapchainKHR(Device::Get().m_device, m_swapchain, nullptr);
+		}
 
 		return true;
 	}

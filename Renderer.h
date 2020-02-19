@@ -108,10 +108,11 @@ namespace MelonRenderer
 
 		//single renderpass for all pipelines
 		bool CreateRenderpass();
-		bool BeginRenderpass();
-		bool EndRenderpass();
-
+		bool BeginRenderpass(VkCommandBuffer& commandBuffer);
+		bool EndRenderpass(VkCommandBuffer& commandBuffer);
 		VkRenderPass m_renderpass;
+
+		bool Resize();
 
 		//input
 		//-------------------------------------

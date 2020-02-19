@@ -2,10 +2,11 @@
 
 namespace MelonRenderer
 {
-	void PipelineRasterization::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkExtent2D windowExtent)
+	void PipelineRasterization::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent)
 	{
 		m_physicalDevice = &physicalDevice;
 		m_memoryManager = &memoryManager;
+		m_renderPass = &renderPass;
 		m_extent = windowExtent;
 		
 		DefineVertices();
@@ -41,27 +42,32 @@ namespace MelonRenderer
 		CreateGraphicsPipeline();
 	}
 
-	void PipelineRasterization::Tick(float timeDelta)
+	void PipelineRasterization::Tick(VkCommandBuffer& commandBuffer, float timeDelta)
 	{
-		Draw(timeDelta);
+		Draw(commandBuffer, timeDelta);
 	}
 
-	void PipelineRasterization::RecreateOutput(VkExtent2D windowExtent)
+	void PipelineRasterization::RecreateOutput(VkExtent2D& windowExtent)
 	{
 		vkDeviceWaitIdle(Device::Get().m_device);
-		CleanupOutput();
+		CleanupDepthBuffer();
 
 		m_extent = windowExtent;
-
 		CreateDepthBuffer();
-		CreatePipelineLayout();
-
-		CreateGraphicsPipeline();
 	}
 
 	void PipelineRasterization::Fini()
 	{
-		
+		vkDestroyPipelineLayout(Device::Get().m_device, m_pipelineLayout, nullptr);
+		vkDestroyPipeline(Device::Get().m_device, m_pipeline, nullptr);
+
+	}
+
+	void PipelineRasterization::FillAttachments(std::vector<VkImageView>* attachments)
+	{
+		VkImageView color;
+		attachments->emplace_back(color);
+		attachments->emplace_back(m_depthBufferView);
 	}
 
 	void PipelineRasterization::DefineVertices()
@@ -183,6 +189,15 @@ namespace MelonRenderer
 			Logger::Log("Could not create image view for depth buffer.");
 			return false;
 		}
+
+		return true;
+	}
+
+	bool PipelineRasterization::CleanupDepthBuffer()
+	{
+		vkDestroyImageView(Device::Get().m_device, m_depthBufferView, nullptr);
+		vkFreeMemory(Device::Get().m_device, m_depthBufferMemory, nullptr);
+		vkDestroyImage(Device::Get().m_device, m_depthBuffer, nullptr);
 
 		return true;
 	}
@@ -433,7 +448,7 @@ namespace MelonRenderer
 		pipeline.pDepthStencilState = &pipelineDepthStencilInfo;
 		pipeline.pStages = m_shaderStagesV.data();
 		pipeline.stageCount = static_cast<uint32_t>(m_shaderStagesV.size());
-		pipeline.renderPass = m_renderPass;
+		pipeline.renderPass = *m_renderPass;
 		pipeline.subpass = 0;
 
 		VkResult result = vkCreateGraphicsPipelines(Device::Get().m_device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &m_pipeline);
@@ -446,7 +461,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool PipelineRasterization::Draw(float timeDelta)
+	bool PipelineRasterization::Draw(VkCommandBuffer& commandBuffer, float timeDelta)
 	{
 		//TODO: scale for multiple objects
 		ObjectData vertexTransformMatrix{ mat4(1.f,0.f,0.f,2.f,
@@ -462,10 +477,10 @@ namespace MelonRenderer
 		vertexTransforms.emplace_back(vertexTransformMatrix2);
 
 
-		vkCmdBindPipeline(m_commandBuffers[m_imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 		std::vector<uint32_t> dynamicOffsets;
 		//dynamicOffsets.emplace_back(0);
-		vkCmdBindDescriptorSets(m_commandBuffers[m_imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
 			m_descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
 
 
@@ -475,13 +490,13 @@ namespace MelonRenderer
 		m_viewport.maxDepth = (float)1.0f;
 		m_viewport.x = 0;
 		m_viewport.y = 0;
-		vkCmdSetViewport(m_commandBuffers[m_imageIndex], 0, 1, &m_viewport);
+		vkCmdSetViewport(commandBuffer, 0, 1, &m_viewport);
 
 		m_scissorRect2D.extent.width = m_extent.width;
 		m_scissorRect2D.extent.height = m_extent.height;
 		m_scissorRect2D.offset.x = 0;
 		m_scissorRect2D.offset.y = 0;
-		vkCmdSetScissor(m_commandBuffers[m_imageIndex], 0, 1, &m_scissorRect2D);
+		vkCmdSetScissor(commandBuffer, 0, 1, &m_scissorRect2D);
 
 		//------------------------------------
 
@@ -490,7 +505,7 @@ namespace MelonRenderer
 
 		for (auto& drawable : m_drawables)
 		{
-			drawable.Tick(m_commandBuffers[m_imageIndex], m_pipelineLayout);
+			drawable.Tick(commandBuffer, m_pipelineLayout);
 		}
 		//------------------------------------
 

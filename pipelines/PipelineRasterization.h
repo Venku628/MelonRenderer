@@ -6,11 +6,12 @@ namespace MelonRenderer
 	class PipelineRasterization : public Pipeline
 	{
 	public:
-		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, VkExtent2D windowExtent) override;
-		void Tick(float timeDelta) override;
-		void RecreateOutput(VkExtent2D windowExtent) override;
-
+		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) override;
+		void Tick(VkCommandBuffer& commanduffer, float timeDelta) override;
 		void Fini() override;
+
+		void FillAttachments(std::vector<VkImageView>* attachments);
+		void RecreateOutput(VkExtent2D& windowExtent);
 
 	protected:
 		//virtual void     = 0; in pipeline base
@@ -27,7 +28,7 @@ namespace MelonRenderer
 		bool CreateGraphicsPipeline() override;
 		//---------------------------------------
 
-		bool Draw(float timeDelta) override;
+		bool Draw(VkCommandBuffer& commanBuffer, float timeDelta) override;
 
 
 		//---------------------------------------
@@ -54,8 +55,8 @@ namespace MelonRenderer
 		VkDeviceMemory m_depthBufferMemory;
 		VkImageView m_depthBufferView;
 		VkFormat m_depthBufferFormat;
-
 		bool CreateDepthBuffer();
+		bool CleanupDepthBuffer();
 
 		//uniform buffer class? buffers should also be allocated in bulk 
 		mat4 m_modelViewProjection;
