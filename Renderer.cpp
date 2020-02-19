@@ -67,7 +67,7 @@ namespace MelonRenderer
 	{
 		timeNow = std::chrono::high_resolution_clock::now();
 		float timeDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::nanoseconds>(timeNow - timeLast).count());
-		float fps = 1000000.f / timeDelta;
+		float fps = 1000000000.f / timeDelta;
 		std::string logMessage = "FPS: ";
 		Logger::Log(logMessage.append(std::to_string(fps)));
 		timeLast = timeNow;
@@ -695,12 +695,14 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::Resize()
 	{
 		OutputSurface outputSurface;
+		CheckPresentationSurfaceCapabilities(m_physicalDevices[m_currentPhysicalDeviceIndex]);
 		outputSurface.capabilites = m_currentSurfaceCapabilities;
 		outputSurface.surface = m_presentationSurface;
 
+		m_imguiPipeline.RecreateOutput(m_extent);
 		m_rasterizationPipeline.RecreateOutput(m_extent);
-		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
 		m_swapchain.CleanupSwapchain(true);
+		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
 		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex] ,&m_renderpass, outputSurface, m_extent);
 
 		return true;

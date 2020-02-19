@@ -582,12 +582,12 @@ namespace MelonRenderer
 		std::vector<VkDescriptorPoolSize> descriptorPoolSizes;
 		VkDescriptorPoolSize poolSizeViewProjection = {};
 		poolSizeViewProjection.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizeViewProjection.descriptorCount = 1; //TODO: swapchainImage numbers
+		poolSizeViewProjection.descriptorCount = 1; 
 		descriptorPoolSizes.emplace_back(poolSizeViewProjection);
 
 		VkDescriptorPoolSize poolSizeTextureSampler = {};
 		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizeTextureSampler.descriptorCount = 1; //TODO: swapchainImage number
+		poolSizeTextureSampler.descriptorCount = 4; 
 		descriptorPoolSizes.emplace_back(poolSizeTextureSampler);
 
 		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {

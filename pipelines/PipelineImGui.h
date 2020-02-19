@@ -10,6 +10,8 @@ namespace MelonRenderer
 		void Tick(VkCommandBuffer& commanduffer, float timeDelta) override;
 		void Fini() override;
 
+		void RecreateOutput(VkExtent2D& windowExtent);
+
 	protected:
 		//virtual void     = 0; in pipeline base
 		void DefineVertices() override;

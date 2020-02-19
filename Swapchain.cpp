@@ -19,8 +19,24 @@ namespace MelonRenderer
 
 	bool Swapchain::AquireNextImage()
 	{
-		
-		VkResult result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, 2000000000, m_presentCompleteSemaphores[m_imageIndex], nullptr, &m_imageIndex);
+		VkResult result;
+		for (;;)
+		{
+			result = vkWaitForFences(Device::Get().m_device, 1, &m_fences[m_imageIndex], VK_TRUE, 100);
+			if (result == VK_SUCCESS)
+			{
+				break;
+			}
+			else if (result == VK_TIMEOUT)
+			{
+				continue;
+			}
+			Logger::Log("Could not wait for fences before acquiring image.");
+			return false;
+		}
+
+		result = vkAcquireNextImageKHR(Device::Get().m_device, m_swapchain, UINT64_MAX, m_presentCompleteSemaphores[(m_imageIndex+1)%m_swapchainSize], 
+			nullptr, &m_imageIndex);
 		if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR))
 		{
 			Logger::Log("Could not aquire next image.");
@@ -33,6 +49,13 @@ namespace MelonRenderer
 
 	bool Swapchain::PresentImage(VkFence* drawFence)
 	{
+		VkResult result = vkResetFences(Device::Get().m_device, 1, &m_fences[m_imageIndex]);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not reset fences before submitting cmd buffer to queue.");
+			return false;
+		}
+
 		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		VkSubmitInfo submitInfo[1] = {};
 		submitInfo[0].pNext = nullptr;
@@ -45,7 +68,7 @@ namespace MelonRenderer
 		submitInfo[0].pCommandBuffers = cmd;
 		submitInfo[0].signalSemaphoreCount = 1;
 		submitInfo[0].pSignalSemaphores = &m_renderCompleteSemaphores[m_imageIndex];
-		VkResult result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, submitInfo, m_fence);
+		result = vkQueueSubmit(Device::Get().m_multipurposeQueue, 1, submitInfo, m_fences[m_imageIndex]);
 		if (result != VK_SUCCESS)
 		{
 			Logger::Log("Could not submit draw queue.");
@@ -161,6 +184,8 @@ namespace MelonRenderer
 
 	bool Swapchain::CreateSemaphores()
 	{
+		//TODO: signal first semaphore so that the first frame does not output a validation error because it has no way to be signaled
+
 		VkSemaphoreCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 		for (int i = 0; i < m_swapchainSize; i++)
@@ -173,6 +198,27 @@ namespace MelonRenderer
 			}
 
 			result = vkCreateSemaphore(Device::Get().m_device, &info, nullptr, &m_presentCompleteSemaphores[i]);
+			if (result != VK_SUCCESS)
+			{
+				Logger::Log("Could not create render complete semaphore.");
+				return false;
+			}
+		}
+
+
+		return true;
+	}
+
+	bool Swapchain::CreateFences()
+	{
+		VkFenceCreateInfo fenceInfo = {};
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceInfo.pNext = nullptr;
+		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+		for (int i = 0; i < m_swapchainSize; i++)
+		{
+			VkResult result = vkCreateFence(Device::Get().m_device, &fenceInfo, nullptr, &m_fences[i]);
 			if (result != VK_SUCCESS)
 			{
 				Logger::Log("Could not create render complete semaphore.");
@@ -315,6 +361,7 @@ namespace MelonRenderer
 		m_commandBuffers.resize(m_swapchainSize);
 		m_renderCompleteSemaphores.resize(m_swapchainSize);
 		m_presentCompleteSemaphores.resize(m_swapchainSize);
+		m_fences.resize(m_swapchainSize);
 
 		result = vkGetSwapchainImagesKHR(Device::Get().m_device, m_swapchain, &m_swapchainSize, &m_outputImages[0]);
 		if (result != VK_SUCCESS)
@@ -355,6 +402,7 @@ namespace MelonRenderer
 		CreateFramebuffers();
 		CreateCommandPoolsAndBuffers();
 		CreateSemaphores();
+		CreateFences();
 
 		return true;
 	}
@@ -370,12 +418,14 @@ namespace MelonRenderer
 			vkDestroyCommandPool(Device::Get().m_device, m_commandPools[i], nullptr);
 			vkDestroySemaphore(Device::Get().m_device, m_renderCompleteSemaphores[i], nullptr);
 			vkDestroySemaphore(Device::Get().m_device, m_presentCompleteSemaphores[i], nullptr);
+			vkDestroyFence(Device::Get().m_device, m_fences[i], nullptr);
 		}
 
 		if (preserveSwapchain)
 		{
 			m_oldSwapchain = m_swapchain;
 			m_swapchain = VK_NULL_HANDLE;
+			m_attachments.resize(0);
 		}
 		else
 		{

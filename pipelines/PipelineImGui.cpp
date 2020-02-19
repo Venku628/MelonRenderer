@@ -34,6 +34,11 @@ namespace MelonRenderer
 		
 	}
 
+	void PipelineImGui::RecreateOutput(VkExtent2D& windowExtent)
+	{
+		m_extent = windowExtent;
+	}
+
 	void PipelineImGui::DefineVertices()
 	{
 		VkVertexInputBindingDescription vertexInputBinding;

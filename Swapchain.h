@@ -32,12 +32,14 @@ namespace MelonRenderer
 		std::vector<VkCommandBuffer> m_commandBuffers;
 		std::vector<VkSemaphore> m_renderCompleteSemaphores;
 		std::vector<VkSemaphore> m_presentCompleteSemaphores;
+		std::vector<VkFence> m_fences;
 
 		bool CreateFramebuffers();
 		bool CreateCommandBufferPool(VkCommandPool& commandPool, VkCommandPoolCreateFlags flags);
 		bool CreateCommandBuffer(VkCommandPool& commandPool, VkCommandBuffer& commandBuffer);
 		bool CreateCommandPoolsAndBuffers();
 		bool CreateSemaphores();
+		bool CreateFences();
 
 		uint32_t m_imageIndex;
 		uint32_t m_swapchainSize = 0;
@@ -46,7 +48,6 @@ namespace MelonRenderer
 
 		VkExtent2D m_extent;
 		VkPresentModeKHR m_presentMode;
-		VkFence m_fence;
 		const uint32_t m_queueFamilyIndex = 0; //TODO: make variable 
 		
 		std::vector<VkImageView> m_attachments;
