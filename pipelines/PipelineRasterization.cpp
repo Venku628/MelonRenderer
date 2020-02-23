@@ -463,20 +463,6 @@ namespace MelonRenderer
 
 	bool PipelineRasterization::Draw(VkCommandBuffer& commandBuffer, float timeDelta)
 	{
-		//TODO: scale for multiple objects
-		ObjectData vertexTransformMatrix{ mat4(1.f,0.f,0.f,2.f,
-			0.f,1.f,0.f,0.f,
-			0.f,0.f,1.f,0.f,
-			0.f,0.f,0.f,1.f) };
-		ObjectData vertexTransformMatrix2{ mat4(1.f,0.f,0.f,-2.f,
-			0.f,1.f,0.f,0.f,
-			0.f,0.f,1.f,0.f,
-			0.f,0.f,0.f,1.f) };
-		std::vector<ObjectData> vertexTransforms;
-		vertexTransforms.emplace_back(vertexTransformMatrix);
-		vertexTransforms.emplace_back(vertexTransformMatrix2);
-
-
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 		std::vector<uint32_t> dynamicOffsets;
 		//dynamicOffsets.emplace_back(0);
@@ -499,8 +485,6 @@ namespace MelonRenderer
 		vkCmdSetScissor(commandBuffer, 0, 1, &m_scissorRect2D);
 
 		//------------------------------------
-
-
 		m_drawables[1].m_objectData.transformMatrix = glm::rotate(m_drawables[1].m_objectData.transformMatrix, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));
 
 		for (auto& drawable : m_drawables)

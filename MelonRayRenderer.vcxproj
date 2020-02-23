@@ -239,10 +239,14 @@
     <ClInclude Include="loader\VulkanFunctions.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MelonMath.h" />
+    <ClInclude Include="simple_scene_graph\NodeCamera.h" />
+    <ClInclude Include="simple_scene_graph\Node.h" />
+    <ClInclude Include="simple_scene_graph\NodeDrawable.h" />
     <ClInclude Include="pipelines\PipelineImGui.h" />
     <ClInclude Include="pipelines\PipelineRasterization.h" />
     <ClInclude Include="pipelines\Pipeline.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="simple_scene_graph\Scene.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Swapchain.h" />
     <ClInclude Include="Texture.h" />
@@ -257,10 +261,14 @@
     <ClCompile Include="loader\VulkanFunctions.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="simple_scene_graph\NodeCamera.cpp" />
+    <ClCompile Include="simple_scene_graph\Node.cpp" />
+    <ClCompile Include="simple_scene_graph\NodeDrawable.cpp" />
     <ClCompile Include="pipelines\PipelineImGui.cpp" />
     <ClCompile Include="pipelines\PipelineRasterization.cpp" />
     <ClCompile Include="pipelines\Pipeline.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="simple_scene_graph\Scene.cpp" />
     <ClCompile Include="Swapchain.cpp" />
     <ClCompile Include="Texture.cpp" />
   </ItemGroup>

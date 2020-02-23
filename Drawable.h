@@ -13,6 +13,13 @@ namespace MelonRenderer {
 		float texU, texV;
 	};
 
+	typedef uint32_t MeshIndex;
+
+	struct ObjectData {
+		mat4 transformMatrix;
+		uint32_t materialIndices[1];
+	};
+
 	class Drawable
 	{
 	public:
