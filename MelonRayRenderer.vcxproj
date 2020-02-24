@@ -227,6 +227,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Basics.h" />
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="cube.h" />
     <ClInclude Include="DeviceMemoryManager.h" />
     <ClInclude Include="Drawable.h" />
@@ -252,6 +253,7 @@
     <ClInclude Include="Texture.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DeviceMemoryManager.cpp" />
     <ClCompile Include="Drawable.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />

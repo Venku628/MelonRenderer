@@ -1,5 +1,7 @@
 #pragma once
 #include "Pipeline.h"
+#include "../Camera.h"
+#include "../simple_scene_graph/Scene.h"
 
 namespace MelonRenderer
 {
@@ -12,6 +14,8 @@ namespace MelonRenderer
 
 		void FillAttachments(std::vector<VkImageView>* attachments);
 		void RecreateOutput(VkExtent2D& windowExtent);
+		void SetCamera(Camera* camera);
+		void SetScene(Scene* scene);
 
 	protected:
 		//virtual void     = 0; in pipeline base
@@ -28,7 +32,7 @@ namespace MelonRenderer
 		bool CreateGraphicsPipeline() override;
 		//---------------------------------------
 
-		bool Draw(VkCommandBuffer& commanBuffer, float timeDelta) override;
+		bool Draw(VkCommandBuffer& commandBuffer, float timeDelta) override;
 
 
 		//---------------------------------------
@@ -37,15 +41,8 @@ namespace MelonRenderer
 		bool CreateDescriptorSet() override;
 		//---------------------------------------
 
-
-
-		void InitCam();
-
-		//drawables, pipeline specific
-		//---------------------------------------
-		std::vector<Drawable> m_drawables;
-		bool CreateDrawableBuffers(Drawable& drawable);
-		//---------------------------------------
+		Camera* m_camera;
+		Scene* m_scene;
 
 		//everything that should be partially moved to the memoryManager
 		//---------------------------------------
@@ -57,13 +54,6 @@ namespace MelonRenderer
 		VkFormat m_depthBufferFormat;
 		bool CreateDepthBuffer();
 		bool CleanupDepthBuffer();
-
-		//uniform buffer class? buffers should also be allocated in bulk 
-		mat4 m_modelViewProjection;
-		VkBuffer m_uniformBuffer;
-		VkDeviceMemory m_uniformBufferMemory;
-
-		bool CreateUniformBufferMVP();
 		//---------------------------------------
 	};
 }

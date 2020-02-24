@@ -87,6 +87,9 @@
     <ClInclude Include="simple_scene_graph\NodeCamera.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -144,6 +147,9 @@
       <Filter>Quelldateien</Filter>
     </ClCompile>
     <ClCompile Include="simple_scene_graph\NodeCamera.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>

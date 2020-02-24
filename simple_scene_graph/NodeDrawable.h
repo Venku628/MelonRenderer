@@ -9,10 +9,14 @@ namespace MelonRenderer
 		public Node
 	{
 	public:
-		void Tick(const mat4& parentMat);
-		void Tick();
+		void Tick(PipelineData* pipelineData, const mat4& parentMat) override;
+		void Tick(PipelineData* pipelineData) override;
+
+		void SetDrawable(Drawable* drawable);
+		void SetMaterialIndices(uint32_t materialIndice);
 
 	protected:
 		Drawable* m_drawable;
+		ObjectData m_objectData;
 	};
 }

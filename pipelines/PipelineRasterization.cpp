@@ -10,28 +10,8 @@ namespace MelonRenderer
 		m_extent = windowExtent;
 		
 		DefineVertices();
-		InitCam();
 
 		CreateDepthBuffer();
-		CreateUniformBufferMVP();
-
-		//---------------------------------------
-		m_memoryManager->CreateTexture("textures/texture.jpg");
-		m_memoryManager->CreateTexture("textures/texture2.jpg");
-		m_memoryManager->CreateTexture("textures/texture3.jpg");
-		m_memoryManager->CreateTexture("textures/texture4.jpg");
-
-		m_drawables.resize(4);
-		CreateDrawableBuffers(m_drawables[0]);
-		CreateDrawableBuffers(m_drawables[1]);
-		CreateDrawableBuffers(m_drawables[2]);
-		CreateDrawableBuffers(m_drawables[3]);
-
-		m_drawables[0].m_objectData = { mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f), 0 };
-		m_drawables[1].m_objectData = { mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f), 1 };
-		m_drawables[2].m_objectData = { mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f), 2 };
-		m_drawables[3].m_objectData = { mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f), 3 };
-		//---------------------------------------
 
 		CreatePipelineLayout();
 		CreateDescriptorPool();
@@ -54,6 +34,16 @@ namespace MelonRenderer
 
 		m_extent = windowExtent;
 		CreateDepthBuffer();
+	}
+
+	void PipelineRasterization::SetCamera(Camera* camera)
+	{
+		m_camera = camera;
+	}
+
+	void PipelineRasterization::SetScene(Scene* scene)
+	{
+		m_scene = scene;
 	}
 
 	void PipelineRasterization::Fini()
@@ -96,22 +86,6 @@ namespace MelonRenderer
 		vertexAttributeUV.format = VK_FORMAT_R32G32_SFLOAT;
 		vertexAttributeUV.offset = sizeof(float) * 6;
 		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
-	}
-
-	void PipelineRasterization::InitCam()
-	{
-		mat4 projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-		mat4 view = glm::lookAt(vec3(-5, 3, -10),
-			vec3(0, 0, 0),
-			vec3(0, -1, 0));
-		mat4 model = mat4(1.0f);
-
-		// Vulkan clip space has inverted Y and half Z.
-		mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f, //had y at -1 before but did not work as intended? correct result now 
-			0.0f, 0.0f, 0.5f, 0.f,
-			0.0f, 0.0f, 0.5f, 1.0f);
-		m_modelViewProjection = clip * projection * view * model;
 	}
 
 	bool PipelineRasterization::CreateDepthBuffer()
@@ -202,74 +176,6 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool PipelineRasterization::CreateUniformBufferMVP()
-	{
-		VkBufferCreateInfo bufferCreateInfo = {
-			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			nullptr,
-			0,
-			sizeof(m_modelViewProjection),
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_SHARING_MODE_EXCLUSIVE,
-			0,
-			nullptr
-		};
-
-		VkResult result = vkCreateBuffer(Device::Get().m_device, &bufferCreateInfo, nullptr, &m_uniformBuffer);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create uniform buffer.");
-			return false;
-		}
-
-		VkMemoryRequirements memoryReq;
-		vkGetBufferMemoryRequirements(Device::Get().m_device, m_uniformBuffer, &memoryReq);
-
-		VkMemoryAllocateInfo allocateInfo = {
-			VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-			nullptr,
-			memoryReq.size,
-			0
-		};
-		if (!m_memoryManager->FindMemoryTypeFromProperties(memoryReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&allocateInfo.memoryTypeIndex))
-		{
-			Logger::Log("Could not find memory type from properties for uniform buffer.");
-			return false;
-		}
-
-		result = vkAllocateMemory(Device::Get().m_device, &allocateInfo, nullptr, &m_uniformBufferMemory);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not allocate uniform buffer memory.");
-			return false;
-		}
-
-		uint8_t* pData;
-		result = vkMapMemory(Device::Get().m_device, m_uniformBufferMemory, 0, memoryReq.size, 0, (void**)&pData);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not map memory for uniform buffer memory.");
-			return false;
-		}
-		memcpy(pData, &m_modelViewProjection, sizeof(m_modelViewProjection));
-		vkUnmapMemory(Device::Get().m_device, m_uniformBufferMemory); //immediatley unmap because of limited page table for gpu+cpu adresses
-
-		result = vkBindBufferMemory(Device::Get().m_device, m_uniformBuffer, m_uniformBufferMemory, 0);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind buffer to memory.");
-			return false;
-		}
-
-		m_descriptorBufferInfoViewProjection.buffer = m_uniformBuffer;
-		m_descriptorBufferInfoViewProjection.offset = 0;
-		m_descriptorBufferInfoViewProjection.range = sizeof(m_modelViewProjection);
-
-
-		return true;
-	}
-
 	bool PipelineRasterization::CreateShaderModules()
 	{
 		auto vertShaderCode = readFile("shaders/vert.spv");
@@ -296,29 +202,6 @@ namespace MelonRenderer
 
 		m_shaderStagesV.emplace_back(vertexShader);
 		m_shaderStagesV.emplace_back(fragmentShader);
-
-		return true;
-	}
-
-	bool PipelineRasterization::CreateDrawableBuffers(Drawable& drawable)
-	{
-		//TODO: make drawable attribute
-		uint32_t vertexBufferSize = sizeof(cube_vertex_data);
-		if (!m_memoryManager->CreateOptimalBuffer(
-			drawable.m_vertexBuffer, drawable.m_vertexBufferMemory, cube_vertex_data, vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
-		{
-			Logger::Log("Could not create vertex buffer.");
-			return false;
-		}
-
-		//TODO: make drawable attribute
-		uint32_t indexBufferSize = sizeof(cube_index_data);
-		if (!m_memoryManager->CreateOptimalBuffer(
-			drawable.m_indexBuffer, drawable.m_indexBufferMemory, cube_index_data, indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
-		{
-			Logger::Log("Could not create index buffer.");
-			return false;
-		}
 
 		return true;
 	}
@@ -484,14 +367,7 @@ namespace MelonRenderer
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(commandBuffer, 0, 1, &m_scissorRect2D);
 
-		//------------------------------------
-		m_drawables[1].m_objectData.transformMatrix = glm::rotate(m_drawables[1].m_objectData.transformMatrix, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));
-
-		for (auto& drawable : m_drawables)
-		{
-			drawable.Tick(commandBuffer, m_pipelineLayout);
-		}
-		//------------------------------------
+		m_scene->Tick(&commandBuffer, &m_pipelineLayout);
 
 		return true;
 	}
@@ -615,7 +491,7 @@ namespace MelonRenderer
 		uniformBufferDescriptorSet.dstSet = m_descriptorSets[0];
 		uniformBufferDescriptorSet.descriptorCount = 1;
 		uniformBufferDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniformBufferDescriptorSet.pBufferInfo = &m_descriptorBufferInfoViewProjection;
+		uniformBufferDescriptorSet.pBufferInfo = m_camera->GetCameraDescriptor();
 		uniformBufferDescriptorSet.dstArrayElement = 0;
 		uniformBufferDescriptorSet.dstBinding = 0;
 		writes.emplace_back(uniformBufferDescriptorSet);

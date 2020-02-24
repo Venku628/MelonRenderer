@@ -5,6 +5,7 @@
 #include "pipelines/PipelineRasterization.h"
 #include "pipelines/PipelineImGui.h"
 #include "Swapchain.h"
+#include "simple_scene_graph/Scene.h"
 
 #include <glfw3.h>
 #include "imgui/imgui.h"
@@ -134,7 +135,12 @@ namespace MelonRenderer
 		PipelineRasterization m_rasterizationPipeline;
 		PipelineImGui m_imguiPipeline;
 
+		Camera m_camera;
+		Scene m_scene;
 		DeviceMemoryManager m_memoryManager;
+
+		Drawable m_drawable;
+		std::vector<NodeDrawable> m_drawableNodes;
 
 		//time logic
 		//---------------------------------------

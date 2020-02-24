@@ -6,11 +6,17 @@
 
 namespace MelonRenderer
 {
+	struct PipelineData
+	{
+		VkCommandBuffer* m_commandBuffer;
+		VkPipelineLayout* m_pipelineLayout;
+	};
+
 	class Node
 	{
 	public:
-		void Tick(const mat4& parentMat);
-		void Tick();
+		virtual void Tick(PipelineData* pipelineData, const mat4& parentMat);
+		virtual void Tick(PipelineData* pipelineData);
 
 		mat4 m_transformationMat;
 

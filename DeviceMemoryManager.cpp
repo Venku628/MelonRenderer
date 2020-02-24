@@ -25,7 +25,7 @@ namespace MelonRenderer
 
 		return true;
 	}
-	bool DeviceMemoryManager::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+	bool DeviceMemoryManager::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
 	{
 		VkBufferCreateInfo bufferInfo = {};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -63,7 +63,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage)
+	bool DeviceMemoryManager::CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage) const
 	{
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
@@ -352,7 +352,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+	bool DeviceMemoryManager::CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const
 	{
 		VkCommandBuffer copyCommandBuffer;
 		if (!CreateSingleUseCommand(copyCommandBuffer))
@@ -383,7 +383,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size)
+	bool DeviceMemoryManager::CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size) const
 	{
 		VkCommandBuffer copyCommandBuffer;
 
@@ -404,7 +404,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::CreateSingleUseCommand(VkCommandBuffer& commandBuffer)
+	bool DeviceMemoryManager::CreateSingleUseCommand(VkCommandBuffer& commandBuffer) const
 	{
 		VkCommandBufferAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -434,7 +434,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::EndSingleUseCommand(VkCommandBuffer& commandBuffer)
+	bool DeviceMemoryManager::EndSingleUseCommand(VkCommandBuffer& commandBuffer) const
 	{
 		VkResult result = vkEndCommandBuffer(commandBuffer);
 		if (result != VK_SUCCESS)
@@ -472,7 +472,7 @@ namespace MelonRenderer
 	}
 
 	//helper function from Vulkan Samples
-	bool DeviceMemoryManager::FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex)
+	bool DeviceMemoryManager::FindMemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex) const
 	{
 		// Search memtypes to find first index with those properties
 		for (uint32_t i = 0; i < m_physicalDeviceMemoryProperties.memoryTypeCount; i++) {

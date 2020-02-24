@@ -2,6 +2,7 @@
 
 #include "Basics.h"
 #include "cube.h"
+#include "DeviceMemoryManager.h"
 
 namespace MelonRenderer {
 	//TODO: eventually replace Vertex with VertexNeu
@@ -25,7 +26,8 @@ namespace MelonRenderer {
 	public:
 		bool LoadMeshData();
 
-		void Tick(VkCommandBuffer& commandBuffer, VkPipelineLayout& pipelineLayout);
+		bool Init(DeviceMemoryManager& memoryManager);
+		void Tick(VkCommandBuffer& commandBuffer, VkPipelineLayout& pipelineLayout, ObjectData& objectData);
 
 	protected:
 		Vertex* m_vertexData;
@@ -35,14 +37,6 @@ namespace MelonRenderer {
 		MeshIndex* m_indexData;
 		VkBuffer m_indexBuffer;
 		VkDeviceMemory m_indexBufferMemory;
-
-		//DEBUG
-		ObjectData m_objectData = { mat4(1, 0, 0, 0,
-			0, 1, 0, -2,
-			0, 0, 1, 0,
-			0, 0, 0, 1),
-			0
-		};
 
 		friend class Pipeline;
 		friend class PipelineRasterization;

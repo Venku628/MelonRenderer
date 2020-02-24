@@ -39,6 +39,10 @@ namespace MelonRenderer
 		CreateLogicalDeviceAndQueue(m_physicalDevices[m_currentPhysicalDeviceIndex]);
 
 		m_memoryManager.Init(m_physicalDeviceMemoryProperties);
+		m_memoryManager.CreateTexture("textures/texture.jpg");
+		m_memoryManager.CreateTexture("textures/texture2.jpg");
+		m_memoryManager.CreateTexture("textures/texture3.jpg");
+		m_memoryManager.CreateTexture("textures/texture4.jpg");
 
 		OutputSurface outputSurface;
 		outputSurface.capabilites = m_currentSurfaceCapabilities;
@@ -53,13 +57,33 @@ namespace MelonRenderer
 
 		CreateRenderpass();
 
+		m_camera.Init(m_memoryManager);
+		m_rasterizationPipeline.SetCamera(&m_camera);
+		m_rasterizationPipeline.SetScene(&m_scene);
+
 		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
 		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
 
 		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
 		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
-		
 
+
+
+		m_drawable.Init(m_memoryManager);
+
+		m_drawableNodes.resize(4);
+		m_drawableNodes[0].m_transformationMat = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawableNodes[1].m_transformationMat = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawableNodes[2].m_transformationMat = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawableNodes[3].m_transformationMat = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+
+		for (int i = 0; i < 4; i++)
+		{
+			m_drawableNodes[i].SetMaterialIndices(i);
+			m_drawableNodes[i].SetDrawable(&m_drawable);
+			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);
+		}
+		
 		Logger::Log("Loading complete.");
 	}
 
@@ -71,6 +95,9 @@ namespace MelonRenderer
 		std::string logMessage = "FPS: ";
 		Logger::Log(logMessage.append(std::to_string(fps)));
 		timeLast = timeNow;
+
+		m_drawableNodes[1].m_transformationMat = glm::rotate(m_drawableNodes[1].m_transformationMat, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));
+
 
 		m_swapchain.AquireNextImage();
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();

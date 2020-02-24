@@ -58,7 +58,6 @@ namespace MelonRenderer
 		//---------------------------------------
 		VkDescriptorPool m_descriptorPool;
 		std::vector<VkDescriptorSet> m_descriptorSets;
-		VkDescriptorBufferInfo m_descriptorBufferInfoViewProjection;
 		std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 		VkPipelineLayout m_pipelineLayout;
 		virtual bool CreatePipelineLayout() = 0;
