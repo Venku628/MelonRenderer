@@ -1,15 +1,9 @@
 #include "Scene.h"
 
-void MelonRenderer::Scene::Tick(VkCommandBuffer* commandBuffer, VkPipelineLayout* pipelineLayout)
+void MelonRenderer::Scene::Tick(PipelineData* pipelineData)
 {
-	PipelineData pipelineData =
-	{
-		commandBuffer,
-		pipelineLayout
-	};
-
 	for (auto rootChild : m_rootChildren)
 	{
-		rootChild->Tick(&pipelineData);
+		rootChild->Tick(pipelineData);
 	}
 }

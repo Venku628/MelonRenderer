@@ -7,7 +7,7 @@ namespace MelonRenderer
 	class Scene
 	{
 	public:
-		void Tick(VkCommandBuffer* m_commandBuffer,	VkPipelineLayout* m_pipelineLayout);
+		void Tick(PipelineData* pipelineData);
 
 		std::vector<Node*> m_rootChildren;
 	};

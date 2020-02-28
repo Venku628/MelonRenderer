@@ -139,6 +139,8 @@ namespace MelonRenderer
 		Scene m_scene;
 		DeviceMemoryManager m_memoryManager;
 
+		std::vector<mat4x3> m_transformMats;
+
 		Drawable m_drawable;
 		std::vector<NodeDrawable> m_drawableNodes;
 

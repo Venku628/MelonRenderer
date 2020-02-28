@@ -17,6 +17,6 @@ namespace MelonRenderer
 
 	protected:
 		Drawable* m_drawable;
-		ObjectData m_objectData;
+		mat4x3 m_transform;
 	};
 }

@@ -2,13 +2,13 @@
 
 void MelonRenderer::NodeDrawable::Tick(PipelineData* pipelineData, const mat4& parentMat)
 {
-	m_objectData.transformMatrix = m_transformationMat * parentMat;
+	m_transform = m_transformationMat * parentMat;
 
-	m_drawable->Tick(*pipelineData->m_commandBuffer, *pipelineData->m_pipelineLayout, m_objectData);
+	m_drawable->Tick(pipelineData);
 
 	for (auto child : m_children)
 	{
-		child->Tick(pipelineData, m_objectData.transformMatrix);
+		child->Tick(pipelineData, m_transform);
 	}
 }
 
@@ -19,8 +19,8 @@ void MelonRenderer::NodeDrawable::Tick(PipelineData* pipelineData)
 		child->Tick(pipelineData, m_transformationMat);
 	}
 
-	m_objectData.transformMatrix = m_transformationMat;
-	m_drawable->Tick(*pipelineData->m_commandBuffer, *pipelineData->m_pipelineLayout, m_objectData);
+	m_transform = m_transformationMat;
+	m_drawable->Tick(pipelineData);
 }
 
 void MelonRenderer::NodeDrawable::SetDrawable(Drawable* drawable)
@@ -30,5 +30,5 @@ void MelonRenderer::NodeDrawable::SetDrawable(Drawable* drawable)
 
 void MelonRenderer::NodeDrawable::SetMaterialIndices(uint32_t materialIndice)
 {
-	m_objectData.materialIndices[0] = materialIndice;
+	//TODO: replace material functionality
 }

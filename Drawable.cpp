@@ -30,14 +30,19 @@ namespace MelonRenderer {
 		return true;
 	}
 
-	void Drawable::Tick(VkCommandBuffer& commandBuffer, VkPipelineLayout& pipelineLayout, ObjectData& objectData)
+	void Drawable::Tick(PipelineData* pipelineData)
 	{
 		const VkDeviceSize offsets[1] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &m_vertexBuffer, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(*pipelineData->m_commandBuffer, 0, 1, &m_vertexBuffer, offsets);
+		vkCmdBindIndexBuffer(*pipelineData->m_commandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4), &objectData.transformMatrix);
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(mat4), sizeof(objectData.materialIndices), &objectData.materialIndices);
-		vkCmdDrawIndexed(commandBuffer, sizeof(cube_index_data) / sizeof(uint32_t), 1, 0, 0, 0);
+		//TODO: do once for every instance
+		vkCmdBindDescriptorSets(*pipelineData->m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineData->m_pipelineLayout, 0, 
+			pipelineData->m_descriptorSets->size(), pipelineData->m_descriptorSets->data(),
+			1, pipelineData->m_transformOffset);
+
+		vkCmdDrawIndexed(*pipelineData->m_commandBuffer, sizeof(cube_index_data) / sizeof(uint32_t), 1, 0, 0, 0);
+
+		*pipelineData->m_transformOffset += pipelineData->m_alignment;
 	}
 }

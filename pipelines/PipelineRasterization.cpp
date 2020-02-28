@@ -347,11 +347,16 @@ namespace MelonRenderer
 	bool PipelineRasterization::Draw(VkCommandBuffer& commandBuffer, float timeDelta)
 	{
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-		std::vector<uint32_t> dynamicOffsets;
-		//dynamicOffsets.emplace_back(0);
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, m_descriptorSets.size(),
-			m_descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
 
+		uint32_t dynamicOffset = 0;
+		PipelineData pipelineData =
+		{
+			&commandBuffer,
+			&m_pipelineLayout,
+			&m_descriptorSets,
+			&dynamicOffset,
+			m_memoryManager->GetDynamicUBOAlignment()
+		};
 
 		m_viewport.height = (float)m_extent.height;
 		m_viewport.width = (float)m_extent.width;
@@ -367,7 +372,7 @@ namespace MelonRenderer
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(commandBuffer, 0, 1, &m_scissorRect2D);
 
-		m_scene->Tick(&commandBuffer, &m_pipelineLayout);
+		m_scene->Tick(&pipelineData);
 
 		return true;
 	}
@@ -385,6 +390,15 @@ namespace MelonRenderer
 			nullptr
 		};
 		layoutBindings.emplace_back(layoutBindingViewProjection);
+
+		VkDescriptorSetLayoutBinding layoutBindingDynamicTransformUBO = {
+			layoutBindingIndex++,
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+			1,
+			VK_SHADER_STAGE_VERTEX_BIT,
+			nullptr
+		};
+		layoutBindings.emplace_back(layoutBindingDynamicTransformUBO);
 
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++,
@@ -412,11 +426,13 @@ namespace MelonRenderer
 		}
 
 		std::vector<VkPushConstantRange> pushConstantRanges;
+		/*
 		VkPushConstantRange pushConstantRangeTransforms = {};
 		pushConstantRangeTransforms.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRangeTransforms.offset = 0;
 		pushConstantRangeTransforms.size = sizeof(ObjectData);
 		pushConstantRanges.emplace_back(pushConstantRangeTransforms);
+		*/
 
 		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
 			VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -444,6 +460,11 @@ namespace MelonRenderer
 		poolSizeViewProjection.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizeViewProjection.descriptorCount = 1; 
 		descriptorPoolSizes.emplace_back(poolSizeViewProjection);
+
+		VkDescriptorPoolSize poolSizeDynamicTransform = {};
+		poolSizeDynamicTransform.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		poolSizeDynamicTransform.descriptorCount = 1;
+		descriptorPoolSizes.emplace_back(poolSizeDynamicTransform);
 
 		VkDescriptorPoolSize poolSizeTextureSampler = {};
 		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -474,7 +495,7 @@ namespace MelonRenderer
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		allocInfo.pNext = nullptr;
 		allocInfo.descriptorPool = m_descriptorPool;
-		allocInfo.descriptorSetCount = m_descriptorSetLayouts.size(); //m_descriptorSetLayouts.size()
+		allocInfo.descriptorSetCount = m_descriptorSetLayouts.size();
 		allocInfo.pSetLayouts = m_descriptorSetLayouts.data();
 		m_descriptorSets.resize(m_descriptorSetLayouts.size());
 		VkResult result = vkAllocateDescriptorSets(Device::Get().m_device, &allocInfo, m_descriptorSets.data());
@@ -485,16 +506,28 @@ namespace MelonRenderer
 		}
 
 		std::vector<VkWriteDescriptorSet> writes;
-		VkWriteDescriptorSet uniformBufferDescriptorSet;
-		uniformBufferDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		uniformBufferDescriptorSet.pNext = nullptr;
-		uniformBufferDescriptorSet.dstSet = m_descriptorSets[0];
-		uniformBufferDescriptorSet.descriptorCount = 1;
-		uniformBufferDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniformBufferDescriptorSet.pBufferInfo = m_camera->GetCameraDescriptor();
-		uniformBufferDescriptorSet.dstArrayElement = 0;
-		uniformBufferDescriptorSet.dstBinding = 0;
-		writes.emplace_back(uniformBufferDescriptorSet);
+		uint32_t dstBinding = 0;
+		VkWriteDescriptorSet viewProjectionUBODescriptorSet;
+		viewProjectionUBODescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		viewProjectionUBODescriptorSet.pNext = nullptr;
+		viewProjectionUBODescriptorSet.dstSet = m_descriptorSets[0];
+		viewProjectionUBODescriptorSet.descriptorCount = 1;
+		viewProjectionUBODescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		viewProjectionUBODescriptorSet.pBufferInfo = m_camera->GetCameraDescriptor();
+		viewProjectionUBODescriptorSet.dstArrayElement = 0;
+		viewProjectionUBODescriptorSet.dstBinding = dstBinding++;
+		writes.emplace_back(viewProjectionUBODescriptorSet);
+
+		VkWriteDescriptorSet dynamicTransformUBO;
+		dynamicTransformUBO.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		dynamicTransformUBO.pNext = nullptr;
+		dynamicTransformUBO.dstSet = m_descriptorSets[0];
+		dynamicTransformUBO.descriptorCount = 1;
+		dynamicTransformUBO.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		dynamicTransformUBO.pBufferInfo = m_memoryManager->GetDynamicTransformDescriptor();
+		dynamicTransformUBO.dstArrayElement = 0;
+		dynamicTransformUBO.dstBinding = dstBinding++;
+		writes.emplace_back(dynamicTransformUBO);
 
 		VkWriteDescriptorSet imageSamplerDescriptorSet;
 		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -504,7 +537,7 @@ namespace MelonRenderer
 		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		imageSamplerDescriptorSet.pImageInfo = m_memoryManager->GetDescriptorImageInfo();
 		imageSamplerDescriptorSet.dstArrayElement = 0;
-		imageSamplerDescriptorSet.dstBinding = 1;
+		imageSamplerDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(imageSamplerDescriptorSet);
 
 		vkUpdateDescriptorSets(Device::Get().m_device, writes.size(), writes.data(), 0, nullptr);

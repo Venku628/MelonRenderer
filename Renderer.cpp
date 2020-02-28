@@ -44,6 +44,15 @@ namespace MelonRenderer
 		m_memoryManager.CreateTexture("textures/texture3.jpg");
 		m_memoryManager.CreateTexture("textures/texture4.jpg");
 
+		m_transformMats.emplace_back( mat4x3(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
+		m_transformMats.emplace_back( mat4x3(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
+		m_transformMats.emplace_back( mat4x3(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
+		m_transformMats.emplace_back( mat4x3(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
+		m_memoryManager.SetDynTransformMats(&m_transformMats);
+		m_memoryManager.SetDynamicUBOAlignment(m_currentPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+		//TODO: find a smarter way to do this
+		m_memoryManager.CreateDynTransformUBO(4);
+
 		OutputSurface outputSurface;
 		outputSurface.capabilites = m_currentSurfaceCapabilities;
 		outputSurface.surface = m_presentationSurface;
@@ -76,7 +85,6 @@ namespace MelonRenderer
 		m_drawableNodes[1].m_transformationMat = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[2].m_transformationMat = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[3].m_transformationMat = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-
 		for (int i = 0; i < 4; i++)
 		{
 			m_drawableNodes[i].SetMaterialIndices(i);
@@ -93,7 +101,7 @@ namespace MelonRenderer
 		float timeDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::nanoseconds>(timeNow - timeLast).count());
 		float fps = 1000000000.f / timeDelta;
 		std::string logMessage = "FPS: ";
-		Logger::Log(logMessage.append(std::to_string(fps)));
+		//Logger::Log(logMessage.append(std::to_string(fps)));
 		timeLast = timeNow;
 
 		m_drawableNodes[1].m_transformationMat = glm::rotate(m_drawableNodes[1].m_transformationMat, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));

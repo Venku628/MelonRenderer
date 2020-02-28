@@ -3,15 +3,10 @@
 #include <vector>
 
 #include "../Basics.h"
+#include "../Drawable.h"
 
 namespace MelonRenderer
 {
-	struct PipelineData
-	{
-		VkCommandBuffer* m_commandBuffer;
-		VkPipelineLayout* m_pipelineLayout;
-	};
-
 	class Node
 	{
 	public:

@@ -16,9 +16,13 @@ namespace MelonRenderer {
 
 	typedef uint32_t MeshIndex;
 
-	struct ObjectData {
-		mat4 transformMatrix;
-		uint32_t materialIndices[1];
+	struct PipelineData
+	{
+		VkCommandBuffer* m_commandBuffer;
+		VkPipelineLayout* m_pipelineLayout;
+		std::vector<VkDescriptorSet>* m_descriptorSets;
+		uint32_t* m_transformOffset;
+		uint32_t m_alignment = 64;
 	};
 
 	class Drawable
@@ -27,7 +31,7 @@ namespace MelonRenderer {
 		bool LoadMeshData();
 
 		bool Init(DeviceMemoryManager& memoryManager);
-		void Tick(VkCommandBuffer& commandBuffer, VkPipelineLayout& pipelineLayout, ObjectData& objectData);
+		void Tick(PipelineData* pipelineData);
 
 	protected:
 		Vertex* m_vertexData;

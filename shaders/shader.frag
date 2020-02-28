@@ -6,7 +6,7 @@ struct Material {
 	int textureIndex;
 };
 
-layout(binding = 1) uniform sampler2D texSampler[];
+layout(binding = 2) uniform sampler2D texSampler[];
 
 layout (location = 0) in vec4 inColor;
 layout (location = 1) in vec2 inTexCoord;

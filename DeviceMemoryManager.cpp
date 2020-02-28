@@ -101,6 +101,84 @@ namespace MelonRenderer
 		return true;
 	}
 
+	bool DeviceMemoryManager::CreateDynTransformUBO(uint32_t maxNumberOfTransforms)
+	{
+		m_maxNumberOfTransforms = maxNumberOfTransforms;
+		m_dynTransformUBOSize = maxNumberOfTransforms * m_dynTransformUBOAllignment;
+
+		if (!CreateBuffer(m_dynTransformUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_dynTransformUBO, m_dynTransformUBOMemory))
+		{
+			Logger::Log("Could not create dynamic transform uniform buffer.");
+			return false;
+		}
+
+		m_dynTransformMats = (mat4x3*)malloc(m_dynTransformUBOSize);
+
+		//keep this buffer mapped to speed up updates
+		VkResult result = vkMapMemory(Device::Get().m_device, m_dynTransformUBOMemory, 0, m_dynTransformUBOSize, 0, &m_dynTransformUBOData);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map memory for uniform buffer memory.");
+			return false;
+		}
+
+		m_dynTransformUBODescriptorInfo.buffer = m_dynTransformUBO;
+		m_dynTransformUBODescriptorInfo.offset = 0;
+		m_dynTransformUBODescriptorInfo.range = VK_WHOLE_SIZE;
+
+		UpdateDynTransformUBO();
+
+		return true;
+	}
+
+	bool DeviceMemoryManager::UpdateDynTransformUBO()
+	{
+		//TODO: write directly into the alligned array instead
+		for (int i = 0; i < m_inputTransforms->size(); i++)
+		{
+			mat4x3* mat = (glm::mat4x3*)(((uint64_t)m_dynTransformMats + (i * m_dynTransformUBOAllignment)));
+			*mat = m_inputTransforms->operator[](i);
+		}
+
+		memcpy(m_dynTransformUBOData, m_dynTransformMats, m_dynTransformUBOSize);
+
+		//this informs gpu of changes
+		VkMappedMemoryRange memoryRange = {};
+		memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+		memoryRange.pNext = nullptr;
+		memoryRange.memory = m_dynTransformUBOMemory;
+		memoryRange.offset = 0;
+		memoryRange.size = m_dynTransformUBOSize;
+		VkResult result = vkFlushMappedMemoryRanges(Device::Get().m_device, 1, &memoryRange);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not flush memory range for dynamic transform matrices.");
+			return false;
+		}
+
+		return true;
+	}
+
+	void DeviceMemoryManager::SetDynamicUBOAlignment(size_t alignment)
+	{
+		m_dynTransformUBOAllignment = alignment;
+	}
+
+	size_t DeviceMemoryManager::GetDynamicUBOAlignment()
+	{
+		return m_dynTransformUBOAllignment;
+	}
+
+	void DeviceMemoryManager::SetDynTransformMats(std::vector<mat4x3>* transformMats)
+	{
+		m_inputTransforms = transformMats;
+	}
+
+	VkDescriptorBufferInfo* DeviceMemoryManager::GetDynamicTransformDescriptor()
+	{
+		return &m_dynTransformUBODescriptorInfo;
+	}
+
 	bool DeviceMemoryManager::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, unsigned char* pixelData, int width, int height)
 	{
 		VkDeviceSize imageSize = static_cast<double>(width)* static_cast<double>(height) * 4; //4 for STBI_rgb_alpha

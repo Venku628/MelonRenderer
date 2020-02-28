@@ -10,11 +10,22 @@ namespace MelonRenderer
 
 	class DeviceMemoryManager
 	{
+	protected:
 		std::vector<Texture> m_textures;
 		std::vector<VkDescriptorImageInfo> m_textureInfos;
 
 		VkSampler m_textureSampler;
 		VkCommandPool m_singleUseBufferCommandPool;
+
+		VkBuffer m_dynTransformUBO;
+		VkDeviceMemory m_dynTransformUBOMemory;
+		VkDescriptorBufferInfo m_dynTransformUBODescriptorInfo;
+		void* m_dynTransformUBOData;
+		mat4x3* m_dynTransformMats;
+		VkDeviceSize m_dynTransformUBOSize;
+		VkDeviceSize m_dynTransformUBOAllignment;
+		uint32_t m_maxNumberOfTransforms;
+		std::vector<mat4x3>* m_inputTransforms;
 
 		VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties;
 
@@ -23,6 +34,13 @@ namespace MelonRenderer
 
 		bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
 		bool CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage) const;
+
+		bool CreateDynTransformUBO(uint32_t numberOfTransforms);
+		bool UpdateDynTransformUBO();
+		void SetDynamicUBOAlignment(size_t alignment);
+		size_t GetDynamicUBOAlignment();
+		void SetDynTransformMats(std::vector<mat4x3>* transformMats);
+		VkDescriptorBufferInfo* GetDynamicTransformDescriptor();
 
 		bool CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, unsigned char* pixelData, int width, int height);
 		bool CreateTextureView(VkImageView& imageView, VkImage image);
