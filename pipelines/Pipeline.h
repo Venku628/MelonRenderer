@@ -13,7 +13,7 @@ namespace MelonRenderer
 	{
 	public:
 		virtual void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) = 0;
-		virtual void Tick(VkCommandBuffer& commanduffer, float timeDelta) = 0;
+		virtual void Tick(VkCommandBuffer& commanduffer) = 0;
 		virtual void Fini() = 0;
 
 	protected:
@@ -51,7 +51,7 @@ namespace MelonRenderer
 		virtual bool CreateGraphicsPipeline() = 0;
 		//---------------------------------------
 
-		virtual bool Draw(VkCommandBuffer& commandBuffer, float timeDelta) = 0;
+		virtual bool Draw(VkCommandBuffer& commandBuffer) = 0;
 		VkViewport m_viewport;
 		VkRect2D m_scissorRect2D;
 

@@ -104,15 +104,13 @@ namespace MelonRenderer
 		//Logger::Log(logMessage.append(std::to_string(fps)));
 		timeLast = timeNow;
 
-		m_drawableNodes[1].m_transformationMat = glm::rotate(m_drawableNodes[1].m_transformationMat, glm::radians(timeDelta), vec3(1.f, 0.f, 0.f));
-
 
 		m_swapchain.AquireNextImage();
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
 		BeginRenderpass(commandBuffer);
-		m_rasterizationPipeline.Tick(commandBuffer, timeDelta/1000000.f);
+		m_rasterizationPipeline.Tick(commandBuffer);
 		vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
-		m_imguiPipeline.Tick(commandBuffer, timeDelta/1000000.f);
+		m_imguiPipeline.Tick(commandBuffer);
 		EndRenderpass(commandBuffer);
 		m_swapchain.PresentImage();
 
@@ -143,8 +141,12 @@ namespace MelonRenderer
 			
 			GlfwInputTick();
 			ImGui::NewFrame();
-			bool showDemoWindow = true;
-			ImGui::ShowDemoWindow(&showDemoWindow);
+
+			static float translation[] = { 0.f, 0.f, 0.f };
+			ImGui::SliderFloat3("position", translation, -10.f, 10.f);
+			m_transformMats[1][1].x = translation[0];
+			m_transformMats[1][2].y = translation[1];
+			m_transformMats[1][3].z = translation[2];
 
 			ImGui::Render();
 			Tick();

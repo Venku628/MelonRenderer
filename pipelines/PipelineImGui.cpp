@@ -24,9 +24,9 @@ namespace MelonRenderer
 		CreateGraphicsPipeline();
 	}
 
-	void PipelineImGui::Tick(VkCommandBuffer& commandBuffer, float timeDelta)
+	void PipelineImGui::Tick(VkCommandBuffer& commandBuffer)
 	{
-		Draw(commandBuffer, timeDelta);
+		Draw(commandBuffer);
 	}
 
 	void PipelineImGui::Fini()
@@ -205,7 +205,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool PipelineImGui::Draw(VkCommandBuffer& commandBuffer, float timeDelta)
+	bool PipelineImGui::Draw(VkCommandBuffer& commandBuffer)
 	{
 		if(CreateImGuiDrawDataBuffer())
 		{

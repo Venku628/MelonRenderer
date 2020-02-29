@@ -31,18 +31,21 @@ namespace MelonRenderer {
 		bool LoadMeshData();
 
 		bool Init(DeviceMemoryManager& memoryManager);
-		void Tick(PipelineData* pipelineData);
+		void Tick(PipelineData& pipelineData);
 
 	protected:
 		Vertex* m_vertexData;
 		VkBuffer m_vertexBuffer;
 		VkDeviceMemory m_vertexBufferMemory;
+		uint32_t m_vertexCount;
 
 		MeshIndex* m_indexData;
 		VkBuffer m_indexBuffer;
 		VkDeviceMemory m_indexBufferMemory;
+		uint32_t m_indexCount;
 
 		friend class Pipeline;
 		friend class PipelineRasterization;
+		friend class PipelineRaytracing;
 	};
 }

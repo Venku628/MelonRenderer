@@ -1,6 +1,6 @@
 #include "NodeCamera.h"
 
-void MelonRenderer::NodeCamera::Tick(PipelineData* pipelineData, const mat4& parentMat)
+void MelonRenderer::NodeCamera::Tick(PipelineData& pipelineData, const mat4& parentMat)
 {
 	mat4 actualTransformationMat = m_transformationMat * parentMat;
 
@@ -12,7 +12,7 @@ void MelonRenderer::NodeCamera::Tick(PipelineData* pipelineData, const mat4& par
 	}
 }
 
-void MelonRenderer::NodeCamera::Tick(PipelineData* pipelineData)
+void MelonRenderer::NodeCamera::Tick(PipelineData& pipelineData)
 {
 	for (auto child : m_children)
 	{

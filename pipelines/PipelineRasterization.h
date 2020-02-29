@@ -9,7 +9,7 @@ namespace MelonRenderer
 	{
 	public:
 		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) override;
-		void Tick(VkCommandBuffer& commanduffer, float timeDelta) override;
+		void Tick(VkCommandBuffer& commanduffer) override;
 		void Fini() override;
 
 		void FillAttachments(std::vector<VkImageView>* attachments);
@@ -32,7 +32,7 @@ namespace MelonRenderer
 		bool CreateGraphicsPipeline() override;
 		//---------------------------------------
 
-		bool Draw(VkCommandBuffer& commandBuffer, float timeDelta) override;
+		bool Draw(VkCommandBuffer& commandBuffer) override;
 
 
 		//---------------------------------------

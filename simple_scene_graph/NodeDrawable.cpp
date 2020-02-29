@@ -1,6 +1,6 @@
 #include "NodeDrawable.h"
 
-void MelonRenderer::NodeDrawable::Tick(PipelineData* pipelineData, const mat4& parentMat)
+void MelonRenderer::NodeDrawable::Tick(PipelineData& pipelineData, const mat4& parentMat)
 {
 	m_transform = m_transformationMat * parentMat;
 
@@ -12,7 +12,7 @@ void MelonRenderer::NodeDrawable::Tick(PipelineData* pipelineData, const mat4& p
 	}
 }
 
-void MelonRenderer::NodeDrawable::Tick(PipelineData* pipelineData)
+void MelonRenderer::NodeDrawable::Tick(PipelineData& pipelineData)
 {
 	for (auto child : m_children)
 	{

@@ -240,6 +240,7 @@
     <ClInclude Include="loader\VulkanFunctions.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MelonMath.h" />
+    <ClInclude Include="pipelines\PipelineRaytracing.h" />
     <ClInclude Include="simple_scene_graph\NodeCamera.h" />
     <ClInclude Include="simple_scene_graph\Node.h" />
     <ClInclude Include="simple_scene_graph\NodeDrawable.h" />
@@ -263,6 +264,7 @@
     <ClCompile Include="loader\VulkanFunctions.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="pipelines\PipelineRaytracing.cpp" />
     <ClCompile Include="simple_scene_graph\NodeCamera.cpp" />
     <ClCompile Include="simple_scene_graph\Node.cpp" />
     <ClCompile Include="simple_scene_graph\NodeDrawable.cpp" />
@@ -306,6 +308,23 @@
     </CustomBuild>
     <None Include="shaders\imgui.frag" />
     <None Include="shaders\imgui.vert" />
+    <None Include="shaders\raytrace.rchit">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </None>
+    <None Include="shaders\raytrace.rgen">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </None>
+    <None Include="shaders\raytrace.rmiss">
+      <FileType>Document</FileType>
+    </None>
     <None Include="shaders\shader.vert">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>

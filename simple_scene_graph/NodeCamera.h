@@ -8,8 +8,8 @@ namespace MelonRenderer
 		public Node
 	{
 	public:
-		void Tick(PipelineData* pipelineData, const mat4& parentMat) override;
-		void Tick(PipelineData* pipelineData) override;
+		void Tick(PipelineData& pipelineData, const mat4& parentMat) override;
+		void Tick(PipelineData& pipelineData) override;
 
 		void SetCamera(Camera* camera);
 

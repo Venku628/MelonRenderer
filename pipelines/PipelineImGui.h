@@ -7,7 +7,7 @@ namespace MelonRenderer
 	{
 	public:
 		void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) override;
-		void Tick(VkCommandBuffer& commanduffer, float timeDelta) override;
+		void Tick(VkCommandBuffer& commanduffer) override;
 		void Fini() override;
 
 		void RecreateOutput(VkExtent2D& windowExtent);
@@ -27,7 +27,7 @@ namespace MelonRenderer
 		bool CreateGraphicsPipeline() override;
 		//---------------------------------------
 
-		bool Draw(VkCommandBuffer& commandBuffer, float timeDelta) override;
+		bool Draw(VkCommandBuffer& commandBuffer) override;
 
 
 		//---------------------------------------

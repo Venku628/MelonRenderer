@@ -1,6 +1,6 @@
 #include "Scene.h"
 
-void MelonRenderer::Scene::Tick(PipelineData* pipelineData)
+void MelonRenderer::Scene::Tick(PipelineData& pipelineData)
 {
 	for (auto rootChild : m_rootChildren)
 	{

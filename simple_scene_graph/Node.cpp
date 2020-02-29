@@ -1,6 +1,6 @@
 #include "Node.h"
 
-void MelonRenderer::Node::Tick(PipelineData* pipelineData, const mat4& parentMat)
+void MelonRenderer::Node::Tick(PipelineData& pipelineData, const mat4& parentMat)
 {
 	if (m_children.size() == 0)
 		return;
@@ -12,7 +12,7 @@ void MelonRenderer::Node::Tick(PipelineData* pipelineData, const mat4& parentMat
 	}
 }
 
-void MelonRenderer::Node::Tick(PipelineData* pipelineData)
+void MelonRenderer::Node::Tick(PipelineData& pipelineData)
 {
 	for (auto child : m_children)
 	{

@@ -10,8 +10,8 @@ namespace MelonRenderer
 	class Node
 	{
 	public:
-		virtual void Tick(PipelineData* pipelineData, const mat4& parentMat);
-		virtual void Tick(PipelineData* pipelineData);
+		virtual void Tick(PipelineData& pipelineData, const mat4& parentMat);
+		virtual void Tick(PipelineData& pipelineData);
 
 		mat4 m_transformationMat;
 

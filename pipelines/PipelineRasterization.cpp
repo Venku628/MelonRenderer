@@ -22,9 +22,10 @@ namespace MelonRenderer
 		CreateGraphicsPipeline();
 	}
 
-	void PipelineRasterization::Tick(VkCommandBuffer& commandBuffer, float timeDelta)
+	void PipelineRasterization::Tick(VkCommandBuffer& commandBuffer)
 	{
-		Draw(commandBuffer, timeDelta);
+		m_memoryManager->UpdateDynTransformUBO();
+		Draw(commandBuffer);
 	}
 
 	void PipelineRasterization::RecreateOutput(VkExtent2D& windowExtent)
@@ -344,7 +345,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool PipelineRasterization::Draw(VkCommandBuffer& commandBuffer, float timeDelta)
+	bool PipelineRasterization::Draw(VkCommandBuffer& commandBuffer)
 	{
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
@@ -372,7 +373,7 @@ namespace MelonRenderer
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(commandBuffer, 0, 1, &m_scissorRect2D);
 
-		m_scene->Tick(&pipelineData);
+		m_scene->Tick(pipelineData);
 
 		return true;
 	}
