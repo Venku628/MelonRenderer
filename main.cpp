@@ -4,9 +4,6 @@
 
 int main(int argc, char* argv[]) { 
 
-	
-
-
 	MelonRenderer::Logger::Get().Print();
 	MelonRenderer::Renderer test;
 

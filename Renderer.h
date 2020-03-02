@@ -3,6 +3,7 @@
 #include "Basics.h"
 #include "DeviceMemoryManager.h"
 #include "pipelines/PipelineRasterization.h"
+#include "pipelines/PipelineRaytracing.h"
 #include "pipelines/PipelineImGui.h"
 #include "Swapchain.h"
 #include "simple_scene_graph/Scene.h"
@@ -132,6 +133,7 @@ namespace MelonRenderer
 
 		Swapchain m_swapchain;
 
+		PipelineRaytracing m_raytracingPipeline;
 		PipelineRasterization m_rasterizationPipeline;
 		PipelineImGui m_imguiPipeline;
 
@@ -139,7 +141,7 @@ namespace MelonRenderer
 		Scene m_scene;
 		DeviceMemoryManager m_memoryManager;
 
-		std::vector<mat4x3> m_transformMats;
+		std::vector<mat3x4> m_transformMats;
 
 		Drawable m_drawable;
 		std::vector<NodeDrawable> m_drawableNodes;
@@ -157,9 +159,12 @@ namespace MelonRenderer
 		uint32_t m_currentPhysicalDeviceIndex = 0;
 		VkPhysicalDeviceFeatures m_currentPhysicalDeviceFeatures;
 		VkPhysicalDeviceProperties m_currentPhysicalDeviceProperties;
+		VkPhysicalDeviceProperties2 m_currentPhysicalDeviceProperties2;
 		VkSurfaceCapabilitiesKHR m_currentSurfaceCapabilities;
 		std::vector<VkPresentModeKHR> m_currentPhysicalDevicePresentModes;
 		std::vector<VkQueueFamilyProperties> m_currentQueueFamilyProperties;
+
+		VkPhysicalDeviceRayTracingPropertiesNV m_raytracingProperties;
 		bool m_hasRaytracingCapabilities;
 
 		GLFWwindow* m_window;

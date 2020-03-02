@@ -12,6 +12,11 @@ namespace MelonRenderer
 		return m_framebuffers[m_imageIndex];
 	}
 
+	VkImage* Swapchain::GetImage()
+	{
+		return &m_outputImages[m_imageIndex];
+	}
+
 	std::vector<VkImageView>* Swapchain::GetAttachmentPointer()
 	{
 		return &m_attachments;

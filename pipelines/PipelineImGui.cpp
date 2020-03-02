@@ -546,7 +546,7 @@ namespace MelonRenderer
 			return false;
 		}
 
-		if (!m_memoryManager->CreateTextureView(m_fontImageView, m_fontImage))
+		if (!m_memoryManager->CreateImageView(m_fontImageView, m_fontImage))
 		{
 			Logger::Log("Could not create texture view.");
 			return false;

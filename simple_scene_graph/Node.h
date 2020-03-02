@@ -12,6 +12,7 @@ namespace MelonRenderer
 	public:
 		virtual void Tick(PipelineData& pipelineData, const mat4& parentMat);
 		virtual void Tick(PipelineData& pipelineData);
+		virtual void SearchForDynamicDrawables(std::vector<Drawable*> drawables);
 
 		mat4 m_transformationMat;
 

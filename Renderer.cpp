@@ -44,10 +44,10 @@ namespace MelonRenderer
 		m_memoryManager.CreateTexture("textures/texture3.jpg");
 		m_memoryManager.CreateTexture("textures/texture4.jpg");
 
-		m_transformMats.emplace_back( mat4x3(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
-		m_transformMats.emplace_back( mat4x3(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
-		m_transformMats.emplace_back( mat4x3(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
-		m_transformMats.emplace_back( mat4x3(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
+		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
+		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
+		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
+		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
 		m_memoryManager.SetDynTransformMats(&m_transformMats);
 		m_memoryManager.SetDynamicUBOAlignment(m_currentPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
 		//TODO: find a smarter way to do this
@@ -66,6 +66,7 @@ namespace MelonRenderer
 
 		CreateRenderpass();
 
+		/*
 		m_camera.Init(m_memoryManager);
 		m_rasterizationPipeline.SetCamera(&m_camera);
 		m_rasterizationPipeline.SetScene(&m_scene);
@@ -75,8 +76,11 @@ namespace MelonRenderer
 
 		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
 		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
+		*/
 
-
+		m_raytracingPipeline.SetRaytracingProperties(&m_raytracingProperties);
+		m_raytracingPipeline.SetScene(&m_scene);
+		m_raytracingPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
 
 		m_drawable.Init(m_memoryManager);
 
@@ -107,11 +111,18 @@ namespace MelonRenderer
 
 		m_swapchain.AquireNextImage();
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
+		
+		/*
 		BeginRenderpass(commandBuffer);
 		m_rasterizationPipeline.Tick(commandBuffer);
 		vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 		m_imguiPipeline.Tick(commandBuffer);
 		EndRenderpass(commandBuffer);
+		*/
+		
+		m_raytracingPipeline.Tick(commandBuffer);
+
+		
 		m_swapchain.PresentImage();
 
 		return true;
@@ -144,9 +155,9 @@ namespace MelonRenderer
 
 			static float translation[] = { 0.f, 0.f, 0.f };
 			ImGui::SliderFloat3("position", translation, -10.f, 10.f);
-			m_transformMats[1][1].x = translation[0];
-			m_transformMats[1][2].y = translation[1];
-			m_transformMats[1][3].z = translation[2];
+			m_transformMats[1][0][3] = translation[0];
+			m_transformMats[1][1][3] = translation[1];
+			m_transformMats[1][2][3] = translation[2];
 
 			ImGui::Render();
 			Tick();
@@ -419,10 +430,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		m_hasRaytracingCapabilities = false;
 		for (auto& deviceExtension : deviceExtensions)
 		{
-			if (!strcmp(deviceExtension.extensionName, "VK_NV_ray_tracing"))
+			if (!strcmp(deviceExtension.extensionName, VK_NV_RAY_TRACING_EXTENSION_NAME))
 			{
 				Logger::Log("Device supports raytracing!");
 				m_hasRaytracingCapabilities = true;
+				break;
 			}
 		}
 
@@ -448,6 +460,12 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	bool Renderer::CheckRequiredDeviceProperties(VkPhysicalDevice& device)
 	{
 		vkGetPhysicalDeviceProperties(device, &m_currentPhysicalDeviceProperties);
+
+		m_raytracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
+		m_currentPhysicalDeviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		m_currentPhysicalDeviceProperties2.pNext = &m_raytracingProperties;
+
+		vkGetPhysicalDeviceProperties2(device, &m_currentPhysicalDeviceProperties2);
 
 		//TODO: determine if any properties are required
 		/*
@@ -553,6 +571,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		{
 			deviceExtensionsToActivate.emplace_back("VK_KHR_get_memory_requirements2");
 			deviceExtensionsToActivate.emplace_back("VK_NV_ray_tracing");
+			deviceExtensionsToActivate.emplace_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
 		}
 
 		VkPhysicalDeviceFeatures2 features2 = {};

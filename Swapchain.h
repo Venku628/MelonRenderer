@@ -16,6 +16,7 @@ namespace MelonRenderer
 	public:
 		VkCommandBuffer& GetCommandBuffer();
 		VkFramebuffer& GetFramebuffer();
+		VkImage* GetImage();
 		std::vector<VkImageView>* GetAttachmentPointer();
 
 		bool AquireNextImage();

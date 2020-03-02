@@ -112,7 +112,7 @@ namespace MelonRenderer
 			return false;
 		}
 
-		m_dynTransformMats = (mat4x3*)malloc(m_dynTransformUBOSize);
+		m_dynTransformMats = (mat3x4*)malloc(m_dynTransformUBOSize);
 
 		//keep this buffer mapped to speed up updates
 		VkResult result = vkMapMemory(Device::Get().m_device, m_dynTransformUBOMemory, 0, m_dynTransformUBOSize, 0, &m_dynTransformUBOData);
@@ -136,7 +136,7 @@ namespace MelonRenderer
 		//TODO: write directly into the alligned array instead
 		for (int i = 0; i < m_inputTransforms->size(); i++)
 		{
-			mat4x3* mat = (glm::mat4x3*)(((uint64_t)m_dynTransformMats + (i * m_dynTransformUBOAllignment)));
+			mat3x4* mat = (glm::mat3x4*)(((uint64_t)m_dynTransformMats + (i * m_dynTransformUBOAllignment)));
 			*mat = m_inputTransforms->operator[](i);
 		}
 
@@ -169,7 +169,7 @@ namespace MelonRenderer
 		return m_dynTransformUBOAllignment;
 	}
 
-	void DeviceMemoryManager::SetDynTransformMats(std::vector<mat4x3>* transformMats)
+	void DeviceMemoryManager::SetDynTransformMats(std::vector<mat3x4>* transformMats)
 	{
 		m_inputTransforms = transformMats;
 	}
@@ -177,6 +177,59 @@ namespace MelonRenderer
 	VkDescriptorBufferInfo* DeviceMemoryManager::GetDynamicTransformDescriptor()
 	{
 		return &m_dynTransformUBODescriptorInfo;
+	}
+
+	bool DeviceMemoryManager::CreateImage(VkImage& image, VkDeviceMemory& imageMemory, VkExtent2D& extent, VkImageUsageFlags usage)
+	{
+		VkImageCreateInfo imageInfo = {};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.pNext = nullptr;
+		imageInfo.flags = 0;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+		imageInfo.extent.width = static_cast<uint32_t>(extent.width);
+		imageInfo.extent.height = static_cast<uint32_t>(extent.height);
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = 1;
+		imageInfo.arrayLayers = 1;
+		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT; //only relevant to images used as attachments
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.usage = usage; // VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		VkResult result = vkCreateImage(Device::Get().m_device, &imageInfo, nullptr, &image);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create image.");
+			return false;
+		}
+
+		VkMemoryRequirements memoryRequirements;
+		vkGetImageMemoryRequirements(Device::Get().m_device, image, &memoryRequirements);
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+		allocInfo.allocationSize = memoryRequirements.size;
+		if (!FindMemoryTypeFromProperties(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &allocInfo.memoryTypeIndex))
+		{
+			Logger::Log("Could find memory type from properties for image.");
+			return false;
+		}
+
+		result = vkAllocateMemory(Device::Get().m_device, &allocInfo, nullptr, &imageMemory);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not allocate memory for image.");
+			return false;
+		}
+
+		result = vkBindImageMemory(Device::Get().m_device, image, imageMemory, 0);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind memory for image.");
+			return false;
+		}
+
+		return true;
 	}
 
 	bool DeviceMemoryManager::CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, unsigned char* pixelData, int width, int height)
@@ -202,58 +255,15 @@ namespace MelonRenderer
 		memcpy(data, pixelData, static_cast<size_t>(imageSize));
 		stbi_image_free(pixelData);
 		vkUnmapMemory(Device::Get().m_device, stagingBufferMemory);
-
-		//TODO: make subfunction if used elsewhere
-
-		VkImageCreateInfo imageInfo = {};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.pNext = nullptr;
-		imageInfo.flags = 0;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-		imageInfo.extent.width = static_cast<uint32_t>(width);
-		imageInfo.extent.height = static_cast<uint32_t>(height);
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
-		imageInfo.arrayLayers = 1;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT; //only relevant to images used as attachments
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		result = vkCreateImage(Device::Get().m_device, &imageInfo, nullptr, &texture);
-		if (result != VK_SUCCESS)
+		
+		VkExtent2D extent = { width, height };
+		if (!CreateImage(texture, textureMemory, extent, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT))
 		{
-			Logger::Log("Could not create image for texture.");
+			Logger::Log("Could not create texture image.");
 			return false;
 		}
 
-		VkMemoryRequirements memoryRequirements;
-		vkGetImageMemoryRequirements(Device::Get().m_device, texture, &memoryRequirements);
-		VkMemoryAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.pNext = nullptr;
-		allocInfo.allocationSize = memoryRequirements.size;
-		if (!FindMemoryTypeFromProperties(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &allocInfo.memoryTypeIndex))
-		{
-			Logger::Log("Could find memory type from properties for texture image.");
-			return false;
-		}
-
-		result = vkAllocateMemory(Device::Get().m_device, &allocInfo, nullptr, &textureMemory);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not allocate memory for texture image.");
-			return false;
-		}
-
-		result = vkBindImageMemory(Device::Get().m_device, texture, textureMemory, 0);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not bind memory for texture image.");
-			return false;
-		}
-
-		if (!TransitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
+		if (!TransitionImageLayout(texture, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
 		{
 			Logger::Log("Could not transition image layout before uplodading data to image.");
 			return false;
@@ -265,7 +275,7 @@ namespace MelonRenderer
 			return false;
 		}
 
-		if (!TransitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
+		if (!TransitionImageLayout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
 		{
 			Logger::Log("Could not create single use command buffer for transition of image layout to be read as a texture.");
 			return false;
@@ -277,7 +287,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::CreateTextureView(VkImageView& imageView, VkImage image)
+	bool DeviceMemoryManager::CreateImageView(VkImageView& imageView, VkImage image)
 	{
 		VkImageViewCreateInfo viewInfo = {};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -320,7 +330,7 @@ namespace MelonRenderer
 			return false;
 		}
 
-		if (!CreateTextureView(texture.m_textureImageView, texture.m_textureImage))
+		if (!CreateImageView(texture.m_textureImageView, texture.m_textureImage))
 		{
 			Logger::Log("Could not create texture view.");
 			return false;
@@ -372,7 +382,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout)
+	bool DeviceMemoryManager::TransitionImageLayout(VkImage image, VkImageLayout previousLayout, VkImageLayout desiredLayout)
 	{
 		VkCommandBuffer layoutTransitionCommandBuffer;
 		if (!CreateSingleUseCommand(layoutTransitionCommandBuffer))

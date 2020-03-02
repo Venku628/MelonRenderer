@@ -21,11 +21,11 @@ namespace MelonRenderer
 		VkDeviceMemory m_dynTransformUBOMemory;
 		VkDescriptorBufferInfo m_dynTransformUBODescriptorInfo;
 		void* m_dynTransformUBOData;
-		mat4x3* m_dynTransformMats;
+		mat3x4* m_dynTransformMats;
 		VkDeviceSize m_dynTransformUBOSize;
 		VkDeviceSize m_dynTransformUBOAllignment;
 		uint32_t m_maxNumberOfTransforms;
-		std::vector<mat4x3>* m_inputTransforms;
+		std::vector<mat3x4>* m_inputTransforms;
 
 		VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties;
 
@@ -39,14 +39,15 @@ namespace MelonRenderer
 		bool UpdateDynTransformUBO();
 		void SetDynamicUBOAlignment(size_t alignment);
 		size_t GetDynamicUBOAlignment();
-		void SetDynTransformMats(std::vector<mat4x3>* transformMats);
+		void SetDynTransformMats(std::vector<mat3x4>* transformMats);
 		VkDescriptorBufferInfo* GetDynamicTransformDescriptor();
 
+		bool CreateImage(VkImage& image, VkDeviceMemory& imageMemory, VkExtent2D& extent, VkImageUsageFlags usage);
 		bool CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, unsigned char* pixelData, int width, int height);
-		bool CreateTextureView(VkImageView& imageView, VkImage image);
+		bool CreateImageView(VkImageView& imageView, VkImage image);
 		bool CreateTexture(const char* filePath);
 		bool CreateTextureSampler();
-		bool TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout previousLayout, VkImageLayout desiredLayout);
+		bool TransitionImageLayout(VkImage image, VkImageLayout previousLayout, VkImageLayout desiredLayout);
 		
 		bool CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
 		bool CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size) const;
