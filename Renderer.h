@@ -108,11 +108,16 @@ namespace MelonRenderer
 
 		bool CreateLogicalDeviceAndQueue(VkPhysicalDevice& device);
 
-		//single renderpass for all pipelines
+		//renderpass for output 
 		bool CreateRenderpass();
 		bool BeginRenderpass(VkCommandBuffer& commandBuffer);
+		bool BeginCommandBuffer(VkCommandBuffer& commandBuffer);
 		bool EndRenderpass(VkCommandBuffer& commandBuffer);
+		bool EndCommandBuffer(VkCommandBuffer& commandBuffer);
 		VkRenderPass m_renderpass;
+
+		//
+		bool CopyOutputToSwapchain(VkCommandBuffer& commandBuffer, VkImage storage);
 
 		bool Resize();
 

@@ -21,20 +21,22 @@ namespace MelonRenderer
 		uint64_t m_handle = 0;
 	};
 
+	//from vulkan spec 
 	struct BLASInstance
 	{
-		uint64_t m_accelerationStructureHandle;
-		uint32_t m_instanceId;
-		uint32_t m_hitGroupId;
-		uint32_t m_flags;
 		glm::mat3x4 m_transform;
+		uint32_t m_instanceId : 24;
+		uint32_t m_mask : 8;
+		uint32_t m_instanceOffset : 24;
+		uint32_t m_flags :8;
+		uint64_t m_accelerationStructureHandle;
 	};
 
 	// Top-level acceleration structure
 	struct TLAS
 	{
-		VkAccelerationStructureNV m_accelerationStructure;
-		VkDeviceMemory m_accelerationStructureMemory;
+		VkAccelerationStructureNV m_accelerationStructure = VK_NULL_HANDLE;
+		VkDeviceMemory m_accelerationStructureMemory = VK_NULL_HANDLE;
 		VkAccelerationStructureInfoNV m_accelerationStructureInfo = {
 		VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV,
 		nullptr,
@@ -43,7 +45,7 @@ namespace MelonRenderer
 		1,
 		1,
 		nullptr };
-		uint64_t m_handle;
+		uint64_t m_handle = 0;
 	};
 
 	struct RtPushConstant
@@ -52,7 +54,7 @@ namespace MelonRenderer
 		glm::vec3 lightPosition;
 		float     lightIntensity;
 		int       lightType;
-	} m_rtPushConstants;
+	};
 
 	class PipelineRaytracing : public Pipeline
 	{
@@ -61,11 +63,13 @@ namespace MelonRenderer
 		void Tick(VkCommandBuffer& commandBuffer) override;
 		void Fini() override;
 
-		void FillAttachments(std::vector<VkImageView>* attachments);
 		void RecreateOutput(VkExtent2D& windowExtent);
 		void SetCamera(Camera* camera);
 		void SetScene(Scene* scene);
 		void SetRaytracingProperties(VkPhysicalDeviceRayTracingPropertiesNV* raytracingProperties);
+
+		//TODO: move
+		VkImage GetStorageImage();
 
 	protected:
 		VkPhysicalDeviceRayTracingPropertiesNV* m_raytracingProperties;

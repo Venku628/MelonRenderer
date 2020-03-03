@@ -16,7 +16,7 @@ namespace MelonRenderer
 
 		for (auto rootChild : m_rootChildren)
 		{
-			rootChild->SearchForDynamicDrawables(dynamicDrawables);
+			rootChild->SearchForDynamicDrawables(&dynamicDrawables);
 		}
 
 		return dynamicDrawables;

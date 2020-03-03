@@ -22,7 +22,7 @@ void MelonRenderer::NodeCamera::Tick(PipelineData& pipelineData)
 	m_camera->Tick(m_transformationMat);
 }
 
-void MelonRenderer::NodeCamera::SearchForDynamicDrawables(std::vector<Drawable*> drawables)
+void MelonRenderer::NodeCamera::SearchForDynamicDrawables(std::vector<Drawable*>* drawables)
 {
 	for (auto child : m_children)
 	{

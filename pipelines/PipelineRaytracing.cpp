@@ -16,6 +16,8 @@ namespace MelonRenderer
 
 		CreateTLAS();
 
+		CreateStorageImage();
+
 		CreatePipelineLayout();
 		CreateDescriptorPool();
 		CreateDescriptorSet();
@@ -31,10 +33,6 @@ namespace MelonRenderer
 	}
 
 	void PipelineRaytracing::Fini()
-	{
-	}
-
-	void PipelineRaytracing::FillAttachments(std::vector<VkImageView>* attachments)
 	{
 	}
 
@@ -54,6 +52,11 @@ namespace MelonRenderer
 	void PipelineRaytracing::SetRaytracingProperties(VkPhysicalDeviceRayTracingPropertiesNV* raytracingProperties)
 	{
 		m_raytracingProperties = raytracingProperties;
+	}
+
+	VkImage PipelineRaytracing::GetStorageImage()
+	{
+		return m_storageImage;
 	}
 
 	bool PipelineRaytracing::ConvertToGeometryNV(const Drawable& drawable, uint32_t transformMatIndex)
@@ -78,6 +81,8 @@ namespace MelonRenderer
 	
 		VkGeometryDataNV geoData = {};
 		geoData.triangles = triangles;
+		geoData.aabbs = {};
+		geoData.aabbs.sType = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
 
 		VkGeometryNV geometry;
 		geometry.sType = VK_STRUCTURE_TYPE_GEOMETRY_NV;
@@ -121,7 +126,7 @@ namespace MelonRenderer
 			blas.m_accelerationStructureInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV; //redundant
 			blas.m_accelerationStructureInfo.geometryCount = m_rtGeometries[i].size();
 			blas.m_accelerationStructureInfo.pGeometries = m_rtGeometries[i].data();
-			
+			blas.m_accelerationStructureInfo.instanceCount = 0;
 
 			VkAccelerationStructureCreateInfoNV accelerationStructureCreateInfo;
 			accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_NV;
@@ -235,11 +240,12 @@ namespace MelonRenderer
 		for (int i = 0; i < m_instanceTranforms.size(); i++)
 		{
 			BLASInstance blasInstance;
-			blasInstance.m_accelerationStructureHandle = 0;
-			blasInstance.m_instanceId = i;
-			blasInstance.m_hitGroupId = 0;
-			blasInstance.m_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
 			blasInstance.m_transform = m_instanceTranforms[i];
+			blasInstance.m_instanceId = i;
+			blasInstance.m_mask = 0xff;
+			blasInstance.m_instanceOffset = 0;
+			blasInstance.m_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
+			blasInstance.m_accelerationStructureHandle = m_blasVector[i].m_handle;
 
 			m_blasInstances.emplace_back(blasInstance);
 		}
@@ -254,7 +260,7 @@ namespace MelonRenderer
 		m_tlas.m_accelerationStructureInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV;
 		m_tlas.m_accelerationStructureInfo.pNext = nullptr;
 		m_tlas.m_accelerationStructureInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV;
-		m_tlas.m_accelerationStructureInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_NV;
+		m_tlas.m_accelerationStructureInfo.flags = 0;
 		m_tlas.m_accelerationStructureInfo.geometryCount = 0;
 		m_tlas.m_accelerationStructureInfo.pGeometries = nullptr;
 		m_tlas.m_accelerationStructureInfo.instanceCount = m_blasInstances.size();
@@ -334,7 +340,7 @@ namespace MelonRenderer
 			return false;
 		}
 		
-		vkCmdBuildAccelerationStructureNV(buildTLASCmdBuffer, &m_tlas.m_accelerationStructureInfo, VK_NULL_HANDLE, 0, VK_FALSE,
+		vkCmdBuildAccelerationStructureNV(buildTLASCmdBuffer, &m_tlas.m_accelerationStructureInfo, instanceBuffer, 0, VK_FALSE,
 			m_tlas.m_accelerationStructure, VK_NULL_HANDLE, scratchBuffer, 0);
 
 		VkMemoryBarrier memoryBarrier;
@@ -373,9 +379,20 @@ namespace MelonRenderer
 			return false;
 		}
 
-		if (!m_memoryManager->TransitionImageLayout(m_storageImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL ))
+		VkCommandBuffer layoutTransitionCommandBuffer;
+		if (!m_memoryManager->CreateSingleUseCommand(layoutTransitionCommandBuffer))
+		{
+			Logger::Log("Could not create single use command buffer for transition of image layout.");
+			return false;
+		}
+		if (!m_memoryManager->TransitionImageLayout(layoutTransitionCommandBuffer, m_storageImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL ))
 		{
 			Logger::Log("Could not transition storage image layout for raytracing.");
+			return false;
+		}
+		if (!m_memoryManager->EndSingleUseCommand(layoutTransitionCommandBuffer))
+		{
+			Logger::Log("Could not end command buffer for image layout transition.");
 			return false;
 		}
 

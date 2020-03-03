@@ -12,9 +12,9 @@ namespace MelonRenderer
 		return m_framebuffers[m_imageIndex];
 	}
 
-	VkImage* Swapchain::GetImage()
+	VkImage Swapchain::GetImage()
 	{
-		return &m_outputImages[m_imageIndex];
+		return m_outputImages[m_imageIndex];
 	}
 
 	std::vector<VkImageView>* Swapchain::GetAttachmentPointer()
@@ -113,6 +113,11 @@ namespace MelonRenderer
 
 	bool Swapchain::CreateFramebuffers()
 	{
+		//TODO: change this in case of more attachments from other pipelines
+		VkImageView color;
+		m_attachments.resize(0);
+		m_attachments.emplace_back(color);
+
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferCreateInfo.pNext = nullptr;
@@ -323,7 +328,7 @@ namespace MelonRenderer
 		swapchainCreateInfo.imageColorSpace = imageColorSpace;
 		swapchainCreateInfo.imageExtent = extent;
 		swapchainCreateInfo.imageArrayLayers = 1;
-		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		swapchainCreateInfo.queueFamilyIndexCount = 0;
 		swapchainCreateInfo.pQueueFamilyIndices = nullptr;

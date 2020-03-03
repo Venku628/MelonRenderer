@@ -23,7 +23,7 @@ void MelonRenderer::NodeDrawable::Tick(PipelineData& pipelineData)
 	m_drawable->Tick(pipelineData);
 }
 
-void MelonRenderer::NodeDrawable::SearchForDynamicDrawables(std::vector<Drawable*> drawables)
+void MelonRenderer::NodeDrawable::SearchForDynamicDrawables(std::vector<Drawable*>* drawables)
 {
 	//this way of doing things currently finds the same drawables multiple times, offset by the fact that a drawable does not hold all of it´s
 	//transformations, this may change after some revisions
@@ -32,7 +32,7 @@ void MelonRenderer::NodeDrawable::SearchForDynamicDrawables(std::vector<Drawable
 		child->SearchForDynamicDrawables(drawables);
 	}
 
-	drawables.emplace_back(m_drawable);
+	drawables->push_back(m_drawable);
 }
 
 void MelonRenderer::NodeDrawable::SetDrawable(Drawable* drawable)

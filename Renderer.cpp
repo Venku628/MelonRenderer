@@ -72,15 +72,13 @@ namespace MelonRenderer
 		m_rasterizationPipeline.SetScene(&m_scene);
 
 		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
-		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
+		
 
 		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
-		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
+		
 		*/
-
-		m_raytracingPipeline.SetRaytracingProperties(&m_raytracingProperties);
-		m_raytracingPipeline.SetScene(&m_scene);
-		m_raytracingPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
+		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
+		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
 
 		m_drawable.Init(m_memoryManager);
 
@@ -95,6 +93,10 @@ namespace MelonRenderer
 			m_drawableNodes[i].SetDrawable(&m_drawable);
 			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);
 		}
+
+		m_raytracingPipeline.SetRaytracingProperties(&m_raytracingProperties);
+		m_raytracingPipeline.SetScene(&m_scene);
+		m_raytracingPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
 		
 		Logger::Log("Loading complete.");
 	}
@@ -111,17 +113,19 @@ namespace MelonRenderer
 
 		m_swapchain.AquireNextImage();
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
+		BeginCommandBuffer(commandBuffer);
+
+		//TODO: switch between raytracing and rasterization
+		m_raytracingPipeline.Tick(commandBuffer);
+		//m_rasterizationPipeline.Tick(commandBuffer);
+
+		CopyOutputToSwapchain(commandBuffer, m_raytracingPipeline.GetStorageImage());
 		
-		/*
 		BeginRenderpass(commandBuffer);
-		m_rasterizationPipeline.Tick(commandBuffer);
-		vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 		m_imguiPipeline.Tick(commandBuffer);
 		EndRenderpass(commandBuffer);
-		*/
 		
-		m_raytracingPipeline.Tick(commandBuffer);
-
+		EndCommandBuffer(commandBuffer);
 		
 		m_swapchain.PresentImage();
 
@@ -160,6 +164,7 @@ namespace MelonRenderer
 			m_transformMats[1][2][3] = translation[2];
 
 			ImGui::Render();
+			
 			Tick();
 		}
 	}
@@ -615,13 +620,14 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkAttachmentDescription colorAttachment = {};
 		colorAttachment.format = VK_FORMAT_B8G8R8A8_UNORM; //TODO: parameter
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; //previously clear, would overwrite render image
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+		/*
 		VkAttachmentDescription depthAttachment = {};
 		depthAttachment.format = VK_FORMAT_D16_UNORM; //TODO: parameter
 		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -631,22 +637,26 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		*/
 
 		VkAttachmentReference colorAttachmentReference = {};
 		colorAttachmentReference.attachment = 0;
 		colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+		/*
 		VkAttachmentReference depthAttachmentReference = {};
 		depthAttachmentReference.attachment = 1;
 		depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		*/
 
-		VkSubpassDescription subpasses[2];
+		VkSubpassDescription subpasses[1];
 		subpasses[0] = {};
 		subpasses[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpasses[0].colorAttachmentCount = 1;
 		subpasses[0].pColorAttachments = &colorAttachmentReference;
 		subpasses[0].pDepthStencilAttachment = nullptr;
 
+		/*
 		subpasses[1] = {};
 		subpasses[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpasses[1].colorAttachmentCount = 1;
@@ -660,33 +670,26 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.srcAccessMask = 0;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		*/
 
-		VkSubpassDependency dependencies[2];
+		VkSubpassDependency dependencies[1];
 
 		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependencies[0].dstSubpass = 0;
-		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-		dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-		dependencies[1].srcSubpass = 0;
-		dependencies[1].dstSubpass = 1;  // VK_SUBPASS_EXTERNAL;
-		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[1].srcAccessMask =	VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-		VkAttachmentDescription attachments[2] = { colorAttachment, depthAttachment };
+		VkAttachmentDescription attachments[1] = { colorAttachment };
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = 2;
+		renderPassInfo.attachmentCount = 1;
 		renderPassInfo.pAttachments = attachments;
-		renderPassInfo.subpassCount = 2;
+		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = subpasses;
-		renderPassInfo.dependencyCount = 2;
+		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = dependencies;
 		VkResult result = vkCreateRenderPass(Device::Get().m_device, &renderPassInfo, nullptr, &m_renderpass);
 		if (result != VK_SUCCESS)
@@ -700,23 +703,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::BeginRenderpass(VkCommandBuffer& commandBuffer)
 	{
-		VkCommandBufferBeginInfo info = {};
-		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-		VkResult result = vkBeginCommandBuffer(commandBuffer, &info);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not begin command buffer in render pass begin.");
-			return false;
-		}
-
-		VkClearValue clearValues[2];
+		VkClearValue clearValues[1];
 		clearValues[0].color.float32[0] = 0.45f;
 		clearValues[0].color.float32[1] = 0.55f;
 		clearValues[0].color.float32[2] = 0.6f;
 		clearValues[0].color.float32[3] = 1.f;
-		clearValues[1].depthStencil.depth = 1.f;
-		clearValues[1].depthStencil.stencil = 0.f;
 
 		VkRenderPassBeginInfo renderPassBegin = {};
 		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -727,9 +718,24 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		renderPassBegin.renderArea.offset.y = 0;
 		renderPassBegin.renderArea.extent.width = m_extent.width;
 		renderPassBegin.renderArea.extent.height = m_extent.height;
-		renderPassBegin.clearValueCount = 2;
+		renderPassBegin.clearValueCount = 1;
 		renderPassBegin.pClearValues = clearValues;
 		vkCmdBeginRenderPass(commandBuffer, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
+
+		return true;
+	}
+
+	bool Renderer::BeginCommandBuffer(VkCommandBuffer& commandBuffer)
+	{
+		VkCommandBufferBeginInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		VkResult result = vkBeginCommandBuffer(commandBuffer, &info);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not begin command buffer in render pass begin.");
+			return false;
+		}
 
 		return true;
 	}
@@ -738,12 +744,36 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 	{
 		vkCmdEndRenderPass(commandBuffer);
 
+		return true;
+	}
+
+	bool Renderer::EndCommandBuffer(VkCommandBuffer& commandBuffer)
+	{
 		VkResult result = vkEndCommandBuffer(commandBuffer);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not end command buffer at end of render pass.");
+			Logger::Log("Could not end command buffer.");
 			return false;
 		}
+
+		return true;
+	}
+
+	bool Renderer::CopyOutputToSwapchain(VkCommandBuffer& commandBuffer, VkImage storage)
+	{
+		m_memoryManager.TransitionImageLayout(commandBuffer, m_swapchain.GetImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		m_memoryManager.TransitionImageLayout(commandBuffer, storage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+		VkImageCopy copyRegion{};
+		copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+		copyRegion.srcOffset = { 0, 0, 0 };
+		copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+		copyRegion.dstOffset = { 0, 0, 0 };
+		copyRegion.extent = { m_extent.width, m_extent.height, 1 };
+		vkCmdCopyImage(commandBuffer, storage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_swapchain.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+		m_memoryManager.TransitionImageLayout(commandBuffer, m_swapchain.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		m_memoryManager.TransitionImageLayout(commandBuffer, storage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 
 		return true;
 	}

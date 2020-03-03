@@ -5,11 +5,11 @@
 int main(int argc, char* argv[]) { 
 
 	MelonRenderer::Logger::Get().Print();
-	MelonRenderer::Renderer test;
+	MelonRenderer::Renderer instance;
 
-	test.Init();
-	test.Loop();
-	test.Fini();
+	instance.Init();
+	instance.Loop();
+	instance.Fini();
 
 	return 0;
 }

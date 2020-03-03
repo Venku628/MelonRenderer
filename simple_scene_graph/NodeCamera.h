@@ -10,7 +10,7 @@ namespace MelonRenderer
 	public:
 		void Tick(PipelineData& pipelineData, const mat4& parentMat) override;
 		void Tick(PipelineData& pipelineData) override;
-		void SearchForDynamicDrawables(std::vector<Drawable*> drawables);
+		void SearchForDynamicDrawables(std::vector<Drawable*>* drawables);
 
 		void SetCamera(Camera* camera);
 

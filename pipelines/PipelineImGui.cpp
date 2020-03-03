@@ -193,7 +193,7 @@ namespace MelonRenderer
 		pipeline.pStages = m_shaderStagesV.data();
 		pipeline.stageCount = static_cast<uint32_t>(m_shaderStagesV.size());
 		pipeline.renderPass = *m_renderPass;
-		pipeline.subpass = 1;
+		pipeline.subpass = 0; //TODO: make parameter in case of more pipelines
 
 		VkResult result = vkCreateGraphicsPipelines(Device::Get().m_device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &m_pipeline);
 		if (result != VK_SUCCESS)

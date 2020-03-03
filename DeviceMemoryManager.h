@@ -47,7 +47,8 @@ namespace MelonRenderer
 		bool CreateImageView(VkImageView& imageView, VkImage image);
 		bool CreateTexture(const char* filePath);
 		bool CreateTextureSampler();
-		bool TransitionImageLayout(VkImage image, VkImageLayout previousLayout, VkImageLayout desiredLayout);
+		bool TransitionImageLayout(VkCommandBuffer& commandBuffer, VkImage image, VkImageLayout previousLayout, VkImageLayout desiredLayout, 
+			VkPipelineStageFlags srcStageFlags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstStageFlags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 		
 		bool CopyStagingBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
 		bool CopyStagingBufferToBuffer(VkBuffer cpuVisibleBuffer, VkBuffer gpuOnlyBuffer, VkDeviceSize size) const;

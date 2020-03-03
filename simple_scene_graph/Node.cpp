@@ -20,7 +20,7 @@ void MelonRenderer::Node::Tick(PipelineData& pipelineData)
 	}
 }
 
-void MelonRenderer::Node::SearchForDynamicDrawables(std::vector<Drawable*> drawables)
+void MelonRenderer::Node::SearchForDynamicDrawables(std::vector<Drawable*>* drawables)
 {
 	for (auto child : m_children)
 	{

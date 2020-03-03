@@ -11,7 +11,7 @@ namespace MelonRenderer
 	public:
 		void Tick(PipelineData& pipelineData, const mat4& parentMat) override;
 		void Tick(PipelineData& pipelineData) override;
-		void SearchForDynamicDrawables(std::vector<Drawable*> drawables) override;
+		void SearchForDynamicDrawables(std::vector<Drawable*>* drawables) override;
 
 		void SetDrawable(Drawable* drawable);
 		void SetMaterialIndices(uint32_t materialIndice);
