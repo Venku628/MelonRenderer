@@ -18,9 +18,12 @@ namespace MelonRenderer
 		void Clear();
 		// TODO: ToFile(std::string path);
 
-		std::string m_log;
+		void SetModeImmediate(bool mode);
 		
 	private:
+		std::string m_log;
+		bool m_modeImmediate = false;
+
 		Logger();
 		~Logger();
 	};

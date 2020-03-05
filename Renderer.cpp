@@ -66,22 +66,21 @@ namespace MelonRenderer
 
 		CreateRenderpass();
 
-		/*
+		//TODO: move to simple scene graph, when a camera node is constructed
 		m_camera.Init(m_memoryManager);
+		/*
 		m_rasterizationPipeline.SetCamera(&m_camera);
 		m_rasterizationPipeline.SetScene(&m_scene);
 
 		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
-		
-
 		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
-		
 		*/
 		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
 		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
 
-		m_drawable.Init(m_memoryManager);
 
+		//-----------------------------------------
+		m_drawable.Init(m_memoryManager);
 		m_drawableNodes.resize(4);
 		m_drawableNodes[0].m_transformationMat = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[1].m_transformationMat = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
@@ -93,9 +92,11 @@ namespace MelonRenderer
 			m_drawableNodes[i].SetDrawable(&m_drawable);
 			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);
 		}
+		//-----------------------------------------
 
 		m_raytracingPipeline.SetRaytracingProperties(&m_raytracingProperties);
 		m_raytracingPipeline.SetScene(&m_scene);
+		m_raytracingPipeline.SetCamera(&m_camera);
 		m_raytracingPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
 		
 		Logger::Log("Loading complete.");
@@ -121,6 +122,7 @@ namespace MelonRenderer
 
 		CopyOutputToSwapchain(commandBuffer, m_raytracingPipeline.GetStorageImage());
 		
+		ImGui::Render();
 		BeginRenderpass(commandBuffer);
 		m_imguiPipeline.Tick(commandBuffer);
 		EndRenderpass(commandBuffer);
@@ -157,13 +159,14 @@ namespace MelonRenderer
 			GlfwInputTick();
 			ImGui::NewFrame();
 
+			/*
 			static float translation[] = { 0.f, 0.f, 0.f };
 			ImGui::SliderFloat3("position", translation, -10.f, 10.f);
 			m_transformMats[1][0][3] = translation[0];
 			m_transformMats[1][1][3] = translation[1];
 			m_transformMats[1][2][3] = translation[2];
-
-			ImGui::Render();
+			*/
+			
 			
 			Tick();
 		}

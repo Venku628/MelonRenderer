@@ -3,7 +3,15 @@
 
 layout(location = 0) rayPayloadInNV vec3 hitValue;
 
+layout(push_constant) uniform Constants
+{
+  vec4  clearColor;
+  vec3  lightPosition;
+  float lightIntensity;
+  int   lightType;
+};
+
 void main()
 {
-    hitValue = vec3(0.0, 0.1, 0.3);
+    hitValue = clearColor.xyz * 0.8;
 }

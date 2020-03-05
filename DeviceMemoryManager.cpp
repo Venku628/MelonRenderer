@@ -25,6 +25,23 @@ namespace MelonRenderer
 
 		return true;
 	}
+
+	bool DeviceMemoryManager::CopyDataToMemory(VkDeviceMemory& memory, void* data, VkDeviceSize dataSize) const
+	{
+		void* mappedData;
+		VkResult result = vkMapMemory(Device::Get().m_device, memory, 0, dataSize, 0, (void**)&mappedData);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not bind staging buffer to memory.");
+			return false;
+		}
+		memcpy(mappedData, data, dataSize);
+
+		vkUnmapMemory(Device::Get().m_device, memory);
+
+		return true;
+	}
+
 	bool DeviceMemoryManager::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
 	{
 		VkBufferCreateInfo bufferInfo = {};

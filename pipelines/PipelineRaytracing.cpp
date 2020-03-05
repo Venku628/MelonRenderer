@@ -42,6 +42,7 @@ namespace MelonRenderer
 
 	void PipelineRaytracing::SetCamera(Camera* camera)
 	{
+		m_camera = camera;
 	}
 
 	void PipelineRaytracing::SetScene(Scene* scene)
@@ -185,8 +186,16 @@ namespace MelonRenderer
 				return false;
 			}
 
-			if (memoryRequirements2.memoryRequirements.size > maxScratchSize)
-				maxScratchSize = memoryRequirements2.memoryRequirements.size;
+
+			VkAccelerationStructureMemoryRequirementsInfoNV scratchMemoryRequirementsInfo{};
+			scratchMemoryRequirementsInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV;
+			scratchMemoryRequirementsInfo.type = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV;
+			scratchMemoryRequirementsInfo.accelerationStructure = m_tlas.m_accelerationStructure;
+
+			VkMemoryRequirements2 memoryRequirementScratchBLAS;
+			vkGetAccelerationStructureMemoryRequirementsNV(Device::Get().m_device, &memoryRequirementsInfo, &memoryRequirementScratchBLAS);
+			if (memoryRequirementScratchBLAS.memoryRequirements.size > maxScratchSize)
+				maxScratchSize = memoryRequirementScratchBLAS.memoryRequirements.size;
 		}
 
 		//simple scratch buffer approach, can be expanded to build several acceleration structures simultaneously
@@ -249,13 +258,20 @@ namespace MelonRenderer
 
 			m_blasInstances.emplace_back(blasInstance);
 		}
-		VkBuffer instanceBuffer;
-		VkDeviceMemory instanceBufferMemory;
-		if (!m_memoryManager->CreateOptimalBuffer(instanceBuffer, instanceBufferMemory, m_blasInstances.data(), m_blasInstances.size(), VK_BUFFER_USAGE_RAY_TRACING_BIT_NV))
+		
+		if (!m_memoryManager->CreateBuffer(m_blasInstances.size() * sizeof(BLASInstance), VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
+			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_instanceBuffer, m_instanceBufferMemory))
 		{
 			Logger::Log("Could not create buffer for blas instance data.");
 			return false;
 		}
+		
+		if (!m_memoryManager->CopyDataToMemory(m_instanceBufferMemory, m_blasInstances.data(), m_blasInstances.size() * sizeof(BLASInstance)))
+		{
+			Logger::Log("Could not copy data to blas instance buffer.");
+			return false;
+		}
+
 
 		m_tlas.m_accelerationStructureInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV;
 		m_tlas.m_accelerationStructureInfo.pNext = nullptr;
@@ -324,9 +340,17 @@ namespace MelonRenderer
 
 		//simple scratch buffer approach, can be expanded to build several acceleration structures simultaneously
 		//TODO: look at compaction to reduce memory footprint
+		VkAccelerationStructureMemoryRequirementsInfoNV scratchMemoryRequirementsInfo{};
+		scratchMemoryRequirementsInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV;
+		scratchMemoryRequirementsInfo.type = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV;
+		scratchMemoryRequirementsInfo.accelerationStructure = m_tlas.m_accelerationStructure;
+
+		VkMemoryRequirements2 memoryRequirementScratchTLAS;
+		vkGetAccelerationStructureMemoryRequirementsNV(Device::Get().m_device, &memoryRequirementsInfo, &memoryRequirementScratchTLAS);
+
 		VkBuffer scratchBuffer;
 		VkDeviceMemory scratchBufferMemory;
-		if (!m_memoryManager->CreateBuffer(memoryRequirements2.memoryRequirements.size, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, 
+		if (!m_memoryManager->CreateBuffer(memoryRequirementScratchTLAS.memoryRequirements.size, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, 
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, scratchBuffer, scratchBufferMemory))
 		{
 			Logger::Log("Could not create scratch buffer for bottom level acceleration structure.");
@@ -340,7 +364,7 @@ namespace MelonRenderer
 			return false;
 		}
 		
-		vkCmdBuildAccelerationStructureNV(buildTLASCmdBuffer, &m_tlas.m_accelerationStructureInfo, instanceBuffer, 0, VK_FALSE,
+		vkCmdBuildAccelerationStructureNV(buildTLASCmdBuffer, &m_tlas.m_accelerationStructureInfo, m_instanceBuffer, 0, VK_FALSE,
 			m_tlas.m_accelerationStructure, VK_NULL_HANDLE, scratchBuffer, 0);
 
 		VkMemoryBarrier memoryBarrier;
@@ -359,8 +383,8 @@ namespace MelonRenderer
 
 		vkDestroyBuffer(Device::Get().m_device, scratchBuffer, nullptr);
 		vkFreeMemory(Device::Get().m_device, scratchBufferMemory, nullptr);
-		//vkDestroyBuffer(Device::Get().m_device, instanceBuffer, nullptr);
-		//vkFreeMemory(Device::Get().m_device, instanceBufferMemory, nullptr);
+		//vkDestroyBuffer(Device::Get().m_device, m_instanceBuffer, nullptr);
+		//vkFreeMemory(Device::Get().m_device, m_instanceBufferMemory, nullptr);
 
 		return true;
 	}
@@ -559,6 +583,17 @@ namespace MelonRenderer
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_pipeline);
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_pipelineLayout, 0, m_descriptorSets.size(), m_descriptorSets.data(),
 			0, nullptr);
+
+		ImGui::Begin("Scene");
+		
+		static float clearColor[3] = {0.78125f, 0.4531f, 0.f};
+		ImGui::ColorEdit3("clear value", clearColor);
+		m_rtPushConstants.clearColor.x = clearColor[0];
+		m_rtPushConstants.clearColor.y = clearColor[1];
+		m_rtPushConstants.clearColor.z = clearColor[2];
+
+		ImGui::End();
+
 		vkCmdPushConstants(commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV,
 			0, sizeof(RtPushConstant), &m_rtPushConstants);
 
@@ -600,7 +635,6 @@ namespace MelonRenderer
 		};
 		layoutBindings.emplace_back(writeImageLayoutBinding);
 
-		/*
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -609,7 +643,7 @@ namespace MelonRenderer
 			nullptr
 		};
 		layoutBindings.emplace_back(samplerLayoutBinding);
-		*/
+		
 
 		VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -665,12 +699,11 @@ namespace MelonRenderer
 		poolSizeDynamicTransform.descriptorCount = 1;
 		descriptorPoolSizes.emplace_back(poolSizeDynamicTransform);
 
-		/*
 		VkDescriptorPoolSize poolSizeTextureSampler = {};
 		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizeTextureSampler.descriptorCount = 1;
 		descriptorPoolSizes.emplace_back(poolSizeTextureSampler);
-		*/
+		
 
 		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -726,7 +759,6 @@ namespace MelonRenderer
 		accelerationStructureDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(accelerationStructureDescriptorSet);
 
-
 		VkDescriptorImageInfo storageImageDescriptor;
 		storageImageDescriptor.imageView = m_storageImageView;
 		storageImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -744,19 +776,18 @@ namespace MelonRenderer
 		resultWriteImageDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(resultWriteImageDescriptorSet);
 
-		/*
+		//TODO: move to seperate descriptor set, to share with rasterization pipeline
 		VkWriteDescriptorSet uniformWriteBufferDescriptorSet;
 		uniformWriteBufferDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		uniformWriteBufferDescriptorSet.pNext = nullptr;
 		uniformWriteBufferDescriptorSet.dstSet = m_descriptorSets[0];
 		uniformWriteBufferDescriptorSet.descriptorCount = 1;
 		uniformWriteBufferDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniformWriteBufferDescriptorSet.pBufferInfo = ;
-		uniformWriteBufferDescriptorSet.pImageInfo = ;
+		uniformWriteBufferDescriptorSet.pBufferInfo = m_camera->GetCameraDescriptor();
+		uniformWriteBufferDescriptorSet.pImageInfo = nullptr;
 		uniformWriteBufferDescriptorSet.dstArrayElement = 0;
 		uniformWriteBufferDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(uniformWriteBufferDescriptorSet);
-		*/
 
 		vkUpdateDescriptorSets(Device::Get().m_device, writes.size(), writes.data(), 0, nullptr);
 

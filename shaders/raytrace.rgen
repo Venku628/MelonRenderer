@@ -1,10 +1,61 @@
 #version 460
 #extension GL_NV_ray_tracing : require
 
+struct hitPayload
+{
+  vec3 hitValue;
+};
+
 layout(binding = 0, set = 0) uniform accelerationStructureNV topLevelAS;
 layout(binding = 1, set = 0, rgba32f) uniform image2D image;
+layout(binding = 2, set = 0) uniform CameraProperties
+{
+mat4 view;
+mat4 projection;
+mat4 viewInverse;
+mat4 projectionInverse;
+} cam;
+
+layout(location = 0) rayPayloadNV hitPayload prd;
+
+layout(push_constant) uniform Constants
+{
+  vec4  clearColor;
+  vec3  lightPosition;
+  float lightIntensity;
+  int   lightType;
+} scene;
+
 
 void main() 
 {
-    imageStore(image, ivec2(gl_LaunchIDNV.xy), vec4(0.5, 0.5, 0.5, 1.0));
+    //center the coordinates of pixels to their middle, to be able to transform to real camera coordinates
+    const vec2 pixelCenter = vec2(gl_LaunchIDNV.xy) + vec2(0.5);
+    //mapping pixel to [0, 1] in u and v
+    const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeNV.xy);
+    //map to [-1, 1] in u and v, like it is the case in camera space
+    vec2 d = inUV * 2.0 - 1.0;
+
+    vec4 origin = cam.viewInverse * vec4(0, 0, 0, 1);
+    vec4 target = cam.projectionInverse * vec4(d.x, d.y, 1, 1);
+    vec4 direction = cam.viewInverse * vec4(normalize(target.xyz), 0);
+
+    uint rayFlags = gl_RayFlagsOpaqueNV;
+    float distanceMin = 0.001;
+    float distanceMax = 10000.0;
+
+    traceNV(topLevelAS,
+        rayFlags,
+        0xFF,           // cullMask
+        0,              // sbtRecordOffset
+        0,              // sbtRecordStride
+        0,              // missIndex
+        origin.xyz,     // ray origin
+        distanceMin,           // ray min range
+        direction.xyz,  // ray direction
+        distanceMax,           // ray max range
+        0               // payload (location = 0)
+        );
+
+    imageStore(image, ivec2(gl_LaunchIDNV.xy), vec4(prd.hitValue, 1.0));
 }

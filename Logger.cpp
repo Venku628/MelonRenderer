@@ -12,7 +12,10 @@ namespace MelonRenderer
 	void MelonRenderer::Logger::Log(std::string input)
 	{
 		input.append("\n");
-		Get().m_log.append(input);
+		if (Get().m_modeImmediate)
+			std::cout << input << std::endl;
+		else
+			Get().m_log.append(input);
 	}
 
 	void MelonRenderer::Logger::Print()
@@ -24,6 +27,11 @@ namespace MelonRenderer
 	void Logger::Clear()
 	{
 		m_log = "";
+	}
+
+	void Logger::SetModeImmediate(bool mode)
+	{
+		m_modeImmediate = mode;
 	}
 
 	Logger::Logger()

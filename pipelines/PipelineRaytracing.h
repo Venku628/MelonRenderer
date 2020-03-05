@@ -2,6 +2,7 @@
 
 #include "Pipeline.h"
 #include "../simple_scene_graph/Scene.h"
+#include "../imgui/imgui.h"
 
 namespace MelonRenderer
 {
@@ -28,7 +29,7 @@ namespace MelonRenderer
 		uint32_t m_instanceId : 24;
 		uint32_t m_mask : 8;
 		uint32_t m_instanceOffset : 24;
-		uint32_t m_flags :8;
+		uint32_t m_flags : 8;
 		uint64_t m_accelerationStructureHandle;
 	};
 
@@ -73,7 +74,9 @@ namespace MelonRenderer
 
 	protected:
 		VkPhysicalDeviceRayTracingPropertiesNV* m_raytracingProperties;
+
 		Scene* m_scene;
+		Camera* m_camera;
 
 		//BLAS
 		bool ConvertToGeometryNV(const Drawable& drawable, uint32_t transformMatIndex);
@@ -88,6 +91,8 @@ namespace MelonRenderer
 		TLAS m_tlas;
 		std::vector<mat3x4> m_instanceTranforms;
 		std::vector<BLASInstance> m_blasInstances;
+		VkBuffer m_instanceBuffer;
+		VkDeviceMemory m_instanceBufferMemory;
 
 		//storage image
 		VkImage m_storageImage;
@@ -101,6 +106,10 @@ namespace MelonRenderer
 		VkDeviceMemory m_shaderBindingTableMemory;
 
 		RtPushConstant m_rtPushConstants;
+
+
+		//overrides
+		//---------------------------------------
 
 		void DefineVertices() override;
 

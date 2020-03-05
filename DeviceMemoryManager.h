@@ -32,6 +32,7 @@ namespace MelonRenderer
 	public:
 		bool Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties);
 
+		bool CopyDataToMemory(VkDeviceMemory& memory, void* data, VkDeviceSize dataSize) const;
 		bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
 		bool CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage) const;
 

@@ -5,7 +5,16 @@
 layout(location = 0) rayPayloadInNV vec3 hitValue;
 hitAttributeNV vec3 attribs;
 
+layout(push_constant) uniform Constants
+{
+  vec4  clearColor;
+  vec3  lightPosition;
+  float lightIntensity;
+  int   lightType;
+} scene;
+
 void main()
 {
-  hitValue = vec3(0.2, 0.5, 0.5);
+  const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+  hitValue = barycentricCoords;
 }
