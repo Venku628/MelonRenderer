@@ -16,6 +16,7 @@ namespace MelonRenderer
 
 		CreateTLAS();
 
+		CreateSceneInformationBuffer();
 		CreateStorageImage();
 
 		CreatePipelineLayout();
@@ -100,9 +101,9 @@ namespace MelonRenderer
 
 	bool PipelineRaytracing::ConvertDrawables()
 	{
-		auto drawables = m_scene->SearchForDynamicDrawables();
+		m_drawables = m_scene->SearchForDynamicDrawables();
 
-		for (auto drawable : drawables)
+		for (auto drawable : m_drawables)
 		{
 			ConvertToGeometryNV(*drawable, 0);
 		}
@@ -241,6 +242,7 @@ namespace MelonRenderer
 
 	bool PipelineRaytracing::CreateTLAS()
 	{
+		//TODO: remove
 		m_instanceTranforms.emplace_back(mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
 		m_instanceTranforms.emplace_back(mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
 		m_instanceTranforms.emplace_back(mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
@@ -248,6 +250,14 @@ namespace MelonRenderer
 
 		for (int i = 0; i < m_instanceTranforms.size(); i++)
 		{
+			//TODO: move to scene interaction
+			DrawableInstance drawableInstance;
+			drawableInstance.m_drawableIndex = 0;
+			drawableInstance.m_textureOffset = 0;
+			drawableInstance.m_transformation = m_instanceTranforms[i];
+			drawableInstance.m_transformationInverseTranspose = glm::inverse(glm::transpose(drawableInstance.m_transformation));
+			m_drawableInstances.emplace_back(drawableInstance);
+
 			BLASInstance blasInstance;
 			blasInstance.m_transform = m_instanceTranforms[i];
 			blasInstance.m_instanceId = i;
@@ -389,6 +399,22 @@ namespace MelonRenderer
 		return true;
 	}
 
+	bool PipelineRaytracing::CreateSceneInformationBuffer()
+	{
+		if (!m_memoryManager->CreateOptimalBuffer(m_sceneBuffer, m_sceneBufferMemory, m_drawableInstances.data(), m_drawableInstances.size() * sizeof(DrawableInstance),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
+		{
+			Logger::Log("Could not create optimal buffer for scene data for raytracing.");
+			return false;
+		}
+
+		m_sceneBufferDescriptor.buffer = m_sceneBuffer;
+		m_sceneBufferDescriptor.offset = 0;
+		m_sceneBufferDescriptor.range = VK_WHOLE_SIZE;
+
+		return true;
+	}
+
 	bool PipelineRaytracing::CreateStorageImage()
 	{
 		if (!m_memoryManager->CreateImage(m_storageImage, m_storageImageMemory, m_extent, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT))
@@ -460,21 +486,21 @@ namespace MelonRenderer
 		vertexInputBinding.stride = sizeof(Vertex);
 		m_vertexInputBindings.emplace_back(vertexInputBinding);
 
-		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor, vertexAttributeUV;
+		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeNormal, vertexAttributeUV;
 		vertexAttributePosition.binding = 0;
 		vertexAttributePosition.location = 0;
 		vertexAttributePosition.format = VK_FORMAT_R32G32B32_SFLOAT;
 		vertexAttributePosition.offset = 0;
 		m_vertexInputAttributes.emplace_back(vertexAttributePosition);
 
-		vertexAttributeColor.binding = 0;
-		vertexAttributeColor.location = 1;
-		vertexAttributeColor.format = VK_FORMAT_R32G32B32_SFLOAT;
-		vertexAttributeColor.offset = sizeof(float) * 3;
-		m_vertexInputAttributes.emplace_back(vertexAttributeColor);
+		vertexAttributeNormal.binding = 0;
+		vertexAttributeNormal.location = 1;
+		vertexAttributeNormal.format = VK_FORMAT_R32G32B32_SFLOAT;
+		vertexAttributeNormal.offset = sizeof(float) * 3;
+		m_vertexInputAttributes.emplace_back(vertexAttributeNormal);
 
 		vertexAttributeUV.binding = 0;
-		vertexAttributeUV.location = 2;
+		vertexAttributeUV.location = 3;
 		vertexAttributeUV.format = VK_FORMAT_R32G32_SFLOAT;
 		vertexAttributeUV.offset = sizeof(float) * 6;
 		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
@@ -587,10 +613,15 @@ namespace MelonRenderer
 		ImGui::Begin("Scene");
 		
 		static float clearColor[3] = {0.78125f, 0.4531f, 0.f};
+		static float lightPosition[3] = { 1.f, 0.f, 0.f };
 		ImGui::ColorEdit3("clear value", clearColor);
 		m_rtPushConstants.clearColor.x = clearColor[0];
 		m_rtPushConstants.clearColor.y = clearColor[1];
 		m_rtPushConstants.clearColor.z = clearColor[2];
+		ImGui::SliderFloat3("light position", lightPosition, -10.f, 10.f);
+		m_rtPushConstants.lightPosition.x = lightPosition[0];
+		m_rtPushConstants.lightPosition.y = lightPosition[1];
+		m_rtPushConstants.lightPosition.z = lightPosition[2];
 
 		ImGui::End();
 
@@ -635,14 +666,59 @@ namespace MelonRenderer
 		};
 		layoutBindings.emplace_back(writeImageLayoutBinding);
 
-		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
+		VkDescriptorSetLayoutBinding cameraLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			1,
 			VK_SHADER_STAGE_RAYGEN_BIT_NV,
 			nullptr
 		};
+		layoutBindings.emplace_back(cameraLayoutBinding);
+
+		VkDescriptorSetLayoutBinding materialsLayoutBinding = {
+			layoutBindingIndex++,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
+			nullptr
+		};
+		layoutBindings.emplace_back(materialsLayoutBinding);
+
+		VkDescriptorSetLayoutBinding sceneLayoutBinding = {
+			layoutBindingIndex++,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			1,
+			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
+			nullptr
+		};
+		layoutBindings.emplace_back(sceneLayoutBinding);
+
+		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
+			layoutBindingIndex++,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			m_memoryManager->GetNumberTextures(),
+			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
+			nullptr
+		};
 		layoutBindings.emplace_back(samplerLayoutBinding);
+
+		VkDescriptorSetLayoutBinding verticesLayoutBinding = {
+			layoutBindingIndex++,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
+			nullptr
+		};
+		layoutBindings.emplace_back(verticesLayoutBinding);
+
+		VkDescriptorSetLayoutBinding indicesLayoutBinding = {
+			layoutBindingIndex++,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
+			nullptr
+		};
+		layoutBindings.emplace_back(indicesLayoutBinding);
 		
 
 		VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {
@@ -689,21 +765,30 @@ namespace MelonRenderer
 	bool PipelineRaytracing::CreateDescriptorPool()
 	{
 		std::vector<VkDescriptorPoolSize> descriptorPoolSizes;
-		VkDescriptorPoolSize poolSizeViewProjection = {};
-		poolSizeViewProjection.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
-		poolSizeViewProjection.descriptorCount = 1;
-		descriptorPoolSizes.emplace_back(poolSizeViewProjection);
+		VkDescriptorPoolSize accelerationStructurePoolSize = {};
+		accelerationStructurePoolSize.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+		accelerationStructurePoolSize.descriptorCount = 1;
+		descriptorPoolSizes.emplace_back(accelerationStructurePoolSize);
 
-		VkDescriptorPoolSize poolSizeDynamicTransform = {};
-		poolSizeDynamicTransform.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		poolSizeDynamicTransform.descriptorCount = 1;
-		descriptorPoolSizes.emplace_back(poolSizeDynamicTransform);
+		VkDescriptorPoolSize outputImagePoolSize = {};
+		outputImagePoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		outputImagePoolSize.descriptorCount = 1;
+		descriptorPoolSizes.emplace_back(outputImagePoolSize);
+
+		VkDescriptorPoolSize cameraPoolSize = {};
+		cameraPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		cameraPoolSize.descriptorCount = 1;
+		descriptorPoolSizes.emplace_back(cameraPoolSize);
+		
+		VkDescriptorPoolSize storageBufferPoolSize = {};
+		storageBufferPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		storageBufferPoolSize.descriptorCount = m_drawables.size()*4;
+		descriptorPoolSizes.emplace_back(storageBufferPoolSize);
 
 		VkDescriptorPoolSize poolSizeTextureSampler = {};
-		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizeTextureSampler.descriptorCount = 1;
+		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizeTextureSampler.descriptorCount = m_memoryManager->GetNumberTextures();
 		descriptorPoolSizes.emplace_back(poolSizeTextureSampler);
-		
 
 		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -737,6 +822,16 @@ namespace MelonRenderer
 		{
 			Logger::Log("Could not allocate descriptor set.");
 			return false;
+		}
+
+		std::vector<VkDescriptorBufferInfo> materialDescBufferInfo;
+		std::vector<VkDescriptorBufferInfo> verticesDescBufferInfo;
+		std::vector<VkDescriptorBufferInfo> indicesDescBufferInfo;
+		for (size_t i = 0; i < m_drawables.size(); ++i)
+		{
+			//materialDescBufferInfo.push_back({ m_drawables[i].matColorBuffer.buffer, 0, VK_WHOLE_SIZE });
+			verticesDescBufferInfo.push_back({ m_drawables[i]->m_vertexBuffer, 0, VK_WHOLE_SIZE });
+			indicesDescBufferInfo.push_back({ m_drawables[i]->m_indexBuffer, 0, VK_WHOLE_SIZE });
 		}
 
 		std::vector<VkWriteDescriptorSet> writes;
@@ -776,7 +871,7 @@ namespace MelonRenderer
 		resultWriteImageDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(resultWriteImageDescriptorSet);
 
-		//TODO: move to seperate descriptor set, to share with rasterization pipeline
+		//TODO: move to seperate descriptor set, to share with rasterization pipeline (?)
 		VkWriteDescriptorSet uniformWriteBufferDescriptorSet;
 		uniformWriteBufferDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		uniformWriteBufferDescriptorSet.pNext = nullptr;
@@ -788,6 +883,54 @@ namespace MelonRenderer
 		uniformWriteBufferDescriptorSet.dstArrayElement = 0;
 		uniformWriteBufferDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(uniformWriteBufferDescriptorSet);
+
+		//materials
+		dstBinding++;
+
+		//scene
+		VkWriteDescriptorSet sceneDescriptorSet;
+		sceneDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		sceneDescriptorSet.pNext = nullptr;
+		sceneDescriptorSet.dstSet = m_descriptorSets[0];
+		sceneDescriptorSet.descriptorCount = 1;
+		sceneDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		sceneDescriptorSet.pBufferInfo = &m_sceneBufferDescriptor;
+		sceneDescriptorSet.dstArrayElement = 0;
+		sceneDescriptorSet.dstBinding = dstBinding++;
+		writes.emplace_back(sceneDescriptorSet);
+
+		VkWriteDescriptorSet imageSamplerDescriptorSet;
+		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		imageSamplerDescriptorSet.pNext = nullptr;
+		imageSamplerDescriptorSet.dstSet = m_descriptorSets[0];
+		imageSamplerDescriptorSet.descriptorCount = m_memoryManager->GetNumberTextures();
+		imageSamplerDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		imageSamplerDescriptorSet.pImageInfo = m_memoryManager->GetDescriptorImageInfo();
+		imageSamplerDescriptorSet.dstArrayElement = 0;
+		imageSamplerDescriptorSet.dstBinding = dstBinding++;
+		writes.emplace_back(imageSamplerDescriptorSet);
+
+		VkWriteDescriptorSet verticesDescriptorSet;
+		verticesDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		verticesDescriptorSet.pNext = nullptr;
+		verticesDescriptorSet.dstSet = m_descriptorSets[0];
+		verticesDescriptorSet.descriptorCount = verticesDescBufferInfo.size();
+		verticesDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		verticesDescriptorSet.pBufferInfo = verticesDescBufferInfo.data();
+		verticesDescriptorSet.dstArrayElement = 0;
+		verticesDescriptorSet.dstBinding = dstBinding++;
+		writes.emplace_back(verticesDescriptorSet);
+
+		VkWriteDescriptorSet indicesDescriptorSet;
+		indicesDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		indicesDescriptorSet.pNext = nullptr;
+		indicesDescriptorSet.dstSet = m_descriptorSets[0];
+		indicesDescriptorSet.descriptorCount = indicesDescBufferInfo.size();
+		indicesDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		indicesDescriptorSet.pBufferInfo = indicesDescBufferInfo.data();
+		indicesDescriptorSet.dstArrayElement = 0;
+		indicesDescriptorSet.dstBinding = dstBinding++;
+		writes.emplace_back(indicesDescriptorSet);
 
 		vkUpdateDescriptorSets(Device::Get().m_device, writes.size(), writes.data(), 0, nullptr);
 

@@ -49,6 +49,15 @@ namespace MelonRenderer
 		uint64_t m_handle = 0;
 	};
 
+	//TODO: integrate into Drawable node
+	struct DrawableInstance
+	{
+		uint32_t m_drawableIndex;
+		uint32_t m_textureOffset;
+		mat4 m_transformation;
+		mat4 m_transformationInverseTranspose;
+	};
+
 	struct RtPushConstant
 	{
 		glm::vec4 clearColor;
@@ -77,6 +86,7 @@ namespace MelonRenderer
 
 		Scene* m_scene;
 		Camera* m_camera;
+		std::vector<Drawable*> m_drawables;
 
 		//BLAS
 		bool ConvertToGeometryNV(const Drawable& drawable, uint32_t transformMatIndex);
@@ -89,10 +99,18 @@ namespace MelonRenderer
 		//TLAS
 		bool CreateTLAS();
 		TLAS m_tlas;
-		std::vector<mat3x4> m_instanceTranforms;
+		std::vector<mat3x4> m_instanceTranforms; // make this ObjInstance with objIndex and transform information
 		std::vector<BLASInstance> m_blasInstances;
 		VkBuffer m_instanceBuffer;
 		VkDeviceMemory m_instanceBufferMemory;
+
+		//TODO: integrate with simple scene graph, DrawableInstance to NodeDrawable
+		//scene description
+		bool CreateSceneInformationBuffer();
+		VkBuffer m_sceneBuffer;
+		VkDeviceMemory m_sceneBufferMemory;
+		std::vector<DrawableInstance> m_drawableInstances;
+		VkDescriptorBufferInfo m_sceneBufferDescriptor;
 
 		//storage image
 		VkImage m_storageImage;

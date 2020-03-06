@@ -80,7 +80,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlagBits bufferUsage) const
+	bool DeviceMemoryManager::CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage) const
 	{
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;

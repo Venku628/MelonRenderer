@@ -1,10 +1,7 @@
 #version 460
 #extension GL_NV_ray_tracing : require
-
-struct hitPayload
-{
-  vec3 hitValue;
-};
+#extension GL_GOOGLE_include_directive : enable
+#include "raycommon.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureNV topLevelAS;
 layout(binding = 1, set = 0, rgba32f) uniform image2D image;

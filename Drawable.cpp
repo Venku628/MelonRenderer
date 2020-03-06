@@ -3,7 +3,7 @@
 namespace MelonRenderer {
 	bool Drawable::LoadMeshData()
 	{
-		//TODO: do this 
+		
 
 
 		return true;
@@ -13,7 +13,8 @@ namespace MelonRenderer {
 	{
 		//TODO: make drawable attribute
 		uint32_t vertexBufferSize = sizeof(cube_vertex_data);
-		if (!memoryManager.CreateOptimalBuffer(m_vertexBuffer, m_vertexBufferMemory, cube_vertex_data, vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
+		if (!memoryManager.CreateOptimalBuffer(m_vertexBuffer, m_vertexBufferMemory, cube_vertex_data, vertexBufferSize, 
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
 		{
 			Logger::Log("Could not create vertex buffer.");
 			return false;
@@ -21,7 +22,8 @@ namespace MelonRenderer {
 
 		//TODO: make drawable attribute
 		uint32_t indexBufferSize = sizeof(cube_index_data);
-		if (!memoryManager.CreateOptimalBuffer(m_indexBuffer, m_indexBufferMemory, cube_index_data, indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
+		if (!memoryManager.CreateOptimalBuffer(m_indexBuffer, m_indexBufferMemory, cube_index_data, indexBufferSize, 
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
 		{
 			Logger::Log("Could not create index buffer.");
 			return false;
