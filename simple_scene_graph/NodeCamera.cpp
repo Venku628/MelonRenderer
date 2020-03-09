@@ -1,33 +1,8 @@
 #include "NodeCamera.h"
 
-void MelonRenderer::NodeCamera::Tick(PipelineData& pipelineData, const mat4& parentMat)
+mat4 MelonRenderer::NodeCamera::CalculateWorldTransform(const mat4& parentMat)
 {
-	mat4 actualTransformationMat = m_transformationMat * parentMat;
-
-	//m_camera->Tick(actualTransformationMat);
-
-	for (auto child : m_children)
-	{
-		child->Tick(pipelineData, actualTransformationMat);
-	}
-}
-
-void MelonRenderer::NodeCamera::Tick(PipelineData& pipelineData)
-{
-	for (auto child : m_children)
-	{
-		child->Tick(pipelineData, m_transformationMat);
-	}
-
-	//m_camera->Tick(m_transformationMat);
-}
-
-void MelonRenderer::NodeCamera::SearchForDynamicDrawables(std::vector<Drawable*>* drawables)
-{
-	for (auto child : m_children)
-	{
-		child->SearchForDynamicDrawables(drawables);
-	}
+	return m_transformationMat * parentMat;
 }
 
 void MelonRenderer::NodeCamera::SetCamera(Camera* camera)

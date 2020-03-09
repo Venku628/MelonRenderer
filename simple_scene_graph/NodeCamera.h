@@ -8,10 +8,7 @@ namespace MelonRenderer
 		public Node
 	{
 	public:
-		void Tick(PipelineData& pipelineData, const mat4& parentMat) override;
-		void Tick(PipelineData& pipelineData) override;
-		void SearchForDynamicDrawables(std::vector<Drawable*>* drawables);
-
+		mat4 CalculateWorldTransform(const mat4& parentMat);
 		void SetCamera(Camera* camera);
 
 	protected:

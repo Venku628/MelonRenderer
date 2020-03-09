@@ -1,29 +1,13 @@
 #include "Node.h"
 
-void MelonRenderer::Node::Tick(PipelineData& pipelineData, const mat4& parentMat)
+mat4 MelonRenderer::Node::CalculateWorldTransform(const mat4& parentMat)
 {
-	if (m_children.size() == 0)
-		return;
-
-	mat4 actualTransformationMat = m_transformationMat * parentMat;
-	for (auto child : m_children)
-	{
-		child->Tick(pipelineData, actualTransformationMat);
-	}
+	return m_transformationMat * parentMat;
 }
 
-void MelonRenderer::Node::Tick(PipelineData& pipelineData)
+mat4* MelonRenderer::Node::GetTransformMat()
 {
-	for (auto child : m_children)
-	{
-		child->Tick(pipelineData, m_transformationMat);
-	}
+	return &m_transformationMat;
 }
 
-void MelonRenderer::Node::SearchForDynamicDrawables(std::vector<Drawable*>* drawables)
-{
-	for (auto child : m_children)
-	{
-		child->SearchForDynamicDrawables(drawables);
-	}
-}
+

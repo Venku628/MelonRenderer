@@ -1,18 +1,23 @@
 #pragma once
 #include "NodeDrawable.h"
 #include "NodeCamera.h"
+#include <stack>
+#include <utility>
 
 namespace MelonRenderer
 {
 	class Scene
 	{
 	public:
-		void Tick(PipelineData& pipelineData);
-
-		//Rt function
-		std::vector<Drawable*> SearchForDynamicDrawables();
-		//TODO: GetStaticDrawables Rt function
-
 		std::vector<Node*> m_rootChildren;
+
+		void UpdateInstanceTransforms();
+
+		uint32_t CreateDrawableInstance(uint32_t drawableHandle, bool isStatic);
+
+		std::vector<Drawable> m_drawables;
+		//simple solution to group objects together for now
+		std::vector<bool> m_drawableInstanceIsStatic;
+		std::vector<DrawableInstance> m_drawableInstances;
 	};
 }

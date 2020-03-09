@@ -3,19 +3,13 @@
 #include "Basics.h"
 #include "cube.h"
 #include "DeviceMemoryManager.h"
+#include <unordered_map>
 
 namespace MelonRenderer {
-	//TODO: eventually replace Vertex with VertexNeu
-	struct VertexNeu {
-		float posX, posY, posZ;
-		float normalX, normalY, normalZ;
-		float tangentX, tangentY, tangentZ;
-		float bitangentX, bitangentY, bitangentZ;
-		float texU, texV;
-	};
 
 	typedef uint32_t MeshIndex;
 
+	/*
 	struct PipelineData
 	{
 		VkCommandBuffer* m_commandBuffer;
@@ -24,25 +18,55 @@ namespace MelonRenderer {
 		uint32_t* m_transformOffset;
 		uint32_t m_alignment = 64;
 	};
+	*/
+
+	struct DrawableInstance
+	{
+		uint32_t m_drawableIndex;
+		uint32_t m_textureOffset;
+		mat4 m_transformation;
+		mat4 m_transformationInverseTranspose;
+	};
+
+	struct WaveFrontMaterial
+	{
+		vec3  ambient = vec3(1.f, 1.f, 1.f);
+		vec3  diffuse = vec3(0.8f, 0.8f, 0.8f);
+		vec3  specular = vec3(0.5f, 0.5f, 0.5f);
+		vec3  transmittance = vec3(0.f, 0.f, 0.f);
+		vec3  emission = vec3(0.f, 0.f, 0.f);
+		float shininess = 225.f;
+		float ior = 1.45f;       // index of refraction
+		float dissolve = 1.f;  // 1 == opaque; 0 == fully transparent
+		int   illum = 2.f;     // illumination model (see http://www.fileformat.info/format/material/)
+		int   textureId = 0;
+	};
 
 	class Drawable
 	{
 	public:
-		bool LoadMeshData();
+		bool LoadMeshData(std::string path);
 
 		bool Init(DeviceMemoryManager& memoryManager);
-		void Tick(PipelineData& pipelineData);
+		bool Init(DeviceMemoryManager& memoryManager, std::string path);
+		//void Tick(PipelineData& pipelineData);
 
 	protected:
-		Vertex* m_vertexData;
+		bool m_isStatic;
+
+		std::vector<Vertex> m_vertices;
 		VkBuffer m_vertexBuffer;
 		VkDeviceMemory m_vertexBufferMemory;
 		uint32_t m_vertexCount;
 
-		MeshIndex* m_indexData;
+		std::vector<uint32_t> m_indices;
 		VkBuffer m_indexBuffer;
 		VkDeviceMemory m_indexBufferMemory;
 		uint32_t m_indexCount;
+
+		WaveFrontMaterial m_material;
+		VkBuffer m_materialBuffer;
+		VkDeviceMemory m_materialBufferMemory;
 
 		friend class Pipeline;
 		friend class PipelineRasterization;

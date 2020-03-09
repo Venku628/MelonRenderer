@@ -80,16 +80,15 @@ namespace MelonRenderer
 
 
 		//-----------------------------------------
-		m_drawable.Init(m_memoryManager);
+		m_drawable.Init(m_memoryManager, "models/plane.obj");
 		m_drawableNodes.resize(4);
-		m_drawableNodes[0].m_transformationMat = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawableNodes[1].m_transformationMat = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawableNodes[2].m_transformationMat = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawableNodes[3].m_transformationMat = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[0].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		for (int i = 0; i < 4; i++)
 		{
-			m_drawableNodes[i].SetMaterialIndices(i);
-			m_drawableNodes[i].SetDrawable(&m_drawable);
+			m_drawableNodes[i].SetDrawableInstance(&m_drawable);
 			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);
 		}
 		//-----------------------------------------
@@ -330,7 +329,7 @@ namespace MelonRenderer
 		instanceCreateInfo.enabledLayerCount = static_cast<unsigned int>(validationLayers.size());
 		instanceCreateInfo.ppEnabledLayerNames = validationLayers.data();
 		Logger::Log("Activated validation layers for debugging.");
-#elif
+#else
 		instanceCreateInfo.enabledLayerCount = 0;
 		instanceCreateInfo.ppEnabledLayerNames = nullptr;
 #endif

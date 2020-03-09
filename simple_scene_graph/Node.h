@@ -10,13 +10,13 @@ namespace MelonRenderer
 	class Node
 	{
 	public:
-		virtual void Tick(PipelineData& pipelineData, const mat4& parentMat);
-		virtual void Tick(PipelineData& pipelineData);
-		virtual void SearchForDynamicDrawables(std::vector<Drawable*>* drawables);
-
-		mat4 m_transformationMat;
+		virtual mat4 CalculateWorldTransform(const mat4& parentMat);
+		mat4* GetTransformMat();
 
 	protected:
+		mat4 m_transformationMat;
 		std::vector<Node*> m_children;
+
+		friend class Scene;
 	};
 }

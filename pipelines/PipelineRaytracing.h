@@ -50,6 +50,7 @@ namespace MelonRenderer
 	};
 
 	//TODO: integrate into Drawable node
+	/*
 	struct DrawableInstance
 	{
 		uint32_t m_drawableIndex;
@@ -57,6 +58,7 @@ namespace MelonRenderer
 		mat4 m_transformation;
 		mat4 m_transformationInverseTranspose;
 	};
+	*/
 
 	struct RtPushConstant
 	{
@@ -86,13 +88,16 @@ namespace MelonRenderer
 
 		Scene* m_scene;
 		Camera* m_camera;
-		std::vector<Drawable*> m_drawables;
+
+		//map of drawable handles and vectors of instance handles
+		std::unordered_map<uint32_t, std::vector<uint32_t>> m_dynamicDrawableInstances;
+		std::vector<uint32_t> m_staticDrawableInstances;
 
 		//BLAS
-		bool ConvertToGeometryNV(const Drawable& drawable, uint32_t transformMatIndex);
-		bool ConvertDrawables();
+		bool ConvertToGeometryNV(std::vector<VkGeometryNV>& target, uint32_t drawableHandle);
+		bool ConvertToGeometryNV(std::vector<VkGeometryNV>& target, uint32_t drawableHandle, uint32_t instanceHandle);
+		bool PrepareDrawableInstances();
 		bool CreateBLAS();
-		//TODO: expand for multiple BLAS
 		std::vector<std::vector<VkGeometryNV>> m_rtGeometries;
 		std::vector<BLAS> m_blasVector;
 
@@ -109,7 +114,6 @@ namespace MelonRenderer
 		bool CreateSceneInformationBuffer();
 		VkBuffer m_sceneBuffer;
 		VkDeviceMemory m_sceneBufferMemory;
-		std::vector<DrawableInstance> m_drawableInstances;
 		VkDescriptorBufferInfo m_sceneBufferDescriptor;
 
 		//storage image

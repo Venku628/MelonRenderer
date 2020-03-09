@@ -11,12 +11,13 @@ namespace MelonRenderer
 
 		DefineVertices();
 
-		ConvertDrawables();
+		CreateSceneInformationBuffer();
+
+		PrepareDrawableInstances();
 		CreateBLAS();
 
 		CreateTLAS();
 
-		CreateSceneInformationBuffer();
 		CreateStorageImage();
 
 		CreatePipelineLayout();
@@ -61,26 +62,24 @@ namespace MelonRenderer
 		return m_storageImage;
 	}
 
-	bool PipelineRaytracing::ConvertToGeometryNV(const Drawable& drawable, uint32_t transformMatIndex)
+	bool PipelineRaytracing::ConvertToGeometryNV(std::vector<VkGeometryNV>& target, uint32_t drawableHandle)
 	{
+		Drawable* drawable = &m_scene->m_drawables[drawableHandle];
+
 		VkGeometryTrianglesNV triangles = {};
 		triangles.sType = VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV;
 		triangles.pNext = nullptr;
-		triangles.vertexData = drawable.m_vertexBuffer;
+		triangles.vertexData = drawable->m_vertexBuffer;
 		triangles.vertexOffset = 0;
-		triangles.vertexCount = drawable.m_vertexCount;
+		triangles.vertexCount = drawable->m_vertexCount;
 		triangles.vertexStride = sizeof(Vertex);
 		triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT; //are the vertices defined correctly for this struct?
-		triangles.indexData = drawable.m_indexBuffer;
+		triangles.indexData = drawable->m_indexBuffer;
 		triangles.indexOffset = 0;
-		triangles.indexCount = drawable.m_indexCount;
+		triangles.indexCount = drawable->m_indexCount;
 		triangles.indexType = VK_INDEX_TYPE_UINT32;
-		//TODO: as soon as we have more than one object in a BLAS this should be uncommented
-		/*
-		triangles.transformData = m_memoryManager->GetDynamicTransformDescriptor()->buffer;
-		triangles.transformOffset = transformMatIndex * m_memoryManager->GetDynamicUBOAlignment();
-		*/
-	
+		//no transform data for dynamic objects currently
+
 		VkGeometryDataNV geoData = {};
 		geoData.triangles = triangles;
 		geoData.aabbs = {};
@@ -93,20 +92,71 @@ namespace MelonRenderer
 		geometry.geometry = geoData;
 		geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_NV;
 
-		//TODO: for now, one BLAS per object, later combine objects into one BLAS
-		m_rtGeometries.push_back({ geometry });
+		target.push_back(geometry);
 
 		return true;
 	}
 
-	bool PipelineRaytracing::ConvertDrawables()
+	bool PipelineRaytracing::ConvertToGeometryNV(std::vector<VkGeometryNV>& target, uint32_t drawableHandle, uint32_t instanceHandle)
 	{
-		m_drawables = m_scene->SearchForDynamicDrawables();
+		Drawable* drawable = &m_scene->m_drawables[drawableHandle];
 
-		for (auto drawable : m_drawables)
+		VkGeometryTrianglesNV triangles = {};
+		triangles.sType = VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV;
+		triangles.pNext = nullptr;
+		triangles.vertexData =  drawable->m_vertexBuffer;
+		triangles.vertexOffset = 0;
+		triangles.vertexCount = drawable->m_vertexCount;
+		triangles.vertexStride = sizeof(Vertex);
+		triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT; //are the vertices defined correctly for this struct?
+		triangles.indexData = drawable->m_indexBuffer;
+		triangles.indexOffset = 0;
+		triangles.indexCount = drawable->m_indexCount;
+		triangles.indexType = VK_INDEX_TYPE_UINT32;
+		triangles.transformData = m_sceneBuffer;
+		triangles.transformOffset = instanceHandle * sizeof(DrawableInstance) + sizeof(uint32_t) * 2; 
+		
+		VkGeometryDataNV geoData = {};
+		geoData.triangles = triangles;
+		geoData.aabbs = {};
+		geoData.aabbs.sType = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
+
+		VkGeometryNV geometry;
+		geometry.sType = VK_STRUCTURE_TYPE_GEOMETRY_NV;
+		geometry.pNext = nullptr;
+		geometry.flags = VK_GEOMETRY_OPAQUE_BIT_NV;
+		geometry.geometry = geoData;
+		geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_NV;
+
+		target.push_back( geometry );
+
+		return true;
+	}
+
+	bool PipelineRaytracing::PrepareDrawableInstances()
+	{
+		m_dynamicDrawableInstances.clear();
+		m_staticDrawableInstances.resize(0);
+
+		for (int i = 0; i < m_scene->m_drawableInstances.size(); i++)
 		{
-			ConvertToGeometryNV(*drawable, 0);
+			if (m_scene->m_drawableInstanceIsStatic[i])
+			{
+				m_staticDrawableInstances.emplace_back(i);
+			}
+			else 
+			{
+				//if drawable is not yet recorded, record it
+				if (m_dynamicDrawableInstances.find(m_scene->m_drawableInstances[i].m_drawableIndex) == m_dynamicDrawableInstances.end())
+				{
+					m_dynamicDrawableInstances.insert(m_scene->m_drawableInstances[i].m_drawableIndex, {  });
+				}
+
+				m_dynamicDrawableInstances[m_scene->m_drawableInstances[i].m_drawableIndex].emplace_back(i);
+			}
 		}
+
+
 
 		return true;
 	}
@@ -250,13 +300,6 @@ namespace MelonRenderer
 
 		for (int i = 0; i < m_instanceTranforms.size(); i++)
 		{
-			//TODO: move to scene interaction
-			DrawableInstance drawableInstance;
-			drawableInstance.m_drawableIndex = 0;
-			drawableInstance.m_textureOffset = 0;
-			drawableInstance.m_transformation = m_instanceTranforms[i];
-			drawableInstance.m_transformationInverseTranspose = glm::inverse(glm::transpose(drawableInstance.m_transformation));
-			m_drawableInstances.emplace_back(drawableInstance);
 
 			BLASInstance blasInstance;
 			blasInstance.m_transform = m_instanceTranforms[i];
@@ -401,8 +444,8 @@ namespace MelonRenderer
 
 	bool PipelineRaytracing::CreateSceneInformationBuffer()
 	{
-		if (!m_memoryManager->CreateOptimalBuffer(m_sceneBuffer, m_sceneBufferMemory, m_drawableInstances.data(), m_drawableInstances.size() * sizeof(DrawableInstance),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
+		if (!m_memoryManager->CreateOptimalBuffer(m_sceneBuffer, m_sceneBufferMemory, m_scene->m_drawableInstances.data(), 
+			m_scene->m_drawableInstances.size() * sizeof(DrawableInstance), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
 		{
 			Logger::Log("Could not create optimal buffer for scene data for raytracing.");
 			return false;
@@ -678,7 +721,7 @@ namespace MelonRenderer
 		VkDescriptorSetLayoutBinding materialsLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			m_scene->m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
 			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
 			nullptr
 		};
@@ -705,7 +748,7 @@ namespace MelonRenderer
 		VkDescriptorSetLayoutBinding verticesLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			m_scene->m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
 			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
 			nullptr
 		};
@@ -714,7 +757,7 @@ namespace MelonRenderer
 		VkDescriptorSetLayoutBinding indicesLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			m_scene->m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
 			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
 			nullptr
 		};
@@ -782,7 +825,7 @@ namespace MelonRenderer
 		
 		VkDescriptorPoolSize storageBufferPoolSize = {};
 		storageBufferPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		storageBufferPoolSize.descriptorCount = m_drawables.size()*4;
+		storageBufferPoolSize.descriptorCount = m_scene->m_drawables.size()*4;
 		descriptorPoolSizes.emplace_back(storageBufferPoolSize);
 
 		VkDescriptorPoolSize poolSizeTextureSampler = {};
@@ -827,11 +870,11 @@ namespace MelonRenderer
 		std::vector<VkDescriptorBufferInfo> materialDescBufferInfo;
 		std::vector<VkDescriptorBufferInfo> verticesDescBufferInfo;
 		std::vector<VkDescriptorBufferInfo> indicesDescBufferInfo;
-		for (size_t i = 0; i < m_drawables.size(); ++i)
+		for (size_t i = 0; i < m_scene->m_drawables.size(); ++i)
 		{
 			//materialDescBufferInfo.push_back({ m_drawables[i].matColorBuffer.buffer, 0, VK_WHOLE_SIZE });
-			verticesDescBufferInfo.push_back({ m_drawables[i]->m_vertexBuffer, 0, VK_WHOLE_SIZE });
-			indicesDescBufferInfo.push_back({ m_drawables[i]->m_indexBuffer, 0, VK_WHOLE_SIZE });
+			verticesDescBufferInfo.push_back({ m_scene->m_drawables[i].m_vertexBuffer, 0, VK_WHOLE_SIZE });
+			indicesDescBufferInfo.push_back({ m_scene->m_drawables[i].m_indexBuffer, 0, VK_WHOLE_SIZE });
 		}
 
 		std::vector<VkWriteDescriptorSet> writes;

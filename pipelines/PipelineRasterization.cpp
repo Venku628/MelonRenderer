@@ -350,14 +350,7 @@ namespace MelonRenderer
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
 		uint32_t dynamicOffset = 0;
-		PipelineData pipelineData =
-		{
-			&commandBuffer,
-			&m_pipelineLayout,
-			&m_descriptorSets,
-			&dynamicOffset,
-			m_memoryManager->GetDynamicUBOAlignment()
-		};
+		
 
 		m_viewport.height = (float)m_extent.height;
 		m_viewport.width = (float)m_extent.width;
@@ -373,7 +366,8 @@ namespace MelonRenderer
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(commandBuffer, 0, 1, &m_scissorRect2D);
 
-		m_scene->Tick(pipelineData);
+		//TODO: reimplement as soon as refactor is finished
+		//m_scene->Tick(commandBuffer);
 
 		return true;
 	}
