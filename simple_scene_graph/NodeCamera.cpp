@@ -1,7 +1,8 @@
 #include "NodeCamera.h"
 
-mat4 MelonRenderer::NodeCamera::CalculateWorldTransform(const mat4& parentMat)
+mat4 MelonRenderer::NodeCamera::CalculateWorldTransform(const mat4& parentMat, uint32_t** handle)
 {
+	*handle = nullptr;
 	return m_transformationMat * parentMat;
 }
 

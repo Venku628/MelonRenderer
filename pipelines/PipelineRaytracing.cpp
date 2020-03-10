@@ -128,7 +128,7 @@ namespace MelonRenderer
 		geometry.geometry = geoData;
 		geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_NV;
 
-		target.push_back( geometry );
+		target.push_back(geometry);
 
 		return true;
 	}
@@ -149,7 +149,7 @@ namespace MelonRenderer
 				//if drawable is not yet recorded, record it
 				if (m_dynamicDrawableInstances.find(m_scene->m_drawableInstances[i].m_drawableIndex) == m_dynamicDrawableInstances.end())
 				{
-					m_dynamicDrawableInstances.insert(m_scene->m_drawableInstances[i].m_drawableIndex, {  });
+					m_dynamicDrawableInstances.emplace(m_scene->m_drawableInstances[i].m_drawableIndex, std::vector<uint32_t>());
 				}
 
 				m_dynamicDrawableInstances[m_scene->m_drawableInstances[i].m_drawableIndex].emplace_back(i);
@@ -157,25 +157,69 @@ namespace MelonRenderer
 		}
 
 
+		uint32_t blasInstanceId = 0;
+		uint64_t blasId = 0; //to be able to assign handles to the correct instances
+
+		if (m_staticDrawableInstances.size())
+		{
+			std::vector<VkGeometryNV> staticGeometry;
+
+			for (uint32_t instanceHandle : m_staticDrawableInstances)
+			{
+				ConvertToGeometryNV(staticGeometry, m_scene->m_drawableInstances[instanceHandle].m_drawableIndex, instanceHandle);
+			}
+			m_rtGeometries.emplace_back(staticGeometry);
+
+
+			BLASInstance blasInstance;
+			blasInstance.m_transform = mat3x4(1.f);
+			blasInstance.m_instanceId = blasInstanceId++;
+			blasInstance.m_mask = 0xff;
+			blasInstance.m_instanceOffset = 0;
+			blasInstance.m_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
+			blasInstance.m_accelerationStructureHandle = blasId++; //set to handle after blas creation
+
+			m_blasInstances.emplace_back(blasInstance);
+		}
+
+		for (const auto& dynamicDrawableInstances : m_dynamicDrawableInstances)
+		{
+			std::vector<VkGeometryNV> dynamicGeometry;
+
+			for (uint32_t instanceHandle : dynamicDrawableInstances.second) 
+			{
+				BLASInstance blasInstance;
+				blasInstance.m_transform = m_scene->m_drawableInstances[instanceHandle].m_transformation;
+				blasInstance.m_instanceId = blasInstanceId++;
+				blasInstance.m_mask = 0xff;
+				blasInstance.m_instanceOffset = 0;
+				blasInstance.m_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
+				blasInstance.m_accelerationStructureHandle = blasId; //set to handle after blas creation
+
+				m_blasInstances.emplace_back(blasInstance);
+			}
+
+			blasId++;
+			ConvertToGeometryNV(dynamicGeometry, dynamicDrawableInstances.first);
+			m_rtGeometries.emplace_back(dynamicGeometry);
+		}
 
 		return true;
 	}
 
 	bool PipelineRaytracing::CreateBLAS()
 	{
-		m_blasVector.resize(m_rtGeometries.size());
-
 		VkResult result;
 		VkDeviceSize maxScratchSize = 0;
+		uint64_t blasId = 0;
 
-		//TODO: the nvidia sample suggests reusing memory to create the blas on the gpu
-
+		m_blasVector.resize(m_rtGeometries.size());
 		for (int i = 0; i < m_blasVector.size(); i++)
 		{
 			BLAS& blas = m_blasVector[i];
 
 			blas.m_accelerationStructureInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_NV;
-			blas.m_accelerationStructureInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV; //redundant
+			blas.m_accelerationStructureInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV; 
 			blas.m_accelerationStructureInfo.geometryCount = m_rtGeometries[i].size();
 			blas.m_accelerationStructureInfo.pGeometries = m_rtGeometries[i].data();
 			blas.m_accelerationStructureInfo.instanceCount = 0;
@@ -237,6 +281,12 @@ namespace MelonRenderer
 				return false;
 			}
 
+			for (BLASInstance& blasInstance : m_blasInstances)
+			{
+				if (blasInstance.m_accelerationStructureHandle == blasId)
+					blasInstance.m_accelerationStructureHandle = blas.m_handle;
+			}
+			blasId++;
 
 			VkAccelerationStructureMemoryRequirementsInfoNV scratchMemoryRequirementsInfo{};
 			scratchMemoryRequirementsInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV;
@@ -284,48 +334,33 @@ namespace MelonRenderer
 			return false;
 		}
 
+		if (!m_memoryManager->CreateBuffer(m_blasInstances.size() * sizeof(BLASInstance), VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_instanceBuffer, m_instanceBufferMemory))
+		{
+			Logger::Log("Could not create buffer for blas instance data.");
+			return false;
+		}
+		UpdateBLASInstances();
+
+
 		vkDestroyBuffer(Device::Get().m_device, scratchBuffer, nullptr);
 		vkFreeMemory(Device::Get().m_device, scratchBufferMemory, nullptr);
 
 		return true;
 	}
 
-	bool PipelineRaytracing::CreateTLAS()
+	bool PipelineRaytracing::UpdateBLASInstances()
 	{
-		//TODO: remove
-		m_instanceTranforms.emplace_back(mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
-		m_instanceTranforms.emplace_back(mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
-		m_instanceTranforms.emplace_back(mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
-		m_instanceTranforms.emplace_back(mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
-
-		for (int i = 0; i < m_instanceTranforms.size(); i++)
-		{
-
-			BLASInstance blasInstance;
-			blasInstance.m_transform = m_instanceTranforms[i];
-			blasInstance.m_instanceId = i;
-			blasInstance.m_mask = 0xff;
-			blasInstance.m_instanceOffset = 0;
-			blasInstance.m_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
-			blasInstance.m_accelerationStructureHandle = m_blasVector[i].m_handle;
-
-			m_blasInstances.emplace_back(blasInstance);
-		}
-		
-		if (!m_memoryManager->CreateBuffer(m_blasInstances.size() * sizeof(BLASInstance), VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_instanceBuffer, m_instanceBufferMemory))
-		{
-			Logger::Log("Could not create buffer for blas instance data.");
-			return false;
-		}
-		
 		if (!m_memoryManager->CopyDataToMemory(m_instanceBufferMemory, m_blasInstances.data(), m_blasInstances.size() * sizeof(BLASInstance)))
 		{
 			Logger::Log("Could not copy data to blas instance buffer.");
 			return false;
 		}
+		return true;
+	}
 
-
+	bool PipelineRaytracing::CreateTLAS()
+	{	
 		m_tlas.m_accelerationStructureInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV;
 		m_tlas.m_accelerationStructureInfo.pNext = nullptr;
 		m_tlas.m_accelerationStructureInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV;

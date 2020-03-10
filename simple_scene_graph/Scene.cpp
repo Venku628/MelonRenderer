@@ -18,10 +18,13 @@ namespace MelonRenderer
 			NodeCall nodeCall = nodeCallStack.top();
 			nodeCallStack.pop();
 
-			if (!nodeCall.first->m_children.size())
-				return;
-
-			auto parentMat = nodeCall.first->CalculateWorldTransform(nodeCall.second);
+			uint32_t* drawableHandle = nullptr;
+			auto parentMat = nodeCall.first->CalculateWorldTransform(nodeCall.second, &drawableHandle);
+			if (drawableHandle != nullptr)
+			{
+				m_drawableInstances[*drawableHandle].m_transformation = parentMat;
+				m_drawableInstances[*drawableHandle].m_transformationInverseTranspose = glm::inverse(glm::transpose(parentMat));
+			}
 			for (auto child : nodeCall.first->m_children)
 			{
 				nodeCallStack.emplace(std::make_pair(child, parentMat));

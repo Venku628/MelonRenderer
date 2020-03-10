@@ -98,13 +98,13 @@ namespace MelonRenderer
 		bool ConvertToGeometryNV(std::vector<VkGeometryNV>& target, uint32_t drawableHandle, uint32_t instanceHandle);
 		bool PrepareDrawableInstances();
 		bool CreateBLAS();
+		bool UpdateBLASInstances();
 		std::vector<std::vector<VkGeometryNV>> m_rtGeometries;
 		std::vector<BLAS> m_blasVector;
 
 		//TLAS
 		bool CreateTLAS();
 		TLAS m_tlas;
-		std::vector<mat3x4> m_instanceTranforms; // make this ObjInstance with objIndex and transform information
 		std::vector<BLASInstance> m_blasInstances;
 		VkBuffer m_instanceBuffer;
 		VkDeviceMemory m_instanceBufferMemory;

@@ -44,14 +44,16 @@ namespace MelonRenderer
 		m_memoryManager.CreateTexture("textures/texture3.jpg");
 		m_memoryManager.CreateTexture("textures/texture4.jpg");
 
+		/*
 		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
 		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
 		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
 		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
 		m_memoryManager.SetDynTransformMats(&m_transformMats);
+		*/
 		m_memoryManager.SetDynamicUBOAlignment(m_currentPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
 		//TODO: find a smarter way to do this
-		m_memoryManager.CreateDynTransformUBO(4);
+		//m_memoryManager.CreateDynTransformUBO(4);
 
 		OutputSurface outputSurface;
 		outputSurface.capabilites = m_currentSurfaceCapabilities;
@@ -80,7 +82,11 @@ namespace MelonRenderer
 
 
 		//-----------------------------------------
-		m_drawable.Init(m_memoryManager, "models/plane.obj");
+		m_cube.Init(m_memoryManager);
+		m_scene.m_drawables.emplace_back(m_cube);
+		m_plane.Init(m_memoryManager, "models/plane.obj");
+		m_scene.m_drawables.emplace_back(m_plane);
+
 		m_drawableNodes.resize(4);
 		*m_drawableNodes[0].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
@@ -88,9 +94,10 @@ namespace MelonRenderer
 		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		for (int i = 0; i < 4; i++)
 		{
-			m_drawableNodes[i].SetDrawableInstance(&m_drawable);
+			m_drawableNodes[i].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);
 		}
+		m_scene.UpdateInstanceTransforms();
 		//-----------------------------------------
 
 		m_raytracingPipeline.SetRaytracingProperties(&m_raytracingProperties);
@@ -114,6 +121,20 @@ namespace MelonRenderer
 		m_swapchain.AquireNextImage();
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
 		BeginCommandBuffer(commandBuffer);
+
+		//-------------------------------------------------------
+		ImGui::Begin("Camera");
+		vec4 cameraPositionVec = m_camera.m_cameraMatrices.view[3];
+		static float cameraPosition[3] = { cameraPositionVec.x, cameraPositionVec.y, cameraPositionVec.z };
+		ImGui::SliderFloat3("camera position", cameraPosition, -100.f, 100.f);
+		cameraPositionVec.x = cameraPosition[0];
+		cameraPositionVec.y = cameraPosition[1];
+		cameraPositionVec.z = cameraPosition[2];
+		m_camera.m_cameraMatrices.view[3] = cameraPositionVec;
+		m_camera.m_cameraMatrices.viewInverse = glm::inverse(m_camera.m_cameraMatrices.view);
+		m_camera.Tick(m_camera.m_cameraMatrices);
+		ImGui::End();
+		//--------------------------------------------------------
 
 		//TODO: switch between raytracing and rasterization
 		m_raytracingPipeline.Tick(commandBuffer);

@@ -8,7 +8,7 @@ namespace MelonRenderer
 		public Node
 	{
 	public:
-		mat4 CalculateWorldTransform(const mat4& parentMat);
+		mat4 CalculateWorldTransform(const mat4& parentMat, uint32_t** handle) override;
 		void SetCamera(Camera* camera);
 
 	protected:

@@ -28,7 +28,7 @@ bool MelonRenderer::Camera::Init(const DeviceMemoryManager& memoryManager)
 
 	m_uniformBufferDescriptor.buffer = m_uniformBuffer;
 	m_uniformBufferDescriptor.offset = 0;
-	m_uniformBufferDescriptor.range = sizeof(CameraMatrices);
+	m_uniformBufferDescriptor.range = VK_WHOLE_SIZE;
 
 	return true;
 }
@@ -38,7 +38,7 @@ bool MelonRenderer::Camera::Tick(CameraMatrices& cameraMatrices)
 	m_cameraMatrices = cameraMatrices;
 
 	void* pData;
-	VkResult result = vkMapMemory(Device::Get().m_device, m_uniformBufferMemory, 0, sizeof(cameraMatrices), 0, (void**)&pData);
+	VkResult result = vkMapMemory(Device::Get().m_device, m_uniformBufferMemory, 0, VK_WHOLE_SIZE, 0, (void**)&pData);
 	if (result != VK_SUCCESS)
 	{
 		Logger::Log("Could not map memory for uniform buffer memory.");

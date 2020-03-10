@@ -9,14 +9,14 @@ namespace MelonRenderer
 		public Node
 	{
 	public:
-		mat4 CalculateWorldTransform(const mat4& parentMat);
+		mat4 CalculateWorldTransform(const mat4& parentMat, uint32_t** handle) override;
 		bool IsStatic();
 		void SetStatic(bool isStatic);
 		
-		void SetDrawableInstance(DrawableInstance* drawableInstance);
+		void SetDrawableInstance(uint32_t drawableInstance);
 
 	protected:
-		DrawableInstance* m_drawableInstance;
+		uint32_t m_drawableInstance;
 		bool m_isStatic;
 	};
 }

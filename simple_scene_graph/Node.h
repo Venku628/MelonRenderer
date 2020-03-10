@@ -10,7 +10,7 @@ namespace MelonRenderer
 	class Node
 	{
 	public:
-		virtual mat4 CalculateWorldTransform(const mat4& parentMat);
+		virtual mat4 CalculateWorldTransform(const mat4& parentMat, uint32_t** handle);
 		mat4* GetTransformMat();
 
 	protected:
