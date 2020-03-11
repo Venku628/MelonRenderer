@@ -82,6 +82,25 @@ namespace MelonRenderer
 
 	bool DeviceMemoryManager::CreateOptimalBuffer(VkBuffer& buffer, VkDeviceMemory& bufferMemory, const void* data, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage) const
 	{
+		if (!CreateBuffer(bufferSize, bufferUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			buffer, bufferMemory))
+		{
+			Logger::Log("Could not create buffer.");
+			return false;
+		}
+
+		if(!UpdateOptimalBuffer(buffer, data, bufferSize))
+		{
+			Logger::Log("Could not update optimal buffer.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool DeviceMemoryManager::UpdateOptimalBuffer(VkBuffer& buffer, const void* data, VkDeviceSize bufferSize) const
+	{
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
 		if (!CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -101,14 +120,6 @@ namespace MelonRenderer
 		memcpy(pData, data, bufferSize);
 
 		vkUnmapMemory(Device::Get().m_device, stagingBufferMemory);
-
-		if (!CreateBuffer(bufferSize, bufferUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			buffer, bufferMemory))
-		{
-			Logger::Log("Could not create buffer.");
-			return false;
-		}
 
 		CopyStagingBufferToBuffer(stagingBuffer, buffer, bufferSize);
 

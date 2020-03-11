@@ -174,6 +174,7 @@
     <None Include="shaders\raytrace.rmiss" />
     <None Include="shaders\raycommon.glsl" />
     <None Include="shaders\wavefront.glsl" />
+    <None Include="shaders\raytraceShadow.rmiss" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders\shader.frag" />

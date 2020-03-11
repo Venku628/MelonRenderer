@@ -44,13 +44,6 @@ namespace MelonRenderer
 		m_memoryManager.CreateTexture("textures/texture3.jpg");
 		m_memoryManager.CreateTexture("textures/texture4.jpg");
 
-		/*
-		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
-		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
-		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f));
-		m_transformMats.emplace_back( mat3x4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f));
-		m_memoryManager.SetDynTransformMats(&m_transformMats);
-		*/
 		m_memoryManager.SetDynamicUBOAlignment(m_currentPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
 		//TODO: find a smarter way to do this
 		//m_memoryManager.CreateDynTransformUBO(4);
@@ -86,15 +79,22 @@ namespace MelonRenderer
 		m_scene.m_drawables.emplace_back(m_cube);
 		m_plane.Init(m_memoryManager, "models/plane.obj");
 		m_scene.m_drawables.emplace_back(m_plane);
+		m_mirror.Init(m_memoryManager, "models/mirror.obj");
+		m_scene.m_drawables.emplace_back(m_mirror);
 
-		m_drawableNodes.resize(4);
+		m_drawableNodes.resize(5);
 		*m_drawableNodes[0].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		for (int i = 0; i < 4; i++)
+		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 10.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
+		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
+		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
+		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
+		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
+		for (int i = 0; i < m_drawableNodes.size(); i++)
 		{
-			m_drawableNodes[i].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);
 		}
 		m_scene.UpdateInstanceTransforms();
@@ -122,19 +122,37 @@ namespace MelonRenderer
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
 		BeginCommandBuffer(commandBuffer);
 
+		//Camera
 		//-------------------------------------------------------
 		ImGui::Begin("Camera");
-		vec4 cameraPositionVec = m_camera.m_cameraMatrices.view[3];
-		static float cameraPosition[3] = { cameraPositionVec.x, cameraPositionVec.y, cameraPositionVec.z };
+		vec3 cameraPositionVec, cameraDirectionVec;
+		static float cameraPosition[3] = { -7.5f, 3.f, -12.f };
 		ImGui::SliderFloat3("camera position", cameraPosition, -100.f, 100.f);
 		cameraPositionVec.x = cameraPosition[0];
 		cameraPositionVec.y = cameraPosition[1];
 		cameraPositionVec.z = cameraPosition[2];
-		m_camera.m_cameraMatrices.view[3] = cameraPositionVec;
+		static float cameraDirection[3] = { 0.25f, -0.15f, 0.525f };
+		ImGui::SliderFloat3("camera direction", cameraDirection, -1.f, 1.f);
+		cameraDirectionVec.x = cameraDirection[0];
+		cameraDirectionVec.y = cameraDirection[1];
+		cameraDirectionVec.z = cameraDirection[2];
+		cameraDirectionVec = glm::normalize(cameraDirectionVec);
+
+		m_camera.m_cameraMatrices.view = glm::lookAt(cameraPositionVec, cameraPositionVec + cameraDirectionVec,	vec3(0, -1, 0)); 
 		m_camera.m_cameraMatrices.viewInverse = glm::inverse(m_camera.m_cameraMatrices.view);
 		m_camera.Tick(m_camera.m_cameraMatrices);
 		ImGui::End();
 		//--------------------------------------------------------
+
+		//Drawables
+		//--------------------------------------------------------
+		/*
+		*m_drawableNodes[0].GetTransformMat() = glm::translate(*m_drawableNodes[0].GetTransformMat(), vec3(timeDelta, 0.f, 0.f));
+		m_scene.UpdateInstanceTransforms();
+		m_raytracingPipeline.UpdateTransformations();
+		*/
+		//--------------------------------------------------------
+
 
 		//TODO: switch between raytracing and rasterization
 		m_raytracingPipeline.Tick(commandBuffer);
@@ -602,8 +620,14 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			deviceExtensionsToActivate.emplace_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
 		}
 
+
+		VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
+		indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
+		indexingFeatures.pNext = nullptr;
+
 		VkPhysicalDeviceFeatures2 features2 = {};
 		features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		features2.pNext = &indexingFeatures;
 		vkGetPhysicalDeviceFeatures2(device, &features2);
 
 		VkDeviceCreateInfo deviceCreateInfo = {};
@@ -1133,7 +1157,4 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		return true;
 	}
-
-	
-
 }

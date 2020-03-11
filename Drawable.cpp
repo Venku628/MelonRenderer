@@ -79,6 +79,16 @@ namespace MelonRenderer {
 			return false;
 		}
 
+		//debug
+		m_material.textureId = 0;
+		uint32_t materialBuffersize = sizeof(WaveFrontMaterial);
+		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, &m_material, materialBuffersize,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
+		{
+			Logger::Log("Could not create material buffer.");
+			return false;
+		}
+
 		m_vertexCount = sizeof(cube_vertex_data) / sizeof(Vertex);
 		m_indexCount = sizeof(cube_index_data) / sizeof(uint32_t);
 
@@ -97,12 +107,21 @@ namespace MelonRenderer {
 			return false;
 		}
 
-		//TODO: make drawable attribute
 		uint32_t indexBufferSize = sizeof(uint32_t) * m_indices.size();
 		if (!memoryManager.CreateOptimalBuffer(m_indexBuffer, m_indexBufferMemory, m_indices.data(), indexBufferSize,
 			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
 		{
 			Logger::Log("Could not create index buffer.");
+			return false;
+		}
+
+		//debug
+		m_material.textureId = 1;
+		uint32_t materialBuffersize = sizeof(WaveFrontMaterial);
+		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, &m_material, materialBuffersize,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
+		{
+			Logger::Log("Could not create material buffer.");
 			return false;
 		}
 

@@ -5,3 +5,4 @@
 %VULKAN_SDK%/Bin32/glslc.exe shaders/raytrace.rchit -o shaders/rchit.spv
 %VULKAN_SDK%/Bin32/glslc.exe shaders/raytrace.rgen -o shaders/rgen.spv
 %VULKAN_SDK%/Bin32/glslc.exe shaders/raytrace.rmiss -o shaders/rmiss.spv
+%VULKAN_SDK%/Bin32/glslc.exe shaders/raytraceShadow.rmiss -o shaders/rmissShadow.spv

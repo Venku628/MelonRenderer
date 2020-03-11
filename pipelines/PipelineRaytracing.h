@@ -49,17 +49,6 @@ namespace MelonRenderer
 		uint64_t m_handle = 0;
 	};
 
-	//TODO: integrate into Drawable node
-	/*
-	struct DrawableInstance
-	{
-		uint32_t m_drawableIndex;
-		uint32_t m_textureOffset;
-		mat4 m_transformation;
-		mat4 m_transformationInverseTranspose;
-	};
-	*/
-
 	struct RtPushConstant
 	{
 		glm::vec4 clearColor;
@@ -79,6 +68,8 @@ namespace MelonRenderer
 		void SetCamera(Camera* camera);
 		void SetScene(Scene* scene);
 		void SetRaytracingProperties(VkPhysicalDeviceRayTracingPropertiesNV* raytracingProperties);
+
+		bool UpdateTransformations();
 
 		//TODO: move
 		VkImage GetStorageImage();
@@ -112,6 +103,7 @@ namespace MelonRenderer
 		//TODO: integrate with simple scene graph, DrawableInstance to NodeDrawable
 		//scene description
 		bool CreateSceneInformationBuffer();
+		
 		VkBuffer m_sceneBuffer;
 		VkDeviceMemory m_sceneBufferMemory;
 		VkDescriptorBufferInfo m_sceneBufferDescriptor;

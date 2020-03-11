@@ -190,7 +190,7 @@ namespace MelonRenderer
 			{
 				BLASInstance blasInstance;
 				blasInstance.m_transform = m_scene->m_drawableInstances[instanceHandle].m_transformation;
-				blasInstance.m_instanceId = blasInstanceId++;
+				blasInstance.m_instanceId = blasInstanceId++; 
 				blasInstance.m_mask = 0xff;
 				blasInstance.m_instanceOffset = 0;
 				blasInstance.m_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
@@ -471,8 +471,6 @@ namespace MelonRenderer
 
 		vkDestroyBuffer(Device::Get().m_device, scratchBuffer, nullptr);
 		vkFreeMemory(Device::Get().m_device, scratchBufferMemory, nullptr);
-		//vkDestroyBuffer(Device::Get().m_device, m_instanceBuffer, nullptr);
-		//vkFreeMemory(Device::Get().m_device, m_instanceBufferMemory, nullptr);
 
 		return true;
 	}
@@ -489,6 +487,25 @@ namespace MelonRenderer
 		m_sceneBufferDescriptor.buffer = m_sceneBuffer;
 		m_sceneBufferDescriptor.offset = 0;
 		m_sceneBufferDescriptor.range = VK_WHOLE_SIZE;
+
+		return true;
+	}
+
+	bool PipelineRaytracing::UpdateTransformations()
+	{
+		//TODO: rework in a way that blas instances are easily updatable
+		//blas instance buffer
+		//PrepareDrawableInstances();
+		//UpdateBLASInstances();
+		//BuildTLAS();
+
+
+		//scene buffer
+		if(!m_memoryManager->UpdateOptimalBuffer(m_sceneBuffer, m_scene->m_drawableInstances.data(), m_scene->m_drawableInstances.size() * sizeof(DrawableInstance)))
+		{
+			Logger::Log("Could not update scene buffer.");
+			return false;
+		}
 
 		return true;
 	}
@@ -588,12 +605,14 @@ namespace MelonRenderer
 	{
 		auto raygenShaderCode = readFile("shaders/rgen.spv");
 		auto missShaderCode = readFile("shaders/rmiss.spv");
+		auto missShadowShaderCode = readFile("shaders/rmissShadow.spv");
 		auto hitShaderCode = readFile("shaders/rchit.spv");
-
-		VkPipelineShaderStageCreateInfo raygenShader, missShader, hitShader;
+		
+		VkPipelineShaderStageCreateInfo raygenShader, missShader, hitShader, missShadowShader;
 
 		CreateShaderModule(raygenShaderCode, raygenShader.module);
 		CreateShaderModule(missShaderCode, missShader.module);
+		CreateShaderModule(missShadowShaderCode, missShadowShader.module);
 		CreateShaderModule(hitShaderCode, hitShader.module);
 
 		raygenShader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -610,6 +629,13 @@ namespace MelonRenderer
 		missShader.pName = "main";
 		missShader.pSpecializationInfo = nullptr;
 
+		missShadowShader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		missShadowShader.pNext = nullptr;
+		missShadowShader.flags = 0;
+		missShadowShader.stage = VK_SHADER_STAGE_MISS_BIT_NV;
+		missShadowShader.pName = "main";
+		missShadowShader.pSpecializationInfo = nullptr;
+
 		hitShader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		hitShader.pNext = nullptr;
 		hitShader.flags = 0;
@@ -617,7 +643,7 @@ namespace MelonRenderer
 		hitShader.pName = "main";
 		hitShader.pSpecializationInfo = nullptr;
 
-		VkRayTracingShaderGroupCreateInfoNV raygenGroupInfo, missGroupInfo, hitGroupInfo = {};
+		VkRayTracingShaderGroupCreateInfoNV raygenGroupInfo, missGroupInfo, missShadowGroupInfo, hitGroupInfo = {};
 
 		raygenGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_NV;
 		raygenGroupInfo.pNext = nullptr;
@@ -635,20 +661,30 @@ namespace MelonRenderer
 		missGroupInfo.anyHitShader = VK_SHADER_UNUSED_NV;
 		missGroupInfo.intersectionShader = VK_SHADER_UNUSED_NV;
 
+		missShadowGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_NV;
+		missShadowGroupInfo.pNext = nullptr;
+		missShadowGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_NV;
+		missShadowGroupInfo.generalShader = 2;
+		missShadowGroupInfo.closestHitShader = VK_SHADER_UNUSED_NV;
+		missShadowGroupInfo.anyHitShader = VK_SHADER_UNUSED_NV;
+		missShadowGroupInfo.intersectionShader = VK_SHADER_UNUSED_NV;
+
 		hitGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_NV;
 		hitGroupInfo.pNext = nullptr;
 		hitGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_NV;
 		hitGroupInfo.generalShader = VK_SHADER_UNUSED_NV;
-		hitGroupInfo.closestHitShader = 2;
+		hitGroupInfo.closestHitShader = 3;
 		hitGroupInfo.anyHitShader = VK_SHADER_UNUSED_NV;
 		hitGroupInfo.intersectionShader = VK_SHADER_UNUSED_NV;
 
 		m_shaderStagesV.emplace_back(raygenShader);
 		m_shaderStagesV.emplace_back(missShader);
+		m_shaderStagesV.emplace_back(missShadowShader);
 		m_shaderStagesV.emplace_back(hitShader);
 
 		m_rtShaderGroups.emplace_back(raygenGroupInfo);
 		m_rtShaderGroups.emplace_back(missGroupInfo);
+		m_rtShaderGroups.emplace_back(missShadowGroupInfo);
 		m_rtShaderGroups.emplace_back(hitGroupInfo);
 
 		return true;
@@ -664,7 +700,7 @@ namespace MelonRenderer
 		raytracePipleineInfo.pStages = m_shaderStagesV.data();
 		raytracePipleineInfo.groupCount = m_rtShaderGroups.size();
 		raytracePipleineInfo.pGroups = m_rtShaderGroups.data();
-		raytracePipleineInfo.maxRecursionDepth = 1;
+		raytracePipleineInfo.maxRecursionDepth = 2;
 		raytracePipleineInfo.layout = m_pipelineLayout;
 		raytracePipleineInfo.basePipelineIndex = 0;
 		VkResult result = vkCreateRayTracingPipelinesNV(Device::Get().m_device, VK_NULL_HANDLE, 1, &raytracePipleineInfo, nullptr, &m_pipeline);
@@ -690,8 +726,9 @@ namespace MelonRenderer
 
 		ImGui::Begin("Scene");
 		
-		static float clearColor[3] = {0.78125f, 0.4531f, 0.f};
-		static float lightPosition[3] = { 1.f, 0.f, 0.f };
+		static float clearColor[3] = {0.f, 0.4531f, 0.78125f};
+		static float lightPosition[3] = { 0.f, 0.f, 0.f };
+		static float lightIntensity = 10.f;
 		ImGui::ColorEdit3("clear value", clearColor);
 		m_rtPushConstants.clearColor.x = clearColor[0];
 		m_rtPushConstants.clearColor.y = clearColor[1];
@@ -700,6 +737,8 @@ namespace MelonRenderer
 		m_rtPushConstants.lightPosition.x = lightPosition[0];
 		m_rtPushConstants.lightPosition.y = lightPosition[1];
 		m_rtPushConstants.lightPosition.z = lightPosition[2];
+		ImGui::SliderFloat("light intensity", &lightIntensity, 0.f, 100.f);
+		m_rtPushConstants.lightIntensity = lightIntensity;
 
 		ImGui::End();
 
@@ -709,7 +748,8 @@ namespace MelonRenderer
 		VkDeviceSize bindingStride = m_raytracingProperties->shaderGroupHandleSize;
 		VkDeviceSize bindingOffsetRayGenShader = 0;
 		VkDeviceSize bindingOffsetMissShader = bindingStride;
-		VkDeviceSize bindingOffsetHitShader = bindingStride*2;
+		VkDeviceSize bindingOffsetMissShadowShader = bindingStride*2;
+		VkDeviceSize bindingOffsetHitShader = bindingStride*3;
 
 		vkCmdTraceRaysNV(commandBuffer, 
 			m_shaderBindingTable, bindingOffsetRayGenShader,
@@ -730,7 +770,7 @@ namespace MelonRenderer
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV,
 			1,
-			VK_SHADER_STAGE_RAYGEN_BIT_NV,
+			VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
 			nullptr
 		};
 		layoutBindings.emplace_back(accelerationStructureLayoutBinding);
@@ -907,7 +947,7 @@ namespace MelonRenderer
 		std::vector<VkDescriptorBufferInfo> indicesDescBufferInfo;
 		for (size_t i = 0; i < m_scene->m_drawables.size(); ++i)
 		{
-			//materialDescBufferInfo.push_back({ m_drawables[i].matColorBuffer.buffer, 0, VK_WHOLE_SIZE });
+			materialDescBufferInfo.push_back({ m_scene->m_drawables[i].m_materialBuffer, 0, VK_WHOLE_SIZE });
 			verticesDescBufferInfo.push_back({ m_scene->m_drawables[i].m_vertexBuffer, 0, VK_WHOLE_SIZE });
 			indicesDescBufferInfo.push_back({ m_scene->m_drawables[i].m_indexBuffer, 0, VK_WHOLE_SIZE });
 		}
@@ -963,7 +1003,16 @@ namespace MelonRenderer
 		writes.emplace_back(uniformWriteBufferDescriptorSet);
 
 		//materials
-		dstBinding++;
+		VkWriteDescriptorSet materialDescriptorSet;
+		materialDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		materialDescriptorSet.pNext = nullptr;
+		materialDescriptorSet.dstSet = m_descriptorSets[0];
+		materialDescriptorSet.descriptorCount = materialDescBufferInfo.size();
+		materialDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		materialDescriptorSet.pBufferInfo = materialDescBufferInfo.data();
+		materialDescriptorSet.dstArrayElement = 0;
+		materialDescriptorSet.dstBinding = dstBinding++;
+		writes.emplace_back(materialDescriptorSet);
 
 		//scene
 		VkWriteDescriptorSet sceneDescriptorSet;
