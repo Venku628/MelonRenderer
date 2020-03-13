@@ -1,6 +1,5 @@
 #include "Renderer.h"
 
-
 namespace MelonRenderer
 {
 
@@ -87,10 +86,11 @@ namespace MelonRenderer
 		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 10.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 8.f, 0.f, 0.f, 0.f, 1.f);
+		sizeof(mat4);
 		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
-		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
-		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
+		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
+		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
 		for (int i = 0; i < m_drawableNodes.size(); i++)
@@ -122,27 +122,7 @@ namespace MelonRenderer
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
 		BeginCommandBuffer(commandBuffer);
 
-		//Camera
-		//-------------------------------------------------------
-		ImGui::Begin("Camera");
-		vec3 cameraPositionVec, cameraDirectionVec;
-		static float cameraPosition[3] = { -7.5f, 3.f, -12.f };
-		ImGui::SliderFloat3("camera position", cameraPosition, -100.f, 100.f);
-		cameraPositionVec.x = cameraPosition[0];
-		cameraPositionVec.y = cameraPosition[1];
-		cameraPositionVec.z = cameraPosition[2];
-		static float cameraDirection[3] = { 0.25f, -0.15f, 0.525f };
-		ImGui::SliderFloat3("camera direction", cameraDirection, -1.f, 1.f);
-		cameraDirectionVec.x = cameraDirection[0];
-		cameraDirectionVec.y = cameraDirection[1];
-		cameraDirectionVec.z = cameraDirection[2];
-		cameraDirectionVec = glm::normalize(cameraDirectionVec);
-
-		m_camera.m_cameraMatrices.view = glm::lookAt(cameraPositionVec, cameraPositionVec + cameraDirectionVec,	vec3(0, -1, 0)); 
-		m_camera.m_cameraMatrices.viewInverse = glm::inverse(m_camera.m_cameraMatrices.view);
-		m_camera.Tick(m_camera.m_cameraMatrices);
-		ImGui::End();
-		//--------------------------------------------------------
+		m_camera.Tick();
 
 		//Drawables
 		//--------------------------------------------------------

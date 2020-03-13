@@ -1,7 +1,9 @@
 #include "Camera.h"
 
-bool MelonRenderer::Camera::Init(const DeviceMemoryManager& memoryManager)
+bool MelonRenderer::Camera::Init(DeviceMemoryManager& memoryManager)
 {
+	m_memoryManager = &memoryManager;
+
 	uint32_t uniformBufferSize = sizeof(CameraMatrices);
 	if (!memoryManager.CreateBuffer(uniformBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_uniformBuffer, m_uniformBufferMemory))
@@ -37,16 +39,43 @@ bool MelonRenderer::Camera::Tick(CameraMatrices& cameraMatrices)
 {
 	m_cameraMatrices = cameraMatrices;
 
-	void* pData;
-	VkResult result = vkMapMemory(Device::Get().m_device, m_uniformBufferMemory, 0, VK_WHOLE_SIZE, 0, (void**)&pData);
-	if (result != VK_SUCCESS)
+	if (!m_memoryManager->CopyDataToMemory(m_uniformBufferMemory, &m_cameraMatrices, sizeof(m_cameraMatrices)))
 	{
-		Logger::Log("Could not map memory for uniform buffer memory.");
+		Logger::Log("Could not copy camera data to uniform buffer.");
 		return false;
 	}
-	memcpy(pData, &m_cameraMatrices, sizeof(m_cameraMatrices));
-	vkUnmapMemory(Device::Get().m_device, m_uniformBufferMemory); //immediatley unmap because of limited page table for gpu+cpu adresses
 
+	return true;
+}
+
+bool MelonRenderer::Camera::Tick()
+{
+	ImGui::Begin("Camera");
+	vec3 cameraPositionVec, cameraDirectionVec;
+	static float cameraPosition[3] = { -7.5f, 3.f, -12.f };
+	ImGui::SliderFloat3("camera position", cameraPosition, -100.f, 100.f);
+	cameraPositionVec.x = cameraPosition[0];
+	cameraPositionVec.y = cameraPosition[1];
+	cameraPositionVec.z = cameraPosition[2];
+	static float cameraDirection[3] = { 0.25f, -0.15f, 0.525f };
+	ImGui::SliderFloat3("camera direction", cameraDirection, -1.f, 1.f);
+	cameraDirectionVec.x = cameraDirection[0];
+	cameraDirectionVec.y = cameraDirection[1];
+	cameraDirectionVec.z = cameraDirection[2];
+	cameraDirectionVec = glm::normalize(cameraDirectionVec);
+	ImGui::End();
+
+	const vec3 worldUp = glm::vec3(0.0f, -1.0f, 0.0f);
+	vec3 cameraUp = glm::cross(cameraDirectionVec, glm::normalize(glm::cross(worldUp, cameraDirectionVec)));
+
+	m_cameraMatrices.view = glm::lookAt(cameraPositionVec, cameraPositionVec + cameraDirectionVec, cameraUp);
+	m_cameraMatrices.viewInverse = glm::inverse(m_cameraMatrices.view);
+	
+	if (!m_memoryManager->CopyDataToMemory(m_uniformBufferMemory, &m_cameraMatrices, sizeof(m_cameraMatrices)))
+	{
+		Logger::Log("Could not copy camera data to uniform buffer.");
+		return false;
+	}
 
 	return true;
 }

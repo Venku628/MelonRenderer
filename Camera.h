@@ -2,6 +2,7 @@
 
 #include "Basics.h"
 #include "DeviceMemoryManager.h"
+#include "imgui/imgui.h"
 
 namespace MelonRenderer
 {
@@ -16,8 +17,9 @@ namespace MelonRenderer
 	class Camera
 	{
 	public:
-		bool Init(const DeviceMemoryManager& memoryManager);
+		bool Init(DeviceMemoryManager& memoryManager);
 		bool Tick(CameraMatrices& cameraMatrices);
+		bool Tick();
 
 		VkDescriptorBufferInfo* GetCameraDescriptor();
 
@@ -27,5 +29,7 @@ namespace MelonRenderer
 		VkBuffer m_uniformBuffer;
 		VkDeviceMemory m_uniformBufferMemory;
 		VkDescriptorBufferInfo m_uniformBufferDescriptor;
+
+		DeviceMemoryManager* m_memoryManager;
 	};
 }

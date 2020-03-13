@@ -27,7 +27,7 @@ layout(push_constant) uniform Constants
 
 void main()
 {
-  uint objId = scnDesc.i[gl_InstanceID].objId;
+  uint objId = scnDesc.i[gl_InstanceCustomIndexNV].objId;
 
     // Indices of the triangle
   ivec3 ind = ivec3(indices[objId].i[3 * gl_PrimitiveID + 0],   //

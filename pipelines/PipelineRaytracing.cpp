@@ -190,7 +190,7 @@ namespace MelonRenderer
 			{
 				BLASInstance blasInstance;
 				blasInstance.m_transform = m_scene->m_drawableInstances[instanceHandle].m_transformation;
-				blasInstance.m_instanceId = blasInstanceId++; 
+				blasInstance.m_instanceId = instanceHandle; 
 				blasInstance.m_mask = 0xff;
 				blasInstance.m_instanceOffset = 0;
 				blasInstance.m_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
