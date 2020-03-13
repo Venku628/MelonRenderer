@@ -21,4 +21,5 @@ struct Vertex
   vec3 pos;
   vec3 nrm;
   vec2 texCoord;
+  uint matID;
 };

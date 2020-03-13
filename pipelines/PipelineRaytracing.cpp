@@ -581,7 +581,7 @@ namespace MelonRenderer
 		vertexInputBinding.stride = sizeof(Vertex);
 		m_vertexInputBindings.emplace_back(vertexInputBinding);
 
-		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeNormal, vertexAttributeUV;
+		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeNormal, vertexAttributeUV, vertexAttributeMaterial;
 		vertexAttributePosition.binding = 0;
 		vertexAttributePosition.location = 0;
 		vertexAttributePosition.format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -599,6 +599,12 @@ namespace MelonRenderer
 		vertexAttributeUV.format = VK_FORMAT_R32G32_SFLOAT;
 		vertexAttributeUV.offset = sizeof(float) * 6;
 		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
+
+		vertexAttributeMaterial.binding = 0;
+		vertexAttributeMaterial.location = 4;
+		vertexAttributeMaterial.format = VK_FORMAT_R32_UINT;
+		vertexAttributeMaterial.offset = sizeof(float) * 8;
+		m_vertexInputAttributes.emplace_back(vertexAttributeMaterial);
 	}
 
 	bool PipelineRaytracing::CreateShaderModules()
@@ -718,7 +724,7 @@ namespace MelonRenderer
 		m_rtPushConstants.clearColor = { 1.f, 0.f, 0.f, 1.f };
 		m_rtPushConstants.lightPosition = { 1.f, 10.f, 0.f };
 		m_rtPushConstants.lightIntensity = 1.f;
-		m_rtPushConstants.lightType = 0;
+		m_rtPushConstants.numberOfSamples = 0;
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_pipeline);
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_pipelineLayout, 0, m_descriptorSets.size(), m_descriptorSets.data(),
@@ -727,18 +733,21 @@ namespace MelonRenderer
 		ImGui::Begin("Scene");
 		
 		static float clearColor[3] = {0.f, 0.4531f, 0.78125f};
-		static float lightPosition[3] = { 0.f, 0.f, 0.f };
-		static float lightIntensity = 10.f;
+		static float lightPosition[3] = { 0.f, 5.f, 0.f };
+		static float lightIntensity = 1.f;
+		static int numberOfSamples = 1;
 		ImGui::ColorEdit3("clear value", clearColor);
 		m_rtPushConstants.clearColor.x = clearColor[0];
 		m_rtPushConstants.clearColor.y = clearColor[1];
 		m_rtPushConstants.clearColor.z = clearColor[2];
-		ImGui::SliderFloat3("light position", lightPosition, -10.f, 10.f);
+		ImGui::InputFloat3("light position", lightPosition);
 		m_rtPushConstants.lightPosition.x = lightPosition[0];
 		m_rtPushConstants.lightPosition.y = lightPosition[1];
 		m_rtPushConstants.lightPosition.z = lightPosition[2];
-		ImGui::SliderFloat("light intensity", &lightIntensity, 0.f, 100.f);
+		ImGui::SliderFloat("light intensity", &lightIntensity, 0.f, 10.f);
 		m_rtPushConstants.lightIntensity = lightIntensity;
+		ImGui::SliderInt("number of samples", &numberOfSamples, 0, 80);
+		m_rtPushConstants.numberOfSamples = numberOfSamples;
 
 		ImGui::End();
 

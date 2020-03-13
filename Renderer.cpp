@@ -38,8 +38,8 @@ namespace MelonRenderer
 		CreateLogicalDeviceAndQueue(m_physicalDevices[m_currentPhysicalDeviceIndex]);
 
 		m_memoryManager.Init(m_physicalDeviceMemoryProperties);
+		m_memoryManager.CreateTexture("textures/textureDefault.jpg");
 		m_memoryManager.CreateTexture("textures/texture.jpg");
-		m_memoryManager.CreateTexture("textures/texture2.jpg");
 		m_memoryManager.CreateTexture("textures/texture3.jpg");
 		m_memoryManager.CreateTexture("textures/texture4.jpg");
 
@@ -80,19 +80,22 @@ namespace MelonRenderer
 		m_scene.m_drawables.emplace_back(m_plane);
 		m_mirror.Init(m_memoryManager, "models/mirror.obj");
 		m_scene.m_drawables.emplace_back(m_mirror);
+		m_conference.Init(m_memoryManager, "models/conference.obj");
+		m_scene.m_drawables.emplace_back(m_conference);
 
-		m_drawableNodes.resize(5);
+		m_drawableNodes.resize(6);
 		*m_drawableNodes[0].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 8.f, 0.f, 0.f, 0.f, 1.f);
-		sizeof(mat4);
+		*m_drawableNodes[5].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
+		m_drawableNodes[5].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
 		for (int i = 0; i < m_drawableNodes.size(); i++)
 		{
 			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);

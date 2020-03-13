@@ -308,6 +308,7 @@
     </CustomBuild>
     <None Include="shaders\imgui.frag" />
     <None Include="shaders\imgui.vert" />
+    <None Include="shaders\random.glsl" />
     <None Include="shaders\raycommon.glsl" />
     <None Include="shaders\raytrace.rchit">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>

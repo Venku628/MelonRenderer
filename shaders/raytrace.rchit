@@ -11,7 +11,7 @@ layout(location = 1) rayPayloadNV bool isShadowed;
 hitAttributeNV vec3 attribs;
 
 layout(binding = 0, set = 0) uniform accelerationStructureNV topLevelAS;
-layout(binding = 3, set = 0, scalar) buffer MatColorBufferObject { WaveFrontMaterial m; } materials[];
+layout(binding = 3, set = 0, scalar) buffer MatColorBufferObject { WaveFrontMaterial m[]; } materials[];
 layout(binding = 4, set = 0, scalar) buffer ScnDesc { sceneDesc i[]; } scnDesc;
 layout(binding = 5, set = 0) uniform sampler2D textureSamplers[];
 layout(binding = 6, set = 0, scalar) buffer Vertices { Vertex v[]; } vertices[];
@@ -66,7 +66,7 @@ void main()
   }
 
   // Material of the object
-  WaveFrontMaterial mat = materials[objId].m; // previously matIndex
+  WaveFrontMaterial mat = materials[objId].m[v0.matID]; 
 
   // Diffuse
   vec3 diffuse = computeDiffuse(mat, L, normal);

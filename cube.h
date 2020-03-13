@@ -6,6 +6,7 @@ struct Vertex {
 	float posX, posY, posZ; 
 	float normalX, normalY, normalZ;
 	float u, v;
+	uint32_t matID = 0;
 
 	//needed for unordnered map
 	bool operator==(const Vertex& other) const {

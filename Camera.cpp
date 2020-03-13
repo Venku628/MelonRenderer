@@ -53,7 +53,7 @@ bool MelonRenderer::Camera::Tick()
 	ImGui::Begin("Camera");
 	vec3 cameraPositionVec, cameraDirectionVec;
 	static float cameraPosition[3] = { -7.5f, 3.f, -12.f };
-	ImGui::SliderFloat3("camera position", cameraPosition, -100.f, 100.f);
+	ImGui::InputFloat3("camera position", cameraPosition);
 	cameraPositionVec.x = cameraPosition[0];
 	cameraPositionVec.y = cameraPosition[1];
 	cameraPositionVec.z = cameraPosition[2];

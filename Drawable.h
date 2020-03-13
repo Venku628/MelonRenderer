@@ -64,7 +64,7 @@ namespace MelonRenderer {
 		VkDeviceMemory m_indexBufferMemory;
 		uint32_t m_indexCount;
 
-		WaveFrontMaterial m_material;
+		std::vector<WaveFrontMaterial> m_materials;
 		VkBuffer m_materialBuffer;
 		VkDeviceMemory m_materialBufferMemory;
 

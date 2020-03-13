@@ -15,26 +15,40 @@ namespace MelonRenderer {
 			Logger::Log(warnings + errors);
 			//return false;
 		}
+		Logger::Log(warnings + errors);
 
-		if (materials.size() > 0)
+		if (materials.size())
 		{
-			m_material.ambient = glm::make_vec3(materials[0].ambient);
-			m_material.diffuse = glm::make_vec3(materials[0].diffuse);
-			m_material.specular = glm::make_vec3(materials[0].specular);
-			m_material.transmittance = glm::make_vec3(materials[0].transmittance);
-			m_material.emission = glm::make_vec3(materials[0].emission);
-			m_material.shininess = materials[0].shininess;
-			m_material.ior = materials[0].ior;
-			m_material.dissolve = materials[0].dissolve;
-			m_material.illum = materials[0].illum;
-			//textureID elsewhere
-			//TODO: do lookup if texture name exists already, map
+			for (int i = 0; i < materials.size(); i++)
+			{
+				WaveFrontMaterial material = {};
+				material.ambient = glm::make_vec3(materials[i].ambient);
+				material.diffuse = glm::make_vec3(materials[i].diffuse);
+				material.specular = glm::make_vec3(materials[i].specular);
+				material.transmittance = glm::make_vec3(materials[i].transmittance);
+				material.emission = glm::make_vec3(materials[i].emission);
+				material.shininess = materials[i].shininess;
+				material.ior = materials[i].ior;
+				material.dissolve = materials[i].dissolve;
+				material.illum = materials[i].illum;
+				//TODO: do lookup if texture name exists already, map
+
+				m_materials.emplace_back(material);
+			}
+		}
+		else
+		{
+			//default material
+			WaveFrontMaterial material = {};
+			m_materials.emplace_back(material);
 		}
 
 		//to make use of indices, we need to ignore duplicates
 		std::unordered_map<Vertex, uint32_t> uniqueVertices;
 
 		for (const auto& shape : shapes) {
+			uint32_t faceID = 0;
+			uint32_t indexCount = 0;
 			for (const auto& index : shape.mesh.indices) {
 				Vertex vertex = {};
 
@@ -42,12 +56,31 @@ namespace MelonRenderer {
 				vertex.posY = attributes.vertices[3 * index.vertex_index + 1];
 				vertex.posZ = attributes.vertices[3 * index.vertex_index + 2];
 
-				vertex.normalX = attributes.normals[3 * index.normal_index];
-				vertex.normalY = attributes.normals[3 * index.normal_index + 1];
-				vertex.normalZ = attributes.normals[3 * index.normal_index + 2];
+				if (!attributes.normals.empty())
+				{
+					vertex.normalX = attributes.normals[3 * index.normal_index];
+					vertex.normalY = attributes.normals[3 * index.normal_index + 1];
+					vertex.normalZ = attributes.normals[3 * index.normal_index + 2];
+				}
 
-				vertex.u = attributes.texcoords[2 * index.texcoord_index + 0];
-				vertex.v = attributes.texcoords[2 * index.texcoord_index + 1]; //flip the coord with 1.f -   ?
+				if (!attributes.texcoords.empty() && index.texcoord_index >= 0)
+				{
+					vertex.u = attributes.texcoords[2 * index.texcoord_index + 0];
+					vertex.v = attributes.texcoords[2 * index.texcoord_index + 1]; //flip the coord with 1.f -   ?
+				}
+				else
+				{
+					vertex.u = 0.f;
+					vertex.v = 0.f;
+				}
+
+				vertex.matID = shape.mesh.material_ids[faceID];
+				indexCount++;
+				if (indexCount == 3) //every 3 vertices, one face
+				{
+					faceID++;
+					indexCount = 0;
+				}
 
 				if (uniqueVertices.count(vertex) == 0) {
 					uniqueVertices[vertex] = static_cast<uint32_t>(m_vertices.size());
@@ -57,6 +90,35 @@ namespace MelonRenderer {
 				m_indices.push_back(uniqueVertices[vertex]);
 			}
 		}
+
+		// some objs do not come with normals
+		if (attributes.normals.empty())
+		{
+			for (size_t i = 0; i < m_indices.size(); i += 3)
+			{
+				Vertex& v0 = m_vertices[m_indices[i + 0]];
+				Vertex& v1 = m_vertices[m_indices[i + 1]];
+				Vertex& v2 = m_vertices[m_indices[i + 2]];
+
+				glm::vec3 normal = glm::normalize(glm::cross(
+					(vec3(v1.posX, v1.posY, v1.posZ) - vec3(v0.posX, v0.posY, v0.posZ)), 
+					(vec3(v2.posX, v2.posY, v2.posZ) - vec3(v0.posX, v0.posY, v0.posZ))));
+
+
+				v0.normalX = normal.x;
+				v0.normalY = normal.y;
+				v0.normalZ = normal.z;
+
+				v1.normalX = normal.x;
+				v1.normalY = normal.y;
+				v1.normalZ = normal.z;
+
+				v2.normalX = normal.x;
+				v2.normalY = normal.y;
+				v2.normalZ = normal.z;
+			}
+		}
+
 
 		return true;
 	}
@@ -79,10 +141,12 @@ namespace MelonRenderer {
 			return false;
 		}
 
-		//debug
-		m_material.textureId = 0;
-		uint32_t materialBuffersize = sizeof(WaveFrontMaterial);
-		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, &m_material, materialBuffersize,
+		//default cube material
+		WaveFrontMaterial material = {};
+		material.textureId = 1;
+		m_materials.emplace_back(material);
+		uint32_t materialBuffersize = m_materials.size() * sizeof(WaveFrontMaterial);
+		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, m_materials.data(), materialBuffersize,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
 		{
 			Logger::Log("Could not create material buffer.");
@@ -115,10 +179,8 @@ namespace MelonRenderer {
 			return false;
 		}
 
-		//debug
-		m_material.textureId = 1;
-		uint32_t materialBuffersize = sizeof(WaveFrontMaterial);
-		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, &m_material, materialBuffersize,
+		uint32_t materialBuffersize = m_materials.size() * sizeof(WaveFrontMaterial);
+		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, m_materials.data(), materialBuffersize,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
 		{
 			Logger::Log("Could not create material buffer.");

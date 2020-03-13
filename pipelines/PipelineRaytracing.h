@@ -54,7 +54,7 @@ namespace MelonRenderer
 		glm::vec4 clearColor;
 		glm::vec3 lightPosition;
 		float     lightIntensity;
-		int       lightType;
+		int       numberOfSamples;
 	};
 
 	class PipelineRaytracing : public Pipeline
