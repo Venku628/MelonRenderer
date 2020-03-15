@@ -733,7 +733,7 @@ namespace MelonRenderer
 		ImGui::Begin("Scene");
 		
 		static float clearColor[3] = {0.f, 0.4531f, 0.78125f};
-		static float lightPosition[3] = { 0.f, 5.f, 0.f };
+		static float lightPosition[3] = { 0.f, 50.f, 0.f };
 		static float lightIntensity = 1.f;
 		static int numberOfSamples = 1;
 		ImGui::ColorEdit3("clear value", clearColor);

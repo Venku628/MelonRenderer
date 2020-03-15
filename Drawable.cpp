@@ -15,7 +15,6 @@ namespace MelonRenderer {
 			Logger::Log(warnings + errors);
 			//return false;
 		}
-		Logger::Log(warnings + errors);
 
 		if (materials.size())
 		{

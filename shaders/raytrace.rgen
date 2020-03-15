@@ -53,7 +53,7 @@ void main()
 
         uint rayFlags = gl_RayFlagsOpaqueNV;
         float distanceMin = 0.001;
-        float distanceMax = 1000000.0;
+        float distanceMax = 100000.0;
 
         prd.depth       = 0;
         prd.hitValue    = vec3(0);
@@ -91,7 +91,7 @@ void main()
 
         hitValues += hitValue;
     }
-    hitValues = hitValues / float(pushC.samples);
+    hitValues = hitValues / pushC.samples;
 
     imageStore(image, ivec2(gl_LaunchIDNV.xy), vec4(hitValues.zyx, 1.0));
 }
