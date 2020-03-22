@@ -113,6 +113,7 @@ namespace MelonRenderer
 		VkImageView m_storageImageView;
 		VkDeviceMemory m_storageImageMemory;
 		bool CreateStorageImage();
+		bool CleanupStorageImage();
 
 		//shader binding table
 		bool CreateShaderBindingTable();

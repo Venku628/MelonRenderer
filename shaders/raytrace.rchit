@@ -98,7 +98,7 @@ void main()
             0,           // sbtRecordOffset
             0,           // sbtRecordStride
             1,           // missIndex
-            worldPos,      // ray origin
+            worldPos,    // ray origin
             tMin,        // ray min range
             rayDir,      // ray direction
             tMax,        // ray max range

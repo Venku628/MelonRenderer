@@ -48,27 +48,37 @@ bool MelonRenderer::Camera::Tick(CameraMatrices& cameraMatrices)
 	return true;
 }
 
-bool MelonRenderer::Camera::Tick()
+bool MelonRenderer::Camera::Tick(GLFWwindow* glfwWindow)
 {
 	ImGui::Begin("Camera");
-	vec3 cameraPositionVec, cameraDirectionVec;
-	static float cameraPosition[3] = { -7.5f, 3.f, -12.f };
+	/*static float cameraPosition[3] = { -7.5f, 3.f, 5.f };
 	ImGui::InputFloat3("camera position", cameraPosition);
-	cameraPositionVec.x = cameraPosition[0];
-	cameraPositionVec.y = cameraPosition[1];
-	cameraPositionVec.z = cameraPosition[2];
+	m_cameraPosition.x = cameraPosition[0];
+	m_cameraPosition.y = cameraPosition[1];
+	m_cameraPosition.z = cameraPosition[2];*/
 	static float cameraDirection[3] = { 0.25f, -0.15f, 0.525f };
 	ImGui::SliderFloat3("camera direction", cameraDirection, -1.f, 1.f);
-	cameraDirectionVec.x = cameraDirection[0];
-	cameraDirectionVec.y = cameraDirection[1];
-	cameraDirectionVec.z = cameraDirection[2];
-	cameraDirectionVec = glm::normalize(cameraDirectionVec);
+	m_cameraDirection.x = cameraDirection[0];
+	m_cameraDirection.y = cameraDirection[1];
+	m_cameraDirection.z = cameraDirection[2];
+	m_cameraDirection = glm::normalize(m_cameraDirection);
 	ImGui::End();
 
-	const vec3 worldUp = glm::vec3(0.0f, -1.0f, 0.0f);
-	vec3 cameraUp = glm::cross(cameraDirectionVec, glm::normalize(glm::cross(worldUp, cameraDirectionVec)));
+	//https://learnopengl.com/Getting-started/Camera
+	vec3 cameraUp = glm::cross(m_cameraDirection, glm::normalize(glm::cross(worldUp, m_cameraDirection)));
 
-	m_cameraMatrices.view = glm::lookAt(cameraPositionVec, cameraPositionVec + cameraDirectionVec, cameraUp);
+	const float cameraSpeed = 0.05f; // adjust accordingly
+	if (glfwGetKey(glfwWindow, GLFW_KEY_W) == GLFW_PRESS)
+		m_cameraPosition += cameraSpeed * m_cameraDirection;
+	if (glfwGetKey(glfwWindow, GLFW_KEY_S) == GLFW_PRESS)
+		m_cameraPosition -= cameraSpeed * m_cameraDirection;
+	if (glfwGetKey(glfwWindow, GLFW_KEY_A) == GLFW_PRESS)
+		m_cameraPosition -= glm::normalize(glm::cross(m_cameraDirection, cameraUp)) * cameraSpeed;
+	if (glfwGetKey(glfwWindow, GLFW_KEY_D) == GLFW_PRESS)
+		m_cameraPosition += glm::normalize(glm::cross(m_cameraDirection, cameraUp)) * cameraSpeed;
+
+
+	m_cameraMatrices.view = glm::lookAt(m_cameraPosition, m_cameraPosition + m_cameraDirection, cameraUp);
 	m_cameraMatrices.viewInverse = glm::inverse(m_cameraMatrices.view);
 	
 	if (!m_memoryManager->CopyDataToMemory(m_uniformBufferMemory, &m_cameraMatrices, sizeof(m_cameraMatrices)))

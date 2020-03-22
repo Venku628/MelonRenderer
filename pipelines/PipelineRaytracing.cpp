@@ -40,6 +40,28 @@ namespace MelonRenderer
 
 	void PipelineRaytracing::RecreateOutput(VkExtent2D& windowExtent)
 	{
+		m_extent = windowExtent;
+
+		CleanupStorageImage();
+		CreateStorageImage();
+
+		VkDescriptorImageInfo storageImageDescriptor;
+		storageImageDescriptor.imageView = m_storageImageView;
+		storageImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		storageImageDescriptor.sampler = VK_NULL_HANDLE;
+
+		VkWriteDescriptorSet resultWriteImageDescriptorSet;
+		resultWriteImageDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		resultWriteImageDescriptorSet.pNext = nullptr;
+		resultWriteImageDescriptorSet.dstSet = m_descriptorSets[0];
+		resultWriteImageDescriptorSet.descriptorCount = 1;
+		resultWriteImageDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		resultWriteImageDescriptorSet.pBufferInfo = nullptr;
+		resultWriteImageDescriptorSet.pImageInfo = &storageImageDescriptor;
+		resultWriteImageDescriptorSet.dstArrayElement = 0;
+		resultWriteImageDescriptorSet.dstBinding = 1;
+
+		vkUpdateDescriptorSets(Device::Get().m_device, 1, &resultWriteImageDescriptorSet, 0, nullptr);
 	}
 
 	void PipelineRaytracing::SetCamera(Camera* camera)
@@ -540,6 +562,15 @@ namespace MelonRenderer
 			Logger::Log("Could not end command buffer for image layout transition.");
 			return false;
 		}
+
+		return true;
+	}
+
+	bool PipelineRaytracing::CleanupStorageImage()
+	{
+		vkDestroyImage(Device::Get().m_device, m_storageImage, nullptr);
+		vkDestroyImageView(Device::Get().m_device, m_storageImageView, nullptr);
+		vkFreeMemory(Device::Get().m_device, m_storageImageMemory, nullptr);
 
 		return true;
 	}

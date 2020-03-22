@@ -3,6 +3,7 @@
 #include "Basics.h"
 #include "DeviceMemoryManager.h"
 #include "imgui/imgui.h"
+#include <glfw3.h>
 
 namespace MelonRenderer
 {
@@ -19,13 +20,17 @@ namespace MelonRenderer
 	public:
 		bool Init(DeviceMemoryManager& memoryManager);
 		bool Tick(CameraMatrices& cameraMatrices);
-		bool Tick();
+		bool Tick(GLFWwindow* glfwWindow);
 
 		VkDescriptorBufferInfo* GetCameraDescriptor();
 
-		CameraMatrices m_cameraMatrices;
-
 	protected:
+
+		CameraMatrices m_cameraMatrices;
+		const vec3 worldUp = glm::vec3(0.0f, -1.0f, 0.0f);
+		vec3 m_cameraPosition = vec3(-7.5f, 3.f, 5.f);
+		vec3 m_cameraDirection;
+
 		VkBuffer m_uniformBuffer;
 		VkDeviceMemory m_uniformBufferMemory;
 		VkDescriptorBufferInfo m_uniformBufferDescriptor;

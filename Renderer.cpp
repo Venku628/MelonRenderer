@@ -74,28 +74,31 @@ namespace MelonRenderer
 
 
 		//-----------------------------------------
-		m_cube.Init(m_memoryManager);
-		m_scene.m_drawables.emplace_back(m_cube);
-		m_plane.Init(m_memoryManager, "models/plane.obj");
-		m_scene.m_drawables.emplace_back(m_plane);
-		m_mirror.Init(m_memoryManager, "models/mirror.obj");
-		m_scene.m_drawables.emplace_back(m_mirror);
-		m_conference.Init(m_memoryManager, "models/conference.obj");
-		m_scene.m_drawables.emplace_back(m_conference);
+		
+		cube.Init(m_memoryManager);
+		m_scene.m_drawables.emplace_back(cube);
+		plane.Init(m_memoryManager, "models/plane.obj");
+		m_scene.m_drawables.emplace_back(plane);
+		mirror.Init(m_memoryManager, "models/mirror.obj");
+		m_scene.m_drawables.emplace_back(mirror);
+		conference.Init(m_memoryManager, "models/conference.obj");
+		m_scene.m_drawables.emplace_back(conference);
 
-		m_drawableNodes.resize(6);
+		m_drawableNodes.resize(7);
 		*m_drawableNodes[0].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 8.f, 0.f, 0.f, 0.f, 1.f);
-		*m_drawableNodes[5].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[5].GetTransformMat() = glm::rotate(*m_drawableNodes[4].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
+		*m_drawableNodes[6].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
-		m_drawableNodes[5].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
+		m_drawableNodes[5].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
+		m_drawableNodes[6].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
 		for (int i = 0; i < m_drawableNodes.size(); i++)
 		{
 			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);
@@ -125,7 +128,7 @@ namespace MelonRenderer
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
 		BeginCommandBuffer(commandBuffer);
 
-		m_camera.Tick();
+		m_camera.Tick(m_window);
 
 		//Drawables
 		//--------------------------------------------------------
@@ -816,10 +819,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		outputSurface.surface = m_presentationSurface;
 
 		m_imguiPipeline.RecreateOutput(m_extent);
-		m_rasterizationPipeline.RecreateOutput(m_extent);
+		//m_rasterizationPipeline.RecreateOutput(m_extent);
+		m_raytracingPipeline.RecreateOutput(m_extent);
 		m_swapchain.CleanupSwapchain(true);
-		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
-		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex] ,&m_renderpass, outputSurface, m_extent);
+		//m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
+		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
 
 		return true;
 	}
