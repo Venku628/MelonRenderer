@@ -27,10 +27,11 @@ layout(push_constant) uniform Constants
 
 void main() 
 {
-    // Initialize the random number
-    uint seed = tea(gl_LaunchIDNV.y * gl_LaunchSizeNV.x + gl_LaunchIDNV.x, pushC.samples);
     vec3 hitValues = vec3(0);
 
+    // Initialize the random number
+    uint seed = tea(gl_LaunchIDNV.y * gl_LaunchSizeNV.x + gl_LaunchIDNV.x, pushC.samples);
+ 
     for(int i = 0; i < pushC.samples; i++)
     {
         float r1 = rnd(seed);
@@ -38,12 +39,10 @@ void main()
         // Subpixel jitter: send the ray through a different position inside the pixel
         // each time, to provide antialiasing.
         vec2 subpixel_jitter = i == 0 ? vec2(0.5f, 0.5f) : vec2(r1, r2);
+        const vec2 pixelPosition = vec2(gl_LaunchIDNV.xy) + subpixel_jitter; 
 
-
-        //center the coordinates of pixels to their middle, to be able to transform to real camera coordinates
-        const vec2 pixelCenter = vec2(gl_LaunchIDNV.xy) + subpixel_jitter; //previously + vec2(0.5);
         //mapping pixel to [0, 1] in u and v
-        const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeNV.xy);
+        const vec2 inUV = pixelPosition / vec2(gl_LaunchSizeNV.xy);
         //map to [-1, 1] in u and v, like it is the case in camera space
         vec2 d = inUV * 2.0 - 1.0;
 
@@ -51,7 +50,6 @@ void main()
         vec4 target = cam.projectionInverse * vec4(d.x, d.y, 1, 1);
         vec4 direction = cam.viewInverse * vec4(normalize(target.xyz), 0);
 
-        uint rayFlags = gl_RayFlagsOpaqueNV;
         float distanceMin = 0.001;
         float distanceMax = 100000.0;
 
@@ -63,10 +61,11 @@ void main()
         prd.rayDir = direction.xyz;
 
         vec3 hitValue = vec3(0);
+
         for(;;)
         {
             traceNV(topLevelAS,
-                rayFlags,
+                gl_RayFlagsOpaqueNV,
                 0xFF,           // cullMask
                 0,              // sbtRecordOffset
                 0,              // sbtRecordStride

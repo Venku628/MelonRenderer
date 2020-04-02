@@ -23,6 +23,8 @@ namespace MelonRenderer
 
 		m_physicalDeviceMemoryProperties = physicalDeviceMemoryProperties;
 
+		CreateTexture("texture.jpg");
+
 		return true;
 	}
 
@@ -207,6 +209,16 @@ namespace MelonRenderer
 		return &m_dynTransformUBODescriptorInfo;
 	}
 
+	uint32_t DeviceMemoryManager::CreateTextureID(const char* fileName)
+	{
+		if (m_textureIDs.find(fileName) == m_textureIDs.end())
+		{
+			CreateTexture(fileName);
+		}
+
+		return m_textureIDs[fileName];
+	}
+
 	bool DeviceMemoryManager::CreateImage(VkImage& image, VkDeviceMemory& imageMemory, VkExtent2D& extent, VkImageUsageFlags usage)
 	{
 		VkImageCreateInfo imageInfo = {};
@@ -364,12 +376,15 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool DeviceMemoryManager::CreateTexture(const char* filePath)
+	bool DeviceMemoryManager::CreateTexture(const char* fileName)
 	{
 		Texture texture;
 
+		std::string path = "textures/";
+		path += fileName;
+
 		int width, height, channels;
-		unsigned char* pixelData = stbi_load(filePath, &width, &height, &channels, STBI_rgb_alpha);
+		unsigned char* pixelData = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 		if (pixelData == nullptr)
 		{
 			Logger::Log("Could not load texture from file path.");
@@ -395,6 +410,7 @@ namespace MelonRenderer
 		textureInfo.imageView = texture.m_textureImageView;
 		m_textureInfos.emplace_back(textureInfo);
 		m_textures.emplace_back(texture);
+		m_textureIDs.emplace(fileName, m_textures.size()-1);
 
 		return true;
 	}

@@ -9,17 +9,6 @@ namespace MelonRenderer {
 
 	typedef uint32_t MeshIndex;
 
-	/*
-	struct PipelineData
-	{
-		VkCommandBuffer* m_commandBuffer;
-		VkPipelineLayout* m_pipelineLayout;
-		std::vector<VkDescriptorSet>* m_descriptorSets;
-		uint32_t* m_transformOffset;
-		uint32_t m_alignment = 64;
-	};
-	*/
-
 	struct DrawableInstance
 	{
 		uint32_t m_drawableIndex;
@@ -36,7 +25,7 @@ namespace MelonRenderer {
 		vec3  transmittance = vec3(0.f, 0.f, 0.f);
 		vec3  emission = vec3(0.f, 0.f, 0.f);
 		float shininess = 225.f;
-		float ior = 1.45f;       // index of refraction
+		float indexOfRefraction = 1.45f;       // index of refraction
 		float dissolve = 1.f;  // 1 == opaque; 0 == fully transparent
 		int   illum = 2.f;     // illumination model (see http://www.fileformat.info/format/material/)
 		int   textureId = 0;
@@ -45,15 +34,13 @@ namespace MelonRenderer {
 	class Drawable
 	{
 	public:
-		bool LoadMeshData(std::string path);
+		bool LoadMeshData(DeviceMemoryManager& memoryManager, std::string path);
 
 		bool Init(DeviceMemoryManager& memoryManager);
 		bool Init(DeviceMemoryManager& memoryManager, std::string path);
 		//void Tick(PipelineData& pipelineData);
 
 	protected:
-		bool m_isStatic;
-
 		std::vector<Vertex> m_vertices;
 		VkBuffer m_vertexBuffer;
 		VkDeviceMemory m_vertexBufferMemory;

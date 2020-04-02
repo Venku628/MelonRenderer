@@ -65,10 +65,10 @@ namespace MelonRenderer
 		bool m_mouseButtonPressed[5] = { false, false, false, false, false };
 		GLFWcursor* m_mouseCursors[ImGuiMouseCursor_COUNT] = {};
 
-		GLFWmousebuttonfun m_prevUserCallbackMousebutton = NULL;
-		GLFWscrollfun m_prevUserCallbackScroll = NULL;
-		GLFWkeyfun m_prevUserCallbackKey = NULL;
-		GLFWcharfun m_prevUserCallbackChar = NULL;
+		GLFWmousebuttonfun m_prevUserCallbackMousebutton = nullptr;
+		GLFWscrollfun m_prevUserCallbackScroll = nullptr;
+		GLFWkeyfun m_prevUserCallbackKey = nullptr;
+		GLFWcharfun m_prevUserCallbackChar = nullptr;
 	};
 
 	class Renderer 
@@ -111,10 +111,11 @@ namespace MelonRenderer
 		//renderpass for output 
 		bool CreateRenderpass();
 		bool BeginRenderpass(VkCommandBuffer& commandBuffer);
-		bool BeginCommandBuffer(VkCommandBuffer& commandBuffer);
 		bool EndRenderpass(VkCommandBuffer& commandBuffer);
-		bool EndCommandBuffer(VkCommandBuffer& commandBuffer);
 		VkRenderPass m_renderpass;
+
+		bool BeginCommandBuffer(VkCommandBuffer& commandBuffer);
+		bool EndCommandBuffer(VkCommandBuffer& commandBuffer);
 
 		//
 		bool CopyOutputToSwapchain(VkCommandBuffer& commandBuffer, VkImage storage);
@@ -148,7 +149,7 @@ namespace MelonRenderer
 
 		std::vector<mat3x4> m_transformMats;
 
-		Drawable cube, plane, mirror, conference;
+		
 		std::vector<NodeDrawable> m_drawableNodes;
 
 		//time logic

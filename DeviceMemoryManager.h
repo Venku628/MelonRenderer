@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
 
 #include "Basics.h"
 #include "Texture.h"
@@ -11,6 +12,7 @@ namespace MelonRenderer
 	class DeviceMemoryManager
 	{
 	protected:
+		std::unordered_map<std::string, uint32_t> m_textureIDs;
 		std::vector<Texture> m_textures;
 		std::vector<VkDescriptorImageInfo> m_textureInfos;
 
@@ -44,10 +46,11 @@ namespace MelonRenderer
 		void SetDynTransformMats(std::vector<mat3x4>* transformMats);
 		VkDescriptorBufferInfo* GetDynamicTransformDescriptor();
 
+		uint32_t CreateTextureID(const char* fileName);
 		bool CreateImage(VkImage& image, VkDeviceMemory& imageMemory, VkExtent2D& extent, VkImageUsageFlags usage);
 		bool CreateTextureImage(VkImage& texture, VkDeviceMemory& textureMemory, unsigned char* pixelData, int width, int height);
 		bool CreateImageView(VkImageView& imageView, VkImage image);
-		bool CreateTexture(const char* filePath);
+		bool CreateTexture(const char* fileName);
 		bool CreateTextureSampler();
 		bool TransitionImageLayout(VkCommandBuffer& commandBuffer, VkImage image, VkImageLayout previousLayout, VkImageLayout desiredLayout, 
 			VkPipelineStageFlags srcStageFlags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstStageFlags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);

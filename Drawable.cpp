@@ -3,7 +3,7 @@
 #include <tiny_obj_loader.h>
 
 namespace MelonRenderer {
-	bool Drawable::LoadMeshData(std::string path)
+	bool Drawable::LoadMeshData(DeviceMemoryManager& memoryManager, std::string path)
 	{
 		tinyobj::attrib_t attributes;
 		std::vector<tinyobj::shape_t> shapes;
@@ -27,10 +27,19 @@ namespace MelonRenderer {
 				material.transmittance = glm::make_vec3(materials[i].transmittance);
 				material.emission = glm::make_vec3(materials[i].emission);
 				material.shininess = materials[i].shininess;
-				material.ior = materials[i].ior;
+				material.indexOfRefraction = materials[i].ior;
 				material.dissolve = materials[i].dissolve;
 				material.illum = materials[i].illum;
-				//TODO: do lookup if texture name exists already, map
+
+				if (materials[i].diffuse_texname == "")
+				{
+					material.textureId = memoryManager.CreateTextureID("textureDefault.jpg");
+				}
+				else
+				{
+					//lookup if texture already exists, create if not, return texture id
+					material.textureId = memoryManager.CreateTextureID(materials[i].diffuse_texname.c_str());
+				}
 
 				m_materials.emplace_back(material);
 			}
@@ -142,7 +151,6 @@ namespace MelonRenderer {
 
 		//default cube material
 		WaveFrontMaterial material = {};
-		material.textureId = 1;
 		m_materials.emplace_back(material);
 		uint32_t materialBuffersize = m_materials.size() * sizeof(WaveFrontMaterial);
 		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, m_materials.data(), materialBuffersize,
@@ -160,7 +168,7 @@ namespace MelonRenderer {
 
 	bool Drawable::Init(DeviceMemoryManager& memoryManager, std::string path)
 	{
-		LoadMeshData(path);
+		LoadMeshData(memoryManager, path);
 
 		uint32_t vertexBufferSize = sizeof(Vertex) * m_vertices.size();
 		if (!memoryManager.CreateOptimalBuffer(m_vertexBuffer, m_vertexBufferMemory, m_vertices.data(), vertexBufferSize,

@@ -220,59 +220,47 @@ namespace MelonRenderer
 			// (Because we merged all buffers into a single one, we maintain our own offset into them)
 			int vertexOffset = 0;
 			int indexOffset = 0;
-			for (int n = 0; n < imguiDrawData->CmdListsCount; n++)
+			for (int i = 0; i < imguiDrawData->CmdListsCount; i++)
 			{
-				const ImDrawList* imguiCmdList = imguiDrawData->CmdLists[n];
+				const ImDrawList* imguiCmdList = imguiDrawData->CmdLists[i];
 				for (int cmd_i = 0; cmd_i < imguiCmdList->CmdBuffer.Size; cmd_i++)
 				{
 					const ImDrawCmd* imguiDrawCommand = &imguiCmdList->CmdBuffer[cmd_i];
-					if (imguiDrawCommand->UserCallback != NULL)
+					
+					// Project scissor/clipping rectangles into framebuffer space
+					ImVec4 clipRect;
+					clipRect.x = (imguiDrawCommand->ClipRect.x - clipOff.x) * clipScale.x;
+					clipRect.y = (imguiDrawCommand->ClipRect.y - clipOff.y) * clipScale.y;
+					clipRect.z = (imguiDrawCommand->ClipRect.z - clipOff.x) * clipScale.x;
+					clipRect.w = (imguiDrawCommand->ClipRect.w - clipOff.y) * clipScale.y;
+
+					if (clipRect.x < m_extent.width && clipRect.y < m_extent.height && clipRect.z >= 0.0f && clipRect.w >= 0.0f)
 					{
-						// User callback, registered via ImDrawList::AddCallback()
-						// (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-						if (imguiDrawCommand->UserCallback == ImDrawCallback_ResetRenderState)
-							CreateRenderState(commandBuffer);
-						else
-							imguiDrawCommand->UserCallback(imguiCmdList, imguiDrawCommand);
+						// Negative offsets are illegal for vkCmdSetScissor
+						if (clipRect.x < 0.0f)
+							clipRect.x = 0.0f;
+						if (clipRect.y < 0.0f)
+							clipRect.y = 0.0f;
+
+						// Apply scissor/clipping rectangle
+						VkRect2D scissor;
+						scissor.offset.x = (int32_t)(clipRect.x);
+						scissor.offset.y = (int32_t)(clipRect.y);
+						scissor.extent.width = (uint32_t)(clipRect.z - clipRect.x);
+						scissor.extent.height = (uint32_t)(clipRect.w - clipRect.y);
+						vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+						// Draw
+						vkCmdDrawIndexed(commandBuffer, imguiDrawCommand->ElemCount, 1, imguiDrawCommand->IdxOffset + indexOffset,
+							imguiDrawCommand->VtxOffset + vertexOffset, 0);
+
 					}
-					else
-					{
-						// Project scissor/clipping rectangles into framebuffer space
-						ImVec4 clip_rect;
-						clip_rect.x = (imguiDrawCommand->ClipRect.x - clipOff.x) * clipScale.x;
-						clip_rect.y = (imguiDrawCommand->ClipRect.y - clipOff.y) * clipScale.y;
-						clip_rect.z = (imguiDrawCommand->ClipRect.z - clipOff.x) * clipScale.x;
-						clip_rect.w = (imguiDrawCommand->ClipRect.w - clipOff.y) * clipScale.y;
-
-						if (clip_rect.x < m_extent.width && clip_rect.y < m_extent.height && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
-						{
-							// Negative offsets are illegal for vkCmdSetScissor
-							if (clip_rect.x < 0.0f)
-								clip_rect.x = 0.0f;
-							if (clip_rect.y < 0.0f)
-								clip_rect.y = 0.0f;
-
-							// Apply scissor/clipping rectangle
-							VkRect2D scissor;
-							scissor.offset.x = (int32_t)(clip_rect.x);
-							scissor.offset.y = (int32_t)(clip_rect.y);
-							scissor.extent.width = (uint32_t)(clip_rect.z - clip_rect.x);
-							scissor.extent.height = (uint32_t)(clip_rect.w - clip_rect.y);
-							vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-							// Draw
-
-							vkCmdDrawIndexed(commandBuffer, imguiDrawCommand->ElemCount, 1, imguiDrawCommand->IdxOffset + indexOffset,
-								imguiDrawCommand->VtxOffset + vertexOffset, 0);
-
-						}
-					}
+					
 				}
 				indexOffset += imguiCmdList->IdxBuffer.Size;
 				vertexOffset += imguiCmdList->VtxBuffer.Size;
 			}
 		}
-
 		return true;
 	}
 

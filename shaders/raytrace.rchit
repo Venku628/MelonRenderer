@@ -6,16 +6,16 @@
 #include "raycommon.glsl"
 #include "wavefront.glsl"
 
-layout(location = 0) rayPayloadInNV hitPayload prd;
-layout(location = 1) rayPayloadNV bool isShadowed;
-hitAttributeNV vec3 attribs;
-
 layout(binding = 0, set = 0) uniform accelerationStructureNV topLevelAS;
 layout(binding = 3, set = 0, scalar) buffer MatColorBufferObject { WaveFrontMaterial m[]; } materials[];
 layout(binding = 4, set = 0, scalar) buffer ScnDesc { sceneDesc i[]; } scnDesc;
 layout(binding = 5, set = 0) uniform sampler2D textureSamplers[];
 layout(binding = 6, set = 0, scalar) buffer Vertices { Vertex v[]; } vertices[];
 layout(binding = 7, set = 0) buffer Indices { uint i[]; } indices[];
+
+layout(location = 0) rayPayloadInNV hitPayload prd;
+layout(location = 1) rayPayloadNV bool isShadowed;
+hitAttributeNV vec3 attribs;
 
 layout(push_constant) uniform Constants
 {
@@ -47,12 +47,8 @@ void main()
   normal = normalize(vec3(scnDesc.i[gl_InstanceCustomIndexNV].transfoIT * vec4(normal, 0.0)));
 
   // Computing the coordinates of the hit position
-  //vec3 worldPos = v0.pos * barycentrics.x + v1.pos * barycentrics.y + v2.pos * barycentrics.z;
-  // Transforming the position to world space
-  //worldPos = vec3(scnDesc.i[gl_InstanceID].transfo * vec4(worldPos, 1.0));
-
-  //alternativley, interpolate the position, like for the normal
   vec3 worldPos = gl_WorldRayOriginNV + gl_WorldRayDirectionNV * gl_HitTNV;
+
 
   // Vector toward the light
   vec3  L;
@@ -63,7 +59,7 @@ void main()
   //TODO: other types of lights
   vec3 lDir      = pushC.lightPosition - worldPos;
   lightDistance  = length(lDir);
-  //lightIntensity = pushC.lightIntensity / lightDistance; //previously lightDistance * lightDistance
+  //lightIntensity = pushC.lightIntensity / lightDistance * lightDistance; //this is a way too harsh falloff
   L              = normalize(lDir);
   
 
@@ -87,7 +83,6 @@ void main()
   {
     float tMin   = 0.001;
     float tMax   = lightDistance;
-    //vec3  origin = gl_WorldRayOriginNV + gl_WorldRayDirectionNV * gl_HitTNV;
     vec3  rayDir = L;
     uint  flags = gl_RayFlagsTerminateOnFirstHitNV | gl_RayFlagsOpaqueNV | gl_RayFlagsSkipClosestHitShaderNV;
     isShadowed = true;
