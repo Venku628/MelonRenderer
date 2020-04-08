@@ -4,7 +4,6 @@ namespace MelonRenderer
 {
 	void PipelineRasterization::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent)
 	{
-		m_physicalDevice = &physicalDevice;
 		m_memoryManager = &memoryManager;
 		m_renderPass = &renderPass;
 		m_extent = windowExtent;
@@ -15,7 +14,7 @@ namespace MelonRenderer
 
 		CreatePipelineLayout();
 		CreateDescriptorPool();
-		CreateDescriptorSet();
+		CreateDescriptorSets();
 
 		CreateShaderModules();
 
@@ -484,7 +483,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool PipelineRasterization::CreateDescriptorSet()
+	bool PipelineRasterization::CreateDescriptorSets()
 	{
 		VkDescriptorSetAllocateInfo allocInfo;
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;

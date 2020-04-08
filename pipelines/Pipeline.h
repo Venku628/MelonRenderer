@@ -14,7 +14,6 @@ namespace MelonRenderer
 	public:
 		virtual void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) = 0;
 		virtual void Tick(VkCommandBuffer& commanduffer) = 0;
-		virtual void Fini() = 0;
 
 	protected:
 		virtual void DefineVertices() = 0;
@@ -22,13 +21,8 @@ namespace MelonRenderer
 		const uint32_t m_numberOfSamples = 1;
 		VkExtent2D m_extent;
 
-		VkPhysicalDevice* m_physicalDevice;
+		//TODO: move
 		VkRenderPass* m_renderPass;
-
-		//---------------------------------------
-		VkPresentModeKHR m_presentMode;
-		VkFence m_fence;
-		//---------------------------------------
 
 		//shader modules
 		//---------------------------------------
@@ -52,6 +46,8 @@ namespace MelonRenderer
 		//---------------------------------------
 
 		virtual bool Draw(VkCommandBuffer& commandBuffer) = 0;
+
+		//TODO: move
 		VkViewport m_viewport;
 		VkRect2D m_scissorRect2D;
 
@@ -62,7 +58,7 @@ namespace MelonRenderer
 		VkPipelineLayout m_pipelineLayout;
 		virtual bool CreatePipelineLayout() = 0;
 		virtual bool CreateDescriptorPool() = 0;
-		virtual bool CreateDescriptorSet() = 0;
+		virtual bool CreateDescriptorSets() = 0;
 		//---------------------------------------
 
 		DeviceMemoryManager* m_memoryManager;

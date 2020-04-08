@@ -8,7 +8,7 @@ namespace MelonRenderer
 	public:
 		void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) override;
 		void Tick(VkCommandBuffer& commanduffer) override;
-		void Fini() override;
+		void Fini();
 
 		void RecreateOutput(VkExtent2D& windowExtent);
 
@@ -33,9 +33,10 @@ namespace MelonRenderer
 		//---------------------------------------
 		bool CreatePipelineLayout() override;
 		bool CreateDescriptorPool() override;
-		bool CreateDescriptorSet() override;
+		bool CreateDescriptorSets() override;
 		//---------------------------------------
 
+		VkFence m_fence;
 
 		bool CreateFontSampler();
 		VkSampler m_fontSampler;

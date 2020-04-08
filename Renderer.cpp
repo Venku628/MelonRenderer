@@ -5,7 +5,6 @@ namespace MelonRenderer
 
 	void MelonRenderer::Renderer::Init()
 	{
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		CreateGLFWWindow();
 
 		timeLast = timeNow = std::chrono::high_resolution_clock::now();
@@ -92,8 +91,8 @@ namespace MelonRenderer
 		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 8.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[5].GetTransformMat() = glm::rotate(*m_drawableNodes[4].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
 		*m_drawableNodes[6].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
-		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
+		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, true));
+		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(0, true));
 		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
@@ -218,7 +217,6 @@ namespace MelonRenderer
 	bool Renderer::CreateGLFWWindow()
 	{
 		glfwInit();
-
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 		m_window = glfwCreateWindow(defaultWidth, defaultHeight, "Vulkan Renderer", nullptr, nullptr);
@@ -230,7 +228,6 @@ namespace MelonRenderer
 			Logger::Log("Could not create glfw window.");
 			return false;
 		}
-
 		return true;
 	}
 

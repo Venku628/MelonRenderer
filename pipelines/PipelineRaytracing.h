@@ -57,12 +57,20 @@ namespace MelonRenderer
 		int       numberOfSamples;
 	};
 
+	struct ShaderBindingTableEntry
+	{
+		uint8_t shaderGroupHandle[16]; //Vulkan shader group size
+		uint32_t geometryID;
+		uint8_t padding[12]; //from size 20 to 32 bytes
+		uint8_t padding2[32];
+	};
+
 	class PipelineRaytracing : public Pipeline
 	{
 	public:
 		void Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) override;
 		void Tick(VkCommandBuffer& commandBuffer) override;
-		void Fini() override;
+		void Fini();
 
 		void RecreateOutput(VkExtent2D& windowExtent);
 		void SetCamera(Camera* camera);
@@ -119,6 +127,8 @@ namespace MelonRenderer
 		bool CreateShaderBindingTable();
 		VkBuffer m_shaderBindingTable;
 		VkDeviceMemory m_shaderBindingTableMemory;
+		VkDeviceSize m_shaderBindingTableStride = 64;
+		std::vector<uint32_t> m_shaderBindingGeometryIDs;
 
 		RtPushConstant m_rtPushConstants;
 
@@ -146,7 +156,7 @@ namespace MelonRenderer
 		//---------------------------------------
 		bool CreatePipelineLayout() override;
 		bool CreateDescriptorPool() override;
-		bool CreateDescriptorSet() override;
+		bool CreateDescriptorSets() override;
 		//---------------------------------------
 
 	};

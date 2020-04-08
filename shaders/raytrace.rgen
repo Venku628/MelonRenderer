@@ -68,7 +68,7 @@ void main()
                 gl_RayFlagsOpaqueNV,
                 0xFF,           // cullMask
                 0,              // sbtRecordOffset
-                0,              // sbtRecordStride
+                1,              // sbtRecordStride
                 0,              // missIndex
                 origin.xyz,     // ray origin
                 distanceMin,           // ray min range

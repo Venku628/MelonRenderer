@@ -4,7 +4,6 @@ namespace MelonRenderer
 {
 	void PipelineRaytracing::Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent)
 	{
-		m_physicalDevice = &device;
 		m_memoryManager = &memoryManager;
 		m_renderPass = &renderPass;
 		m_extent = windowExtent;
@@ -22,7 +21,7 @@ namespace MelonRenderer
 
 		CreatePipelineLayout();
 		CreateDescriptorPool();
-		CreateDescriptorSet();
+		CreateDescriptorSets();
 
 		CreateShaderModules();
 		CreateGraphicsPipeline();
@@ -180,6 +179,7 @@ namespace MelonRenderer
 
 
 		uint32_t blasInstanceId = 0;
+		uint32_t instanceOffset = 0;
 		uint64_t blasId = 0; //to be able to assign handles to the correct instances
 
 		if (m_staticDrawableInstances.size())
@@ -189,6 +189,9 @@ namespace MelonRenderer
 			for (uint32_t instanceHandle : m_staticDrawableInstances)
 			{
 				ConvertToGeometryNV(staticGeometry, m_scene->m_drawableInstances[instanceHandle].m_drawableIndex, instanceHandle);
+
+				m_shaderBindingGeometryIDs.emplace_back(instanceHandle);
+				instanceOffset++;
 			}
 			m_rtGeometries.emplace_back(staticGeometry);
 
@@ -204,6 +207,7 @@ namespace MelonRenderer
 			m_blasInstances.emplace_back(blasInstance);
 		}
 
+		
 		for (const auto& dynamicDrawableInstances : m_dynamicDrawableInstances)
 		{
 			std::vector<VkGeometryNV> dynamicGeometry;
@@ -214,10 +218,11 @@ namespace MelonRenderer
 				blasInstance.m_transform = m_scene->m_drawableInstances[instanceHandle].m_transformation;
 				blasInstance.m_instanceId = instanceHandle; 
 				blasInstance.m_mask = 0xff;
-				blasInstance.m_instanceOffset = 0;
+				blasInstance.m_instanceOffset = instanceOffset++;
 				blasInstance.m_flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
 				blasInstance.m_accelerationStructureHandle = blasId; //set to handle after blas creation
 
+				m_shaderBindingGeometryIDs.emplace_back(instanceHandle);
 				m_blasInstances.emplace_back(blasInstance);
 			}
 
@@ -577,7 +582,7 @@ namespace MelonRenderer
 
 	bool PipelineRaytracing::CreateShaderBindingTable()
 	{
-		uint32_t shaderBindingTableSize = m_raytracingProperties->shaderGroupHandleSize * m_rtShaderGroups.size();
+		uint32_t shaderBindingTableSize = sizeof(ShaderBindingTableEntry) * (m_scene->m_drawableInstances.size() + 3);
 		if(!m_memoryManager->CreateBuffer(shaderBindingTableSize, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
 			m_shaderBindingTable, m_shaderBindingTableMemory))
 		{
@@ -588,16 +593,43 @@ namespace MelonRenderer
 		void* data;
 		vkMapMemory(Device::Get().m_device, m_shaderBindingTableMemory, 0, VK_WHOLE_SIZE, 0, &data);
 
-		std::vector<uint8_t> shaderHandles(shaderBindingTableSize);
+		std::vector<uint8_t> shaderHandles(m_raytracingProperties->shaderGroupHandleSize * m_rtShaderGroups.size());
 		VkResult result = vkGetRayTracingShaderGroupHandlesNV(Device::Get().m_device, m_pipeline, 0, m_rtShaderGroups.size(), 
-			shaderBindingTableSize, shaderHandles.data());
+			shaderHandles.size(), shaderHandles.data());
 		if(result != VK_SUCCESS)
 		{
 			Logger::Log("Could not get raytracing shader group handles.");
 			return false;
 		}
 
-		memcpy(data, shaderHandles.data(), shaderBindingTableSize);
+		//TODO: check minimum shader binding table alignment and add padding or use different struct if needed
+		m_shaderBindingTableStride;
+
+		std::vector<ShaderBindingTableEntry> shaderBindingTable;
+		shaderBindingTable.reserve(shaderBindingTableSize);
+
+		ShaderBindingTableEntry raygenGroupGeneral;
+		memcpy(raygenGroupGeneral.shaderGroupHandle, shaderHandles.data(), 16);
+		shaderBindingTable.emplace_back(raygenGroupGeneral);
+
+		ShaderBindingTableEntry rayMissGroupGeneral;
+		memcpy(rayMissGroupGeneral.shaderGroupHandle, shaderHandles.data() + 16, 16);
+		shaderBindingTable.emplace_back(rayMissGroupGeneral);
+
+		ShaderBindingTableEntry shadowRayMissGroupGeneral;
+		memcpy(shadowRayMissGroupGeneral.shaderGroupHandle, shaderHandles.data() + 32, 16);
+		shaderBindingTable.emplace_back(shadowRayMissGroupGeneral);
+
+		for (int i = 0; i < m_shaderBindingGeometryIDs.size(); i++)
+		{
+			ShaderBindingTableEntry hitGroupGeometry;
+			memcpy(hitGroupGeometry.shaderGroupHandle, shaderHandles.data() + 48, 16);
+			//TODO: record geometry id
+			hitGroupGeometry.geometryID = m_shaderBindingGeometryIDs[i];
+			shaderBindingTable.emplace_back(hitGroupGeometry);
+		}
+
+		memcpy(data, shaderBindingTable.data(), shaderBindingTable.size() * sizeof(ShaderBindingTableEntry));
 
 		vkUnmapMemory(Device::Get().m_device, m_shaderBindingTableMemory);
 
@@ -785,16 +817,15 @@ namespace MelonRenderer
 		vkCmdPushConstants(commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV,
 			0, sizeof(RtPushConstant), &m_rtPushConstants);
 
-		VkDeviceSize bindingStride = m_raytracingProperties->shaderGroupHandleSize;
 		VkDeviceSize bindingOffsetRayGenShader = 0;
-		VkDeviceSize bindingOffsetMissShader = bindingStride;
-		VkDeviceSize bindingOffsetMissShadowShader = bindingStride*2;
-		VkDeviceSize bindingOffsetHitShader = bindingStride*3;
-
+		VkDeviceSize bindingOffsetMissShader = m_shaderBindingTableStride;
+		VkDeviceSize bindingOffsetMissShadowShader = m_shaderBindingTableStride * 2;
+		VkDeviceSize bindingOffsetHitShader = m_shaderBindingTableStride * 3;
+		m_raytracingProperties;
 		vkCmdTraceRaysNV(commandBuffer, 
 			m_shaderBindingTable, bindingOffsetRayGenShader,
-			m_shaderBindingTable, bindingOffsetMissShader, bindingStride,
-			m_shaderBindingTable, bindingOffsetHitShader, bindingStride,
+			m_shaderBindingTable, bindingOffsetMissShader, m_shaderBindingTableStride,
+			m_shaderBindingTable, bindingOffsetHitShader, m_shaderBindingTableStride,
 			VK_NULL_HANDLE, 0, 0,
 			m_extent.width, m_extent.height, 1);
 
@@ -836,7 +867,7 @@ namespace MelonRenderer
 		VkDescriptorSetLayoutBinding materialsLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			m_scene->m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			m_scene->m_drawables.size(), //TODO: update this when number of objects changes
 			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
 			nullptr
 		};
@@ -863,7 +894,7 @@ namespace MelonRenderer
 		VkDescriptorSetLayoutBinding verticesLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			m_scene->m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			m_scene->m_drawables.size(), //TODO: update this when number of objects changes
 			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
 			nullptr
 		};
@@ -872,7 +903,7 @@ namespace MelonRenderer
 		VkDescriptorSetLayoutBinding indicesLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			m_scene->m_drawables.size(), //TODO: update this when number of objects changes, dynamic storage buffer?
+			m_scene->m_drawables.size(), //TODO: update this when number of objects changes
 			VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV,
 			nullptr
 		};
@@ -966,7 +997,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool PipelineRaytracing::CreateDescriptorSet()
+	bool PipelineRaytracing::CreateDescriptorSets()
 	{
 		VkDescriptorSetAllocateInfo allocInfo;
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1001,6 +1032,7 @@ namespace MelonRenderer
 		descriptorAccelerationStructureInfo.accelerationStructureCount = 1;
 		descriptorAccelerationStructureInfo.pAccelerationStructures = &m_tlas.m_accelerationStructure;
 
+		//acceleration structure
 		VkWriteDescriptorSet accelerationStructureDescriptorSet;
 		accelerationStructureDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		accelerationStructureDescriptorSet.pNext = &descriptorAccelerationStructureInfo;
@@ -1017,6 +1049,7 @@ namespace MelonRenderer
 		storageImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 		storageImageDescriptor.sampler = VK_NULL_HANDLE;
 
+		//output image
 		VkWriteDescriptorSet resultWriteImageDescriptorSet;
 		resultWriteImageDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		resultWriteImageDescriptorSet.pNext = nullptr;
@@ -1029,7 +1062,7 @@ namespace MelonRenderer
 		resultWriteImageDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(resultWriteImageDescriptorSet);
 
-		//TODO: move to seperate descriptor set, to share with rasterization pipeline (?)
+		//camera
 		VkWriteDescriptorSet uniformWriteBufferDescriptorSet;
 		uniformWriteBufferDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		uniformWriteBufferDescriptorSet.pNext = nullptr;
@@ -1066,6 +1099,7 @@ namespace MelonRenderer
 		sceneDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(sceneDescriptorSet);
 
+		//textures
 		VkWriteDescriptorSet imageSamplerDescriptorSet;
 		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		imageSamplerDescriptorSet.pNext = nullptr;
@@ -1077,6 +1111,7 @@ namespace MelonRenderer
 		imageSamplerDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(imageSamplerDescriptorSet);
 
+		//vertices
 		VkWriteDescriptorSet verticesDescriptorSet;
 		verticesDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		verticesDescriptorSet.pNext = nullptr;
@@ -1088,6 +1123,7 @@ namespace MelonRenderer
 		verticesDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(verticesDescriptorSet);
 
+		//indices
 		VkWriteDescriptorSet indicesDescriptorSet;
 		indicesDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		indicesDescriptorSet.pNext = nullptr;
@@ -1098,7 +1134,7 @@ namespace MelonRenderer
 		indicesDescriptorSet.dstArrayElement = 0;
 		indicesDescriptorSet.dstBinding = dstBinding++;
 		writes.emplace_back(indicesDescriptorSet);
-
+		
 		vkUpdateDescriptorSets(Device::Get().m_device, writes.size(), writes.data(), 0, nullptr);
 
 		return true;

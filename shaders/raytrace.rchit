@@ -25,9 +25,14 @@ layout(push_constant) uniform Constants
   int   samples;
 } pushC;
 
+layout(shaderRecordNV) buffer SBTData {
+  uint geometryID;
+};
+
 void main()
 {
-  uint objId = scnDesc.i[gl_InstanceCustomIndexNV].objId;
+  //uint objId = scnDesc.i[gl_InstanceCustomIndexNV].objId;
+  uint objId = scnDesc.i[nonuniformEXT(geometryID)].objId;
 
     // Indices of the triangle
   ivec3 ind = ivec3(indices[objId].i[3 * gl_PrimitiveID + 0],   //
@@ -44,7 +49,7 @@ void main()
   // Computing the normal at hit position
   vec3 normal = v0.nrm * barycentrics.x + v1.nrm * barycentrics.y + v2.nrm * barycentrics.z;
   // Transforming the normal to world space
-  normal = normalize(vec3(scnDesc.i[gl_InstanceCustomIndexNV].transfoIT * vec4(normal, 0.0)));
+  normal = normalize(vec3(scnDesc.i[nonuniformEXT(geometryID)].transfoIT * vec4(normal, 0.0)));
 
   // Computing the coordinates of the hit position
   vec3 worldPos = gl_WorldRayOriginNV + gl_WorldRayDirectionNV * gl_HitTNV;
@@ -53,12 +58,10 @@ void main()
   // Vector toward the light
   vec3  L;
   float lightIntensity = pushC.lightIntensity;
-  float lightDistance  = 100000.0;
-  // Point light
   
   //TODO: other types of lights
   vec3 lDir      = pushC.lightPosition - worldPos;
-  lightDistance  = length(lDir);
+  float lightDistance   = length(lDir);
   //lightIntensity = pushC.lightIntensity / lightDistance * lightDistance; //this is a way too harsh falloff
   L              = normalize(lDir);
   
@@ -70,7 +73,7 @@ void main()
   vec3 diffuse = computeDiffuse(mat, L, normal);
   if(mat.textureId >= 0)
   {
-    uint txtId = mat.textureId + scnDesc.i[gl_InstanceCustomIndexNV].txtOffset;
+    uint txtId = mat.textureId;
     vec2 texCoord = v0.texCoord * barycentrics.x + v1.texCoord * barycentrics.y + v2.texCoord * barycentrics.z;
     diffuse *= texture(textureSamplers[txtId], texCoord).xyz;
   }
