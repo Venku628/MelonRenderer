@@ -31,7 +31,6 @@ layout(shaderRecordNV) buffer SBTData {
 
 void main()
 {
-  //uint objId = scnDesc.i[gl_InstanceCustomIndexNV].objId;
   uint objId = scnDesc.i[nonuniformEXT(geometryID)].objId;
 
     // Indices of the triangle
@@ -56,26 +55,36 @@ void main()
 
 
   // Vector toward the light
-  vec3  L;
-  float lightIntensity = pushC.lightIntensity;
-  
   //TODO: other types of lights
-  vec3 lDir      = pushC.lightPosition - worldPos;
+  vec3 lDir = pushC.lightPosition - worldPos;
   float lightDistance   = length(lDir);
   //lightIntensity = pushC.lightIntensity / lightDistance * lightDistance; //this is a way too harsh falloff
-  L              = normalize(lDir);
+  vec3 L = normalize(lDir);
   
 
   // Material of the object
   WaveFrontMaterial mat = materials[objId].m[v0.matID]; 
 
   // Diffuse
-  vec3 diffuse = computeDiffuse(mat, L, normal);
+  //vec3 diffuse = computeDiffuse(mat, L, normal);
+  vec3 diffuse;
+
+  // Lambertian
+  if(mat.illum >= 1)
+  {
+    float dotNL = max(dot(normal, lightDir), 0.0);
+    vec3  c     = mat.diffuse * dotNL;
+    diffuse = c + mat.ambient;
+  }
+  else
+  {
+    diffuse = vec3(0, 0, 0);
+  }
+
   if(mat.textureId >= 0)
   {
-    uint txtId = mat.textureId;
     vec2 texCoord = v0.texCoord * barycentrics.x + v1.texCoord * barycentrics.y + v2.texCoord * barycentrics.z;
-    diffuse *= texture(textureSamplers[txtId], texCoord).xyz;
+    diffuse *= texture(textureSamplers[mat.textureId], texCoord).xyz;
   }
 
   vec3  specular    = vec3(0);
@@ -86,7 +95,6 @@ void main()
   {
     float tMin   = 0.001;
     float tMax   = lightDistance;
-    vec3  rayDir = L;
     uint  flags = gl_RayFlagsTerminateOnFirstHitNV | gl_RayFlagsOpaqueNV | gl_RayFlagsSkipClosestHitShaderNV;
     isShadowed = true;
 
@@ -98,7 +106,7 @@ void main()
             1,           // missIndex
             worldPos,    // ray origin
             tMin,        // ray min range
-            rayDir,      // ray direction
+            L,           // ray direction
             tMax,        // ray max range
             1            // payload (location = 1)
     );
@@ -125,5 +133,5 @@ void main()
     prd.rayDir    = rayDir;
   }
 
-  prd.hitValue = vec3(lightIntensity * attenuation * (diffuse + specular));
+  prd.hitValue = vec3(pushC.lightIntensity * attenuation * (diffuse + specular));
 }
