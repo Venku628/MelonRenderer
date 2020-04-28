@@ -624,7 +624,6 @@ namespace MelonRenderer
 		{
 			ShaderBindingTableEntry hitGroupGeometry;
 			memcpy(hitGroupGeometry.shaderGroupHandle, shaderHandles.data() + 48, 16);
-			//TODO: record geometry id
 			hitGroupGeometry.geometryID = m_shaderBindingGeometryIDs[i];
 			shaderBindingTable.emplace_back(hitGroupGeometry);
 		}

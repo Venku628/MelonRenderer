@@ -13,10 +13,10 @@ namespace MelonRenderer
 		virtual mat4 CalculateWorldTransform(const mat4& parentMat, uint32_t** handle);
 		mat4* GetTransformMat();
 
-	protected:
-		mat4 m_transformationMat;
 		std::vector<Node*> m_children;
 
+	protected:
+		mat4 m_transformationMat;
 		friend class Scene;
 	};
 }

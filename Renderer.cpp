@@ -83,26 +83,42 @@ namespace MelonRenderer
 		scene.Init(m_memoryManager, "models/scene.obj");
 		m_scene.m_drawables.emplace_back(scene);
 
-		// random order to test correct uploading
+		// random order of models to test correct uploading
 		m_drawableNodes.resize(7);
-		*m_drawableNodes[0].GetTransformMat() = mat4(3.f, 0.f, 0.f, 2.f, 0.f, 3.f, 0.f, 2.f, 0.f, 0.f, 3.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		*m_drawableNodes[2].GetTransformMat() = glm::scale(mat4(1.f), vec3(50.f, 50.f, 50.f));
-		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, 20.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, 40.f, 0.f, 0.f, 0.f, 1.f);
-		*m_drawableNodes[5].GetTransformMat() = glm::rotate(*m_drawableNodes[4].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
-		*m_drawableNodes[6].GetTransformMat() = mat4(1.f); //glm::scale(mat4(1.f), vec3(0.1f, 0.1f, 0.05f));
-		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
-		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
-		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(5, false));
+		//scene
+		*m_drawableNodes[0].GetTransformMat() = glm::scale(mat4(1.f), vec3(50.f, 50.f, 50.f));
+		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(5, false));
+		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[0]);
+		//mirror 1
+		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, 20.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, 40.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
+		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[1]);
+		//mirror 2
+		*m_drawableNodes[2].GetTransformMat() = glm::rotate(*m_drawableNodes[1].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
+		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
+		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[2]);
+		//object node
+		*m_objectNode.GetTransformMat() = mat4(10.f, 0.f, 0.f, 20.f, 0.f, 10.f, 0.f, 20.f, 0.f, 0.f, 10.f, 20.f, 0.f, 0.f, 0.f, 1.f);
+
+		//cube
+		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
-		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
-		m_drawableNodes[5].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
-		m_drawableNodes[6].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
-		for (int i = 0; i < m_drawableNodes.size(); i++)
-		{
-			m_scene.m_rootChildren.emplace_back(&m_drawableNodes[i]);
-		}
+		m_objectNode.m_children.emplace_back(&m_drawableNodes[3]);
+		//bunny
+		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
+		m_objectNode.m_children.emplace_back(&m_drawableNodes[4]);
+		//dragon 1
+		*m_drawableNodes[5].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		m_drawableNodes[5].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
+		m_objectNode.m_children.emplace_back(&m_drawableNodes[5]);
+		// dragon 2
+		*m_drawableNodes[6].GetTransformMat() = mat4(1.f); 
+		m_drawableNodes[6].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
+		m_objectNode.m_children.emplace_back(&m_drawableNodes[6]);
+		
+		m_scene.m_rootChildren.emplace_back(&m_objectNode);
+		
 		m_scene.UpdateInstanceTransforms();
 		//-----------------------------------------
 

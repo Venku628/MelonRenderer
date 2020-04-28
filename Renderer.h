@@ -151,6 +151,7 @@ namespace MelonRenderer
 		std::vector<mat3x4> m_transformMats;
 
 		std::vector<NodeDrawable> m_drawableNodes;
+		Node m_objectNode;
 
 		//time logic
 		//---------------------------------------
