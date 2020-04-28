@@ -33,7 +33,7 @@ namespace MelonRenderer {
 
 				if (materials[i].diffuse_texname == "")
 				{
-					material.textureId = memoryManager.CreateTextureID("textureDefault.jpg");
+ 					material.textureId = memoryManager.CreateTextureID("textureDefault.jpg");
 				}
 				else
 				{
@@ -48,6 +48,7 @@ namespace MelonRenderer {
 		{
 			//default material
 			WaveFrontMaterial material = {};
+			material.textureId = memoryManager.CreateTextureID("textureDefault.jpg");
 			m_materials.emplace_back(material);
 		}
 
@@ -151,6 +152,7 @@ namespace MelonRenderer {
 
 		//default cube material
 		WaveFrontMaterial material = {};
+		material.textureId = 0;
 		m_materials.emplace_back(material);
 		uint32_t materialBuffersize = m_materials.size() * sizeof(WaveFrontMaterial);
 		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, m_materials.data(), materialBuffersize,

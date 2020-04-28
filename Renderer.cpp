@@ -9,7 +9,7 @@ namespace MelonRenderer
 
 		timeLast = timeNow = std::chrono::high_resolution_clock::now();
 
-		// TODO: handle failure with termination, maybe std quick exit?
+		// TODO: handle failure with termination, std::quick_exit?
 
 		LoadVulkanLibrary();
 		LoadExportedFunctions();
@@ -21,6 +21,7 @@ namespace MelonRenderer
 		EnumeratePhysicalDevices();
 
 		m_requiredDeviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+		m_requiredDeviceExtensions.emplace_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 		
 		for (int i = 0; i < m_physicalDevices.size(); i++)
 		{
@@ -37,12 +38,7 @@ namespace MelonRenderer
 		CreateLogicalDeviceAndQueue(m_physicalDevices[m_currentPhysicalDeviceIndex]);
 
 		m_memoryManager.Init(m_physicalDeviceMemoryProperties);
-		/*m_memoryManager.CreateTexture("textures/textureDefault.jpg");
-		m_memoryManager.CreateTexture("textures/texture.jpg");
-		m_memoryManager.CreateTexture("textures/texture3.jpg");
-		m_memoryManager.CreateTexture("textures/texture4.jpg");*/
-
-		m_memoryManager.SetDynamicUBOAlignment(m_currentPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+		//m_memoryManager.SetDynamicUBOAlignment(m_currentPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
 		//TODO: reimplement with rasterisation
 		//m_memoryManager.CreateDynTransformUBO(4);
 
@@ -73,27 +69,29 @@ namespace MelonRenderer
 
 
 		//-----------------------------------------
-		Drawable cube, plane, mirror, conference;
+		Drawable cube, dragon, mirror, bunny, teapot;
 		cube.Init(m_memoryManager);
 		m_scene.m_drawables.emplace_back(cube);
-		plane.Init(m_memoryManager, "models/plane.obj");
-		m_scene.m_drawables.emplace_back(plane);
+		dragon.Init(m_memoryManager, "models/dragon.obj");
+		m_scene.m_drawables.emplace_back(dragon);
 		mirror.Init(m_memoryManager, "models/mirror.obj");
 		m_scene.m_drawables.emplace_back(mirror);
-		conference.Init(m_memoryManager, "models/conference.obj");
-		m_scene.m_drawables.emplace_back(conference);
+		bunny.Init(m_memoryManager, "models/bunny.obj");
+		m_scene.m_drawables.emplace_back(bunny);
+		teapot.Init(m_memoryManager, "models/teapot.obj");
+		m_scene.m_drawables.emplace_back(teapot);
 
 		m_drawableNodes.resize(7);
-		*m_drawableNodes[0].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[0].GetTransformMat() = mat4(3.f, 0.f, 0.f, 2.f, 0.f, 3.f, 0.f, 2.f, 0.f, 0.f, 3.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 8.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[5].GetTransformMat() = glm::rotate(*m_drawableNodes[4].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
-		*m_drawableNodes[6].GetTransformMat() = mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, true));
-		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(0, true));
-		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
+		*m_drawableNodes[6].GetTransformMat() = mat4(1.f); //glm::scale(mat4(1.f), vec3(0.1f, 0.1f, 0.05f));
+		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
+		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
+		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(4, false));
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
 		m_drawableNodes[5].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
@@ -122,6 +120,28 @@ namespace MelonRenderer
 		//Logger::Log(logMessage.append(std::to_string(fps)));
 		timeLast = timeNow;
 
+		constexpr auto FPS_AVERAGE_RANGE = 500;
+
+		static float frameTimes[FPS_AVERAGE_RANGE];
+		static uint32_t frameIndex = 0;
+		frameTimes[frameIndex] = fps;
+
+		float fpsAverage = 0;
+		for (int i = 0; i < FPS_AVERAGE_RANGE; i++)
+		{
+			fpsAverage += frameTimes[i];
+		}
+		fpsAverage /= FPS_AVERAGE_RANGE;
+
+		ImGui::Begin("FPS Counter");
+		ImGui::Text(std::to_string(fpsAverage).c_str());
+		ImGui::End();
+
+		frameIndex++;
+		if (frameIndex == FPS_AVERAGE_RANGE)
+			frameIndex = 0;
+		//--------------------------------------------------------------------
+
 
 		m_swapchain.AquireNextImage();
 		VkCommandBuffer& commandBuffer = m_swapchain.GetCommandBuffer();
@@ -129,14 +149,7 @@ namespace MelonRenderer
 
 		m_camera.Tick(m_window);
 
-		//Drawables
-		//--------------------------------------------------------
-		/*
-		*m_drawableNodes[0].GetTransformMat() = glm::translate(*m_drawableNodes[0].GetTransformMat(), vec3(timeDelta, 0.f, 0.f));
-		m_scene.UpdateInstanceTransforms();
-		m_raytracingPipeline.UpdateTransformations();
-		*/
-		//--------------------------------------------------------
+
 
 
 		//TODO: switch between raytracing and rasterization
@@ -181,16 +194,6 @@ namespace MelonRenderer
 			
 			GlfwInputTick();
 			ImGui::NewFrame();
-
-			/*
-			static float translation[] = { 0.f, 0.f, 0.f };
-			ImGui::SliderFloat3("position", translation, -10.f, 10.f);
-			m_transformMats[1][0][3] = translation[0];
-			m_transformMats[1][1][3] = translation[1];
-			m_transformMats[1][2][3] = translation[2];
-			*/
-			
-			
 			Tick();
 		}
 	}
@@ -297,7 +300,6 @@ namespace MelonRenderer
 			return false;
 		}
 
-		//TODO: define all requirements
 		m_requiredInstanceExtensions.emplace_back(VK_KHR_SURFACE_EXTENSION_NAME);
 		m_requiredInstanceExtensions.emplace_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
@@ -569,7 +571,6 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 		vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
 
-		//TODO: define important queue family flags
 		constexpr VkQueueFlags basicFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT |
 			VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT;
 		std::vector<QueueFamilyInfo> basicQueueFamilyInfos;
@@ -589,12 +590,13 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 			queueCreateInfos.emplace_back(queueCreateInfo);
 		}
 
-		//TODO: copy and add raytracing to required extensions
 		auto deviceExtensionsToActivate = m_requiredDeviceExtensions;
+		/*
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-		//deviceExtensionsToActivate.emplace_back(&glfwExtensions);
+		deviceExtensionsToActivate.emplace_back(&glfwExtensions);
+		*/
 
 		if (m_hasRaytracingCapabilities)
 		{
@@ -623,8 +625,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		deviceCreateInfo.ppEnabledLayerNames = nullptr;
 		deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensionsToActivate.size());
 		deviceCreateInfo.ppEnabledExtensionNames = deviceExtensionsToActivate.data();
-		deviceCreateInfo.pEnabledFeatures = nullptr; //raytracing? previously &m_currentPhysicalDeviceFeatures
-
+		deviceCreateInfo.pEnabledFeatures = nullptr; 
 
 		VkResult result = vkCreateDevice(device, &deviceCreateInfo, nullptr, &Device::Get().m_device);
 		if (result != VK_SUCCESS)
@@ -661,7 +662,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		colorAttachmentReference.attachment = 0;
 		colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-		//TODO: add depth attachment and reference for rasterisation
+		//TODO: add depth attachment and reference when using rasterisation
 
 		VkSubpassDescription subpasses[1];
 		subpasses[0] = {};
@@ -1025,7 +1026,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::AquireQueueHandles()
 	{
-		//TODO: define queue requirements and aquire multiple handles accordingly
+		//TODO: research multiple queue strategies
 
 		vkGetDeviceQueue(Device::Get().m_device, 0, 0, &Device::Get().m_multipurposeQueue);
 

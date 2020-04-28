@@ -178,8 +178,8 @@ namespace MelonRenderer
 		}
 
 
-		uint32_t blasInstanceId = 0;
-		uint32_t instanceOffset = 0;
+		uint32_t blasInstanceId = 0; //not used in shader currently
+		uint32_t instanceOffset = 0; //for the shader binding table to correctly assign entries
 		uint64_t blasId = 0; //to be able to assign handles to the correct instances
 
 		if (m_staticDrawableInstances.size())
@@ -603,7 +603,7 @@ namespace MelonRenderer
 		}
 
 		//TODO: check minimum shader binding table alignment and add padding or use different struct if needed
-		m_shaderBindingTableStride;
+
 
 		std::vector<ShaderBindingTableEntry> shaderBindingTable;
 		shaderBindingTable.reserve(shaderBindingTableSize);

@@ -15,6 +15,7 @@
 #include <vector>
 #include <chrono>
 
+//TODO: VK_API_VERSION_1_2
 constexpr VkApplicationInfo applicationInfo =
 {
 	VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -43,7 +44,7 @@ struct QueueFamilyInfo
 
 namespace MelonRenderer
 {
-	const unsigned int defaultWidth = 1280, defaultHeight = 720;
+	const unsigned int defaultWidth = 1600, defaultHeight = 900;
 
 	void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 	void ScrollCallback(GLFWwindow* window, double xOffset, double yOffset);
@@ -149,7 +150,6 @@ namespace MelonRenderer
 
 		std::vector<mat3x4> m_transformMats;
 
-		
 		std::vector<NodeDrawable> m_drawableNodes;
 
 		//time logic

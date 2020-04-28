@@ -23,7 +23,7 @@ namespace MelonRenderer
 
 		m_physicalDeviceMemoryProperties = physicalDeviceMemoryProperties;
 
-		CreateTexture("texture.jpg");
+		CreateTexture("textureCube.jpg");
 
 		return true;
 	}

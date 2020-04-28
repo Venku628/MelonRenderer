@@ -72,7 +72,7 @@ void main()
   // Lambertian
   if(mat.illum >= 1)
   {
-    float dotNL = max(dot(normal, lightDir), 0.0);
+    float dotNL = max(dot(normal, L), 0.0);
     vec3  c     = mat.diffuse * dotNL;
     diffuse = c + mat.ambient;
   }
@@ -120,6 +120,11 @@ void main()
       // Specular
       specular = computeSpecular(mat, gl_WorldRayDirectionNV, L, normal);
     }
+  }
+  else
+  {
+  //this was missing from the nvidia tutorial, no shadow for faces facing away from light otherwise
+    attenuation = 0.3;
   }
 
   //reflection

@@ -22,7 +22,7 @@ bool MelonRenderer::Camera::Init(DeviceMemoryManager& memoryManager)
 
 	// Vulkan clip space has inverted Y and half Z.
 	mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f, //had y at -1 before but did not work as intended? correct result now 
+		0.0f, 1.0f, 0.0f, 0.0f, //had y at -1 before, as per vulkan samples but did not work as intended? correct result now 
 		0.0f, 0.0f, 0.5f, 0.f,
 		0.0f, 0.0f, 0.5f, 1.0f);
 
@@ -51,12 +51,15 @@ bool MelonRenderer::Camera::Tick(CameraMatrices& cameraMatrices)
 bool MelonRenderer::Camera::Tick(GLFWwindow* glfwWindow)
 {
 	ImGui::Begin("Camera");
-	/*static float cameraPosition[3] = { -7.5f, 3.f, 5.f };
+	static float cameraPosition[3] = { m_cameraPosition.x, m_cameraPosition.y, m_cameraPosition.z };
+	cameraPosition[0] = m_cameraPosition.x;
+	cameraPosition[1] = m_cameraPosition.y;
+	cameraPosition[2] = m_cameraPosition.z;
 	ImGui::InputFloat3("camera position", cameraPosition);
 	m_cameraPosition.x = cameraPosition[0];
 	m_cameraPosition.y = cameraPosition[1];
-	m_cameraPosition.z = cameraPosition[2];*/
-	static float cameraDirection[3] = { 0.25f, -0.15f, 0.525f };
+	m_cameraPosition.z = cameraPosition[2];
+	static float cameraDirection[3] = { -1.f, -0.2f, 0.6f };
 	ImGui::SliderFloat3("camera direction", cameraDirection, -1.f, 1.f);
 	m_cameraDirection.x = cameraDirection[0];
 	m_cameraDirection.y = cameraDirection[1];
