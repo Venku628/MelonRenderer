@@ -59,7 +59,7 @@ bool MelonRenderer::Camera::Tick(GLFWwindow* glfwWindow)
 	m_cameraPosition.x = cameraPosition[0];
 	m_cameraPosition.y = cameraPosition[1];
 	m_cameraPosition.z = cameraPosition[2];
-	static float cameraDirection[3] = { -1.f, -0.2f, 0.6f };
+	static float cameraDirection[3] = { -0.5f, -0.2f, -0.5f };
 	ImGui::SliderFloat3("camera direction", cameraDirection, -1.f, 1.f);
 	m_cameraDirection.x = cameraDirection[0];
 	m_cameraDirection.y = cameraDirection[1];
