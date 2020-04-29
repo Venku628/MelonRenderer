@@ -66,7 +66,6 @@ void main()
   WaveFrontMaterial mat = materials[objId].m[v0.matID]; 
 
   // Diffuse
-  //vec3 diffuse = computeDiffuse(mat, L, normal);
   vec3 diffuse;
 
   // Lambertian
@@ -133,7 +132,6 @@ void main()
     vec3 rayDir = reflect(gl_WorldRayDirectionNV, normal);
     prd.attenuation *= mat.specular;
     prd.done      = 0; //hit reflective surface, continue tracing rays
-    //prd.rayOrigin = origin;
     prd.rayOrigin = worldPos;
     prd.rayDir    = rayDir;
   }

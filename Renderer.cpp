@@ -9,8 +9,6 @@ namespace MelonRenderer
 
 		timeLast = timeNow = std::chrono::high_resolution_clock::now();
 
-		// TODO: handle failure with termination, std::quick_exit?
-
 		LoadVulkanLibrary();
 		LoadExportedFunctions();
 		LoadGlobalFunctions();
@@ -90,11 +88,12 @@ namespace MelonRenderer
 		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(5, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[0]);
 		//mirror 1
-		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, 40.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, 80.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -40.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, -80.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[1]);
-		//mirror 2
-		*m_drawableNodes[2].GetTransformMat() = glm::rotate(*m_drawableNodes[1].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
+		//mirror 2 
+		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 40.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, -51.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[2].GetTransformMat() = glm::rotate(*m_drawableNodes[2].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
 		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[2]);
 		//object node

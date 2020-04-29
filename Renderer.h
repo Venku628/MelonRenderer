@@ -15,7 +15,7 @@
 #include <vector>
 #include <chrono>
 
-//TODO: VK_API_VERSION_1_2
+//TODO: change version numbers
 constexpr VkApplicationInfo applicationInfo =
 {
 	VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -118,7 +118,6 @@ namespace MelonRenderer
 		bool BeginCommandBuffer(VkCommandBuffer& commandBuffer);
 		bool EndCommandBuffer(VkCommandBuffer& commandBuffer);
 
-		//
 		bool CopyOutputToSwapchain(VkCommandBuffer& commandBuffer, VkImage storage);
 
 		bool Resize();
