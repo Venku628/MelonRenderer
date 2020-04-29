@@ -28,7 +28,7 @@ namespace MelonRenderer
 
 		CameraMatrices m_cameraMatrices;
 		const vec3 worldUp = glm::vec3(0.0f, -1.0f, 0.0f);
-		vec3 m_cameraPosition = vec3(0.f, 17.f, 0.f);
+		vec3 m_cameraPosition = vec3(33.f, 34.f, 33.f);
 		vec3 m_cameraDirection;
 
 		VkBuffer m_uniformBuffer;

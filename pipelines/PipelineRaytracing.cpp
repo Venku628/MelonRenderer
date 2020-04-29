@@ -783,11 +783,6 @@ namespace MelonRenderer
 
 	bool PipelineRaytracing::Draw(VkCommandBuffer& commandBuffer)
 	{
-		m_rtPushConstants.clearColor = { 1.f, 0.f, 0.f, 1.f };
-		m_rtPushConstants.lightPosition = { 1.f, 10.f, 0.f };
-		m_rtPushConstants.lightIntensity = 1.f;
-		m_rtPushConstants.numberOfSamples = 0;
-
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_pipeline);
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_pipelineLayout, 0, m_descriptorSets.size(), m_descriptorSets.data(),
 			0, nullptr);
@@ -795,7 +790,7 @@ namespace MelonRenderer
 		ImGui::Begin("Scene");
 		
 		static float clearColor[3] = {0.f, 0.4531f, 0.78125f};
-		static float lightPosition[3] = { 0.f, 50.f, 0.f };
+		static float lightPosition[3] = { -50.f, 50.f, -50.f };
 		static float lightIntensity = 1.f;
 		static int numberOfSamples = 1;
 		ImGui::ColorEdit3("clear value", clearColor);

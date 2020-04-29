@@ -79,7 +79,7 @@ namespace MelonRenderer
 		bunny.Init(m_memoryManager, "models/bunny.obj");
 		m_scene.m_drawables.emplace_back(bunny);
 		teapot.Init(m_memoryManager, "models/teapot.obj");
-		m_scene.m_drawables.emplace_back(teapot);
+		m_scene.m_drawables.emplace_back(teapot); //test if unused geometry causes problems
 		scene.Init(m_memoryManager, "models/scene.obj");
 		m_scene.m_drawables.emplace_back(scene);
 
@@ -90,7 +90,7 @@ namespace MelonRenderer
 		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(5, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[0]);
 		//mirror 1
-		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, 20.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, 40.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, 40.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, 80.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[1]);
 		//mirror 2
@@ -98,14 +98,14 @@ namespace MelonRenderer
 		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[2]);
 		//object node
-		*m_objectNode.GetTransformMat() = mat4(10.f, 0.f, 0.f, 20.f, 0.f, 10.f, 0.f, 20.f, 0.f, 0.f, 10.f, 20.f, 0.f, 0.f, 0.f, 1.f);
+		*m_objectNode.GetTransformMat() = mat4(10.f, 0.f, 0.f, -50.f, 0.f, 10.f, 0.f, 20.f, 0.f, 0.f, 10.f, -50.f, 0.f, 0.f, 0.f, 1.f);
 
 		//cube
-		*m_drawableNodes[3].GetTransformMat() = mat4(1.f, 0.f, 0.f, 2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[3].GetTransformMat() = mat4(0.1f, 0.f, 0.f, -2.f, 0.f, 0.1f, 0.f, 2.f, 0.f, 0.f, 0.1f, -2.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_objectNode.m_children.emplace_back(&m_drawableNodes[3]);
 		//bunny
-		*m_drawableNodes[4].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, -2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[4].GetTransformMat() = mat4(2.f, 0.f, 0.f, -2.f, 0.f, 2.f, 0.f, -2.f, 0.f, 0.f, 2.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
 		m_objectNode.m_children.emplace_back(&m_drawableNodes[4]);
 		//dragon 1
