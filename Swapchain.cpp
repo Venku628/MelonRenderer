@@ -444,4 +444,9 @@ namespace MelonRenderer
 
 		return true;
 	}
+
+	Swapchain::~Swapchain()
+	{
+		CleanupSwapchain(false);
+	}
 }

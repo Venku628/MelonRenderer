@@ -2,6 +2,14 @@
 
 namespace MelonRenderer
 {
+	Scene::~Scene()
+	{
+		for (auto& drawable : m_drawables)
+		{
+			drawable.Fini();
+		}
+	}
+
 	void Scene::UpdateInstanceTransforms()
 	{
 		typedef std::pair<Node*, mat4> NodeCall;

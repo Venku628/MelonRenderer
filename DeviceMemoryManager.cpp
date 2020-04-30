@@ -28,6 +28,16 @@ namespace MelonRenderer
 		return true;
 	}
 
+	DeviceMemoryManager::~DeviceMemoryManager()
+	{
+		for (auto& texture : m_textures)
+		{
+			vkDestroyImageView(Device::Get().m_device, texture.m_textureImageView, nullptr);
+			vkDestroyImage(Device::Get().m_device, texture.m_textureImage, nullptr);
+			vkFreeMemory(Device::Get().m_device, texture.m_textureMemory, nullptr);
+		}
+	}
+
 	bool DeviceMemoryManager::CopyDataToMemory(VkDeviceMemory& memory, void* data, VkDeviceSize dataSize) const
 	{
 		void* mappedData;

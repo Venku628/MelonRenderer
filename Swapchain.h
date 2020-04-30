@@ -25,6 +25,8 @@ namespace MelonRenderer
 		bool CreateSwapchain(VkPhysicalDevice& device, VkRenderPass* renderPass, OutputSurface outputSurface, VkExtent2D& extent);
 		bool CleanupSwapchain(bool preserveSwapchain = true);
 
+		~Swapchain();
+
 	protected:
 		std::vector<VkImage> m_outputImages;
 		std::vector<VkImageView> m_outputImageViews;

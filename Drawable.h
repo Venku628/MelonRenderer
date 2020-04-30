@@ -40,6 +40,7 @@ namespace MelonRenderer {
 		bool Init(DeviceMemoryManager& memoryManager);
 		bool Init(DeviceMemoryManager& memoryManager, std::string path);
 		//void Tick(PipelineData& pipelineData);
+		void Fini();
 
 	protected:
 		std::vector<Vertex> m_vertices;

@@ -9,6 +9,8 @@ namespace MelonRenderer
 	class Scene
 	{
 	public:
+		~Scene();
+
 		std::vector<Node*> m_rootChildren;
 
 		void UpdateInstanceTransforms();

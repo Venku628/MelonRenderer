@@ -202,6 +202,17 @@ namespace MelonRenderer {
 		return true;
 	}
 
+	void Drawable::Fini()
+	{
+		vkFreeMemory(Device::Get().m_device, m_indexBufferMemory, nullptr);
+		vkFreeMemory(Device::Get().m_device, m_vertexBufferMemory, nullptr);
+		vkFreeMemory(Device::Get().m_device, m_materialBufferMemory, nullptr);
+		vkDestroyBuffer(Device::Get().m_device, m_indexBuffer, nullptr);
+		vkDestroyBuffer(Device::Get().m_device, m_vertexBuffer, nullptr);
+		vkDestroyBuffer(Device::Get().m_device, m_materialBuffer, nullptr);
+	}
+
+	//rasterisation
 	/*
 	void Drawable::Tick(PipelineData& pipelineData)
 	{
