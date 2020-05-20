@@ -36,6 +36,8 @@ namespace MelonRenderer
 			vkDestroyImage(Device::Get().m_device, texture.m_textureImage, nullptr);
 			vkFreeMemory(Device::Get().m_device, texture.m_textureMemory, nullptr);
 		}
+
+		vkDestroyCommandPool(Device::Get().m_device, m_singleUseBufferCommandPool, nullptr);
 	}
 
 	bool DeviceMemoryManager::CopyDataToMemory(VkDeviceMemory& memory, void* data, VkDeviceSize dataSize) const
