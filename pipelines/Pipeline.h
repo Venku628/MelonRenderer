@@ -18,6 +18,7 @@ namespace MelonRenderer
 	protected:
 		virtual void DefineVertices() = 0;
 
+		//TODO: make this variable
 		const uint32_t m_numberOfSamples = 1;
 		VkExtent2D m_extent;
 

@@ -138,8 +138,6 @@ namespace MelonRenderer
 
 		void DefineVertices() override;
 
-		const uint32_t m_numberOfSamples = 1;
-
 		//shader modules
 		//---------------------------------------
 		bool CreateShaderModules() override;

@@ -240,7 +240,7 @@ namespace MelonRenderer
 		return true;
 	}
 
-	bool Swapchain::CreateSwapchain(VkPhysicalDevice& device, VkRenderPass* renderPass, OutputSurface outputSurface, VkExtent2D& extent)
+	bool Swapchain::CreateSwapchain(VkPhysicalDevice& device, VkRenderPass* renderPass, const OutputSurface& outputSurface, VkExtent2D& extent)
 	{
 		m_outputSurface = outputSurface;
 		m_renderpass = renderPass;

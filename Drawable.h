@@ -35,10 +35,10 @@ namespace MelonRenderer {
 	class Drawable
 	{
 	public:
-		bool LoadMeshData(DeviceMemoryManager& memoryManager, std::string path);
+		bool LoadMeshData(DeviceMemoryManager& memoryManager, const std::string& path);
 
 		bool Init(DeviceMemoryManager& memoryManager);
-		bool Init(DeviceMemoryManager& memoryManager, std::string path);
+		bool Init(DeviceMemoryManager& memoryManager, const std::string& path);
 		//void Tick(PipelineData& pipelineData);
 		void Fini();
 

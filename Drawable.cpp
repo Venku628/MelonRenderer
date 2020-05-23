@@ -3,7 +3,7 @@
 #include <tiny_obj_loader.h>
 
 namespace MelonRenderer {
-	bool Drawable::LoadMeshData(DeviceMemoryManager& memoryManager, std::string path)
+	bool Drawable::LoadMeshData(DeviceMemoryManager& memoryManager, const std::string& path)
 	{
 		tinyobj::attrib_t attributes;
 		std::vector<tinyobj::shape_t> shapes;
@@ -31,7 +31,7 @@ namespace MelonRenderer {
 				material.dissolve = materials[i].dissolve;
 				material.illum = materials[i].illum;
 
-				if (materials[i].diffuse_texname == "")
+				if (materials[i].diffuse_texname.empty())
 				{
  					material.textureId = memoryManager.CreateTextureID("textureDefault.jpg");
 				}
@@ -152,7 +152,6 @@ namespace MelonRenderer {
 
 		//default cube material
 		WaveFrontMaterial material = {};
-		material.textureId = 0;
 		m_materials.emplace_back(material);
 		uint32_t materialBuffersize = m_materials.size() * sizeof(WaveFrontMaterial);
 		if (!memoryManager.CreateOptimalBuffer(m_materialBuffer, m_materialBufferMemory, m_materials.data(), materialBuffersize,
@@ -168,7 +167,7 @@ namespace MelonRenderer {
 		return true;
 	}
 
-	bool Drawable::Init(DeviceMemoryManager& memoryManager, std::string path)
+	bool Drawable::Init(DeviceMemoryManager& memoryManager, const std::string& path)
 	{
 		LoadMeshData(memoryManager, path);
 

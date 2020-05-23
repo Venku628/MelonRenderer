@@ -22,7 +22,7 @@ namespace MelonRenderer
 		bool AquireNextImage();
 		bool PresentImage(VkFence* drawFence = nullptr);
 
-		bool CreateSwapchain(VkPhysicalDevice& device, VkRenderPass* renderPass, OutputSurface outputSurface, VkExtent2D& extent);
+		bool CreateSwapchain(VkPhysicalDevice& device, VkRenderPass* renderPass, const OutputSurface& outputSurface, VkExtent2D& extent);
 		bool CleanupSwapchain(bool preserveSwapchain = true);
 
 		~Swapchain();
