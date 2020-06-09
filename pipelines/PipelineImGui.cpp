@@ -6,7 +6,7 @@ namespace MelonRenderer
 	void PipelineImGui::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent)
 	{
 		m_memoryManager = &memoryManager;
-		m_renderPass = &renderPass;
+		m_renderpass = &renderPass;
 		m_extent = windowExtent;
 
 		DefineVertices();
@@ -191,7 +191,7 @@ namespace MelonRenderer
 		pipeline.pDepthStencilState = &pipelineDepthStencilInfo;
 		pipeline.pStages = m_shaderStagesV.data();
 		pipeline.stageCount = static_cast<uint32_t>(m_shaderStagesV.size());
-		pipeline.renderPass = *m_renderPass;
+		pipeline.renderPass = *m_renderpass;
 		pipeline.subpass = 0; //TODO: make parameter in case of more pipelines
 
 		VkResult result = vkCreateGraphicsPipelines(Device::Get().m_device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &m_pipeline);

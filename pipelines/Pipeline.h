@@ -4,6 +4,7 @@
 #include "../Drawable.h"
 #include "../Shader.h"
 #include "../DeviceMemoryManager.h"
+#include "../Renderpass.h"
 
 #include <vector>
 
@@ -15,6 +16,8 @@ namespace MelonRenderer
 		virtual void Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent) = 0;
 		virtual void Tick(VkCommandBuffer& commanduffer) = 0;
 
+		virtual void FillRenderpassInfo(Renderpass* renderpass) = 0;
+
 	protected:
 		virtual void DefineVertices() = 0;
 
@@ -22,8 +25,10 @@ namespace MelonRenderer
 		const uint32_t m_numberOfSamples = 1;
 		VkExtent2D m_extent;
 
+		std::vector<VkAttachmentReference> m_attachmentReferences;
+
 		//TODO: move
-		VkRenderPass* m_renderPass;
+		VkRenderPass* m_renderpass;
 
 		//shader modules
 		//---------------------------------------

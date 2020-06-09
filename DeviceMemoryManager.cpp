@@ -4,7 +4,7 @@
 
 namespace MelonRenderer
 {
-	bool DeviceMemoryManager::Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties)
+	bool DeviceMemoryManager::Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties, VkPhysicalDeviceProperties& physicalDeviceProperties)
 	{
 		VkCommandPoolCreateInfo cmdPoolInfo = {};
 		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -22,6 +22,7 @@ namespace MelonRenderer
 		CreateTextureSampler();
 
 		m_physicalDeviceMemoryProperties = physicalDeviceMemoryProperties;
+		m_physicalDeviceProperties = physicalDeviceProperties;
 
 		CreateTexture("textureCube.jpg");
 
@@ -141,84 +142,6 @@ namespace MelonRenderer
 		vkFreeMemory(Device::Get().m_device, stagingBufferMemory, nullptr);
 
 		return true;
-	}
-
-	bool DeviceMemoryManager::CreateDynTransformUBO(uint32_t maxNumberOfTransforms)
-	{
-		m_maxNumberOfTransforms = maxNumberOfTransforms;
-		m_dynTransformUBOSize = maxNumberOfTransforms * m_dynTransformUBOAllignment;
-
-		if (!CreateBuffer(m_dynTransformUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_dynTransformUBO, m_dynTransformUBOMemory))
-		{
-			Logger::Log("Could not create dynamic transform uniform buffer.");
-			return false;
-		}
-
-		m_dynTransformMats = (mat3x4*)malloc(m_dynTransformUBOSize);
-
-		//keep this buffer mapped to speed up updates
-		VkResult result = vkMapMemory(Device::Get().m_device, m_dynTransformUBOMemory, 0, m_dynTransformUBOSize, 0, &m_dynTransformUBOData);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not map memory for uniform buffer memory.");
-			return false;
-		}
-
-		m_dynTransformUBODescriptorInfo.buffer = m_dynTransformUBO;
-		m_dynTransformUBODescriptorInfo.offset = 0;
-		m_dynTransformUBODescriptorInfo.range = VK_WHOLE_SIZE;
-
-		UpdateDynTransformUBO();
-
-		return true;
-	}
-
-	bool DeviceMemoryManager::UpdateDynTransformUBO()
-	{
-		//TODO: write directly into the alligned array instead
-		for (int i = 0; i < m_inputTransforms->size(); i++)
-		{
-			mat3x4* mat = (glm::mat3x4*)(((uint64_t)m_dynTransformMats + (i * m_dynTransformUBOAllignment)));
-			*mat = m_inputTransforms->operator[](i);
-		}
-
-		memcpy(m_dynTransformUBOData, m_dynTransformMats, m_dynTransformUBOSize);
-
-		//this informs gpu of changes
-		VkMappedMemoryRange memoryRange = {};
-		memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		memoryRange.pNext = nullptr;
-		memoryRange.memory = m_dynTransformUBOMemory;
-		memoryRange.offset = 0;
-		memoryRange.size = m_dynTransformUBOSize;
-		VkResult result = vkFlushMappedMemoryRanges(Device::Get().m_device, 1, &memoryRange);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not flush memory range for dynamic transform matrices.");
-			return false;
-		}
-
-		return true;
-	}
-
-	void DeviceMemoryManager::SetDynamicUBOAlignment(size_t alignment)
-	{
-		m_dynTransformUBOAllignment = alignment;
-	}
-
-	size_t DeviceMemoryManager::GetDynamicUBOAlignment()
-	{
-		return m_dynTransformUBOAllignment;
-	}
-
-	void DeviceMemoryManager::SetDynTransformMats(std::vector<mat3x4>* transformMats)
-	{
-		m_inputTransforms = transformMats;
-	}
-
-	VkDescriptorBufferInfo* DeviceMemoryManager::GetDynamicTransformDescriptor()
-	{
-		return &m_dynTransformUBODescriptorInfo;
 	}
 
 	uint32_t DeviceMemoryManager::CreateTextureID(const char* fileName)
@@ -721,5 +644,61 @@ namespace MelonRenderer
 	VkDescriptorImageInfo* DeviceMemoryManager::GetDescriptorImageInfo()
 	{
 		return m_textureInfos.data();
+	}
+
+
+
+	bool DeviceMemoryManager::CreateDynamicUBO(DynamicUniformBuffer& dynamicUniformBuffer)
+	{
+		VkDeviceSize minUBOAlignment = m_physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+		if (minUBOAlignment > 0)
+		{
+			dynamicUniformBuffer.m_alignment = (dynamicUniformBuffer.m_alignment + minUBOAlignment - 1) & ~(minUBOAlignment - 1);
+		}
+
+		dynamicUniformBuffer.m_size = dynamicUniformBuffer.m_numberOfElements * dynamicUniformBuffer.m_alignment;
+
+		if (!CreateBuffer(dynamicUniformBuffer.m_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
+			dynamicUniformBuffer.m_buffer, dynamicUniformBuffer.m_bufferMemory))
+		{
+			Logger::Log("Could not create dynamic transform uniform buffer.");
+			return false;
+		}
+
+		dynamicUniformBuffer.m_uploadBuffer = malloc(dynamicUniformBuffer.m_size);
+
+		//keep this buffer mapped to speed up updates
+		VkResult result = vkMapMemory(Device::Get().m_device, dynamicUniformBuffer.m_bufferMemory, 0, 
+			dynamicUniformBuffer.m_size, 0, &dynamicUniformBuffer.m_uploadBuffer);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not map memory for uniform buffer memory.");
+			return false;
+		}
+
+		dynamicUniformBuffer.m_descriptorBufferInfo.buffer = dynamicUniformBuffer.m_buffer;
+		dynamicUniformBuffer.m_descriptorBufferInfo.offset = 0;
+		dynamicUniformBuffer.m_descriptorBufferInfo.range = VK_WHOLE_SIZE;
+
+		return true;
+	}
+
+	bool DeviceMemoryManager::UpdateDynamicUBO(DynamicUniformBuffer& dynamicUniformBuffer)
+	{
+		//this informs gpu of changes
+		VkMappedMemoryRange memoryRange = {};
+		memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+		memoryRange.pNext = nullptr;
+		memoryRange.memory = dynamicUniformBuffer.m_bufferMemory;
+		memoryRange.offset = 0;
+		memoryRange.size = dynamicUniformBuffer.m_size;
+		VkResult result = vkFlushMappedMemoryRanges(Device::Get().m_device, 1, &memoryRange);
+		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not flush memory range for dynamic transform matrices.");
+			return false;
+		}
+
+		return true;
 	}
 }

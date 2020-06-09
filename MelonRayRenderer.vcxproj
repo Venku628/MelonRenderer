@@ -241,6 +241,7 @@
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MelonMath.h" />
     <ClInclude Include="pipelines\PipelineRaytracing.h" />
+    <ClInclude Include="Renderpass.h" />
     <ClInclude Include="simple_scene_graph\NodeCamera.h" />
     <ClInclude Include="simple_scene_graph\Node.h" />
     <ClInclude Include="simple_scene_graph\NodeDrawable.h" />
@@ -265,6 +266,7 @@
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="pipelines\PipelineRaytracing.cpp" />
+    <ClCompile Include="Renderpass.cpp" />
     <ClCompile Include="simple_scene_graph\NodeCamera.cpp" />
     <ClCompile Include="simple_scene_graph\Node.cpp" />
     <ClCompile Include="simple_scene_graph\NodeDrawable.cpp" />

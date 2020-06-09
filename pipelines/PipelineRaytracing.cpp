@@ -5,7 +5,7 @@ namespace MelonRenderer
 	void PipelineRaytracing::Init(VkPhysicalDevice& device, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent)
 	{
 		m_memoryManager = &memoryManager;
-		m_renderPass = &renderPass;
+		m_renderpass = &renderPass;
 		m_extent = windowExtent;
 
 		DefineVertices();

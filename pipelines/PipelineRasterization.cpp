@@ -5,7 +5,7 @@ namespace MelonRenderer
 	void PipelineRasterization::Init(VkPhysicalDevice& physicalDevice, DeviceMemoryManager& memoryManager, VkRenderPass& renderPass, VkExtent2D windowExtent)
 	{
 		m_memoryManager = &memoryManager;
-		m_renderPass = &renderPass;
+		m_renderpass = &renderPass;
 		m_extent = windowExtent;
 		
 		DefineVertices();
@@ -23,8 +23,53 @@ namespace MelonRenderer
 
 	void PipelineRasterization::Tick(VkCommandBuffer& commandBuffer)
 	{
-		m_memoryManager->UpdateDynTransformUBO();
+
+
+		m_memoryManager->UpdateDynamicUBO(m_dynamicTransformBuffer);
 		Draw(commandBuffer);
+
+
+	}
+
+	void PipelineRasterization::FillRenderpassInfo(Renderpass* renderpass)
+	{
+		// Depth attachment
+		VkAttachmentDescription depthAttachment;
+		depthAttachment.format = m_depthBufferFormat;
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference colorAttachmentReference = {};
+		colorAttachmentReference.attachment = 0;
+		colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		m_attachmentReferences.emplace_back(colorAttachmentReference);
+
+		m_depthAttachmentReference.attachment = renderpass->AddAttachment(depthAttachment);
+		m_depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpass = {};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = m_attachmentReferences.size();
+		subpass.pColorAttachments = m_attachmentReferences.data();
+		subpass.pDepthStencilAttachment = &m_depthAttachmentReference;
+
+		uint32_t subpassNumber = renderpass->AddSubpass(subpass);
+
+		VkSubpassDependency dependency;
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = subpassNumber;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		renderpass->AddSubpassDependency(dependency);
 	}
 
 	void PipelineRasterization::RecreateOutput(VkExtent2D& windowExtent)
@@ -51,13 +96,7 @@ namespace MelonRenderer
 		vkDestroyPipelineLayout(Device::Get().m_device, m_pipelineLayout, nullptr);
 		vkDestroyPipeline(Device::Get().m_device, m_pipeline, nullptr);
 
-	}
-
-	void PipelineRasterization::FillAttachments(std::vector<VkImageView>* attachments)
-	{
-		VkImageView color;
-		attachments->emplace_back(color);
-		attachments->emplace_back(m_depthBufferView);
+		free(m_dynamicTransformBuffer.m_uploadBuffer);
 	}
 
 	void PipelineRasterization::DefineVertices()
@@ -94,14 +133,13 @@ namespace MelonRenderer
 		depthExtent.width = m_extent.width;
 		depthExtent.height = m_extent.height;
 		depthExtent.depth = 1;
-		m_depthBufferFormat = VK_FORMAT_D16_UNORM;
 
 		VkImageCreateInfo imageCreateInfo = {
 		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		nullptr,
 		0,
 		VK_IMAGE_TYPE_2D,
-		VK_FORMAT_D16_UNORM,
+		m_depthBufferFormat,
 		depthExtent,
 		1,
 		1,
@@ -145,7 +183,7 @@ namespace MelonRenderer
 		viewInfo.pNext = nullptr;
 		viewInfo.flags = 0;
 		viewInfo.image = m_depthBuffer;
-		viewInfo.format = VK_FORMAT_D16_UNORM;
+		viewInfo.format = m_depthBufferFormat;
 		viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
 		viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
 		viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
@@ -331,11 +369,46 @@ namespace MelonRenderer
 		pipeline.pDepthStencilState = &pipelineDepthStencilInfo;
 		pipeline.pStages = m_shaderStagesV.data();
 		pipeline.stageCount = static_cast<uint32_t>(m_shaderStagesV.size());
-		pipeline.renderPass = *m_renderPass;
+		pipeline.renderPass = *m_renderpass;
 		pipeline.subpass = 0;
 
 		VkResult result = vkCreateGraphicsPipelines(Device::Get().m_device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &m_pipeline);
 		if (result != VK_SUCCESS)
+		{
+			Logger::Log("Could not create graphics pipeline.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool PipelineRasterization::CreateDynamicTransformBuffer()
+	{
+		//TODO: uncouple size from number of instances, take fixed value instead and increase if needed?
+		m_dynamicTransformBuffer.m_numberOfElements = m_scene->m_drawableInstances.size();
+		m_dynamicTransformBuffer.m_alignment = sizeof(DrawableInstance);
+
+		if (!m_memoryManager->CreateDynamicUBO(m_dynamicTransformBuffer))
+		{
+			Logger::Log("Could not create dynamic transform buffer.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool PipelineRasterization::UpdateDynamicTransformBuffer()
+	{
+
+
+		for (int i = 0; i < m_scene->m_drawableInstances.size(); i++)
+		{
+			DrawableInstance* mat = (DrawableInstance*)(((uint64_t)m_dynamicTransformBuffer.m_uploadBuffer + 
+				(i * m_dynamicTransformBuffer.m_alignment)));
+			*mat = m_scene->m_drawableInstances.operator[](i);
+		}
+
+		if (m_memoryManager->UpdateDynamicUBO(m_dynamicTransformBuffer))
 		{
 			Logger::Log("Could not create graphics pipeline.");
 			return false;
@@ -367,6 +440,25 @@ namespace MelonRenderer
 
 		//TODO: reimplement as soon as refactor is finished
 		//m_scene->Tick(commandBuffer);
+		VkDeviceSize offsets[1] = { 0 };
+
+		for (int i = 0; i < m_scene->m_drawableInstances.size(); i++)
+		{
+			Drawable* drawable = &m_scene->m_drawables[m_scene->m_drawableInstances[i].m_drawableIndex];
+
+			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &drawable->m_vertexBuffer, 
+				offsets);
+			vkCmdBindIndexBuffer(commandBuffer, drawable->m_indexBuffer,
+				0, VK_INDEX_TYPE_UINT32);
+
+			uint32_t dynamicOffset = i * m_dynamicTransformBuffer.m_alignment;
+
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, m_descriptorSets.data(), 
+				1, &dynamicOffset);
+
+			vkCmdDrawIndexed(commandBuffer, drawable->m_indexCount, 1, 0, 0, 0);
+		}
+
 
 		return true;
 	}
@@ -518,7 +610,7 @@ namespace MelonRenderer
 		dynamicTransformUBO.dstSet = m_descriptorSets[0];
 		dynamicTransformUBO.descriptorCount = 1;
 		dynamicTransformUBO.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-		dynamicTransformUBO.pBufferInfo = m_memoryManager->GetDynamicTransformDescriptor();
+		dynamicTransformUBO.pBufferInfo = &m_dynamicTransformBuffer.m_descriptorBufferInfo;
 		dynamicTransformUBO.dstArrayElement = 0;
 		dynamicTransformUBO.dstBinding = dstBinding++;
 		writes.emplace_back(dynamicTransformUBO);

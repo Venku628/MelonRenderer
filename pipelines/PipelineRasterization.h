@@ -12,7 +12,7 @@ namespace MelonRenderer
 		void Tick(VkCommandBuffer& commanduffer) override;
 		void Fini();
 
-		void FillAttachments(std::vector<VkImageView>* attachments);
+		void FillRenderpassInfo(Renderpass* renderpass) override;
 		void RecreateOutput(VkExtent2D& windowExtent);
 		void SetCamera(Camera* camera);
 		void SetScene(Scene* scene);
@@ -31,6 +31,10 @@ namespace MelonRenderer
 		bool CreateGraphicsPipeline() override;
 		//---------------------------------------
 
+		bool CreateDynamicTransformBuffer();
+		bool UpdateDynamicTransformBuffer();
+		DynamicUniformBuffer m_dynamicTransformBuffer;
+
 		bool Draw(VkCommandBuffer& commandBuffer) override;
 
 
@@ -43,6 +47,9 @@ namespace MelonRenderer
 		Camera* m_camera;
 		Scene* m_scene;
 
+
+		VkAttachmentReference m_depthAttachmentReference;
+
 		//everything that should be partially moved to the memoryManager
 		//---------------------------------------
 
@@ -50,7 +57,7 @@ namespace MelonRenderer
 		VkImage m_depthBuffer;
 		VkDeviceMemory m_depthBufferMemory;
 		VkImageView m_depthBufferView;
-		VkFormat m_depthBufferFormat;
+		VkFormat m_depthBufferFormat = VK_FORMAT_D16_UNORM;
 		bool CreateDepthBuffer();
 		bool CleanupDepthBuffer();
 		//---------------------------------------

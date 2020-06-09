@@ -8,6 +8,17 @@
 
 namespace MelonRenderer
 {
+	struct DynamicUniformBuffer
+	{
+		VkBuffer m_buffer = VK_NULL_HANDLE;
+		VkDeviceMemory m_bufferMemory = VK_NULL_HANDLE;
+		VkDescriptorBufferInfo m_descriptorBufferInfo;
+		VkDeviceSize m_size = 0;
+		VkDeviceSize m_alignment = 0;
+		uint32_t m_numberOfElements = 0;
+		void* m_uploadBuffer = nullptr;
+	};
+
 
 	class DeviceMemoryManager
 	{
@@ -19,20 +30,11 @@ namespace MelonRenderer
 		VkSampler m_textureSampler;
 		VkCommandPool m_singleUseBufferCommandPool;
 
-		VkBuffer m_dynTransformUBO;
-		VkDeviceMemory m_dynTransformUBOMemory;
-		VkDescriptorBufferInfo m_dynTransformUBODescriptorInfo;
-		void* m_dynTransformUBOData;
-		mat3x4* m_dynTransformMats;
-		VkDeviceSize m_dynTransformUBOSize;
-		VkDeviceSize m_dynTransformUBOAllignment;
-		uint32_t m_maxNumberOfTransforms;
-		std::vector<mat3x4>* m_inputTransforms;
-
 		VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties;
+		VkPhysicalDeviceProperties m_physicalDeviceProperties;
 
 	public:
-		bool Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties);
+		bool Init(VkPhysicalDeviceMemoryProperties& physicalDeviceMemoryProperties, VkPhysicalDeviceProperties& physicalDeviceProperties);
 		~DeviceMemoryManager();
 
 		bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
@@ -60,13 +62,9 @@ namespace MelonRenderer
 		uint32_t GetNumberTextures();
 		VkDescriptorImageInfo* GetDescriptorImageInfo();
 
-		//was used for rasterisation previously
-		bool CreateDynTransformUBO(uint32_t numberOfTransforms);
-		bool UpdateDynTransformUBO();
-		void SetDynamicUBOAlignment(size_t alignment);
-		size_t GetDynamicUBOAlignment();
-		void SetDynTransformMats(std::vector<mat3x4>* transformMats);
-		VkDescriptorBufferInfo* GetDynamicTransformDescriptor();
+		//TODO: finish rework
+		bool CreateDynamicUBO(DynamicUniformBuffer& dynamicUniformBuffer);
+		bool UpdateDynamicUBO(DynamicUniformBuffer& dynamicUniformBuffer);
 	};
 
 }

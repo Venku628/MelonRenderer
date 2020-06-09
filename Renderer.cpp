@@ -35,10 +35,7 @@ namespace MelonRenderer
 		}
 		CreateLogicalDeviceAndQueue(m_physicalDevices[m_currentPhysicalDeviceIndex]);
 
-		m_memoryManager.Init(m_physicalDeviceMemoryProperties);
-		//m_memoryManager.SetDynamicUBOAlignment(m_currentPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
-		//TODO: reimplement with rasterisation
-		//m_memoryManager.CreateDynTransformUBO(4);
+		m_memoryManager.Init(m_physicalDeviceMemoryProperties, m_currentPhysicalDeviceProperties);
 
 		OutputSurface outputSurface;
 		outputSurface.capabilites = m_currentSurfaceCapabilities;
@@ -751,7 +748,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkResult result = vkBeginCommandBuffer(commandBuffer, &info);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not begin command buffer in render pass begin.");
+			Logger::Log("Could not begin command buffer for render pass.");
 			return false;
 		}
 
@@ -763,7 +760,7 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		VkResult result = vkEndCommandBuffer(commandBuffer);
 		if (result != VK_SUCCESS)
 		{
-			Logger::Log("Could not end command buffer.");
+			Logger::Log("Could not end command buffer for render pass.");
 			return false;
 		}
 
