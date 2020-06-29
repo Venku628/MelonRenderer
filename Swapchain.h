@@ -18,6 +18,7 @@ namespace MelonRenderer
 		VkFramebuffer& GetFramebuffer();
 		VkImage GetImage();
 		std::vector<VkImageView>* GetAttachmentPointer();
+		VkExtent2D GetExtent();
 
 		bool AquireNextImage();
 		bool PresentImage(VkFence* drawFence = nullptr);

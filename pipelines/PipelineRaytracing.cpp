@@ -37,6 +37,10 @@ namespace MelonRenderer
 	{
 	}
 
+	void PipelineRaytracing::FillRenderpassInfo(Renderpass* renderpass)
+	{
+	}
+
 	void PipelineRaytracing::RecreateOutput(VkExtent2D& windowExtent)
 	{
 		m_extent = windowExtent;
@@ -177,7 +181,7 @@ namespace MelonRenderer
 			}
 		}
 
-
+		//TODO: check if this should be 1 when using static blas
 		uint32_t blasInstanceId = 0; //not used in shader currently
 		uint32_t instanceOffset = 0; //for the shader binding table to correctly assign entries
 		uint64_t blasId = 0; //to be able to assign handles to the correct instances

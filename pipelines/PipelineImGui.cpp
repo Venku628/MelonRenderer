@@ -33,6 +33,33 @@ namespace MelonRenderer
 		
 	}
 
+	void PipelineImGui::FillRenderpassInfo(Renderpass* renderpass)
+	{
+		VkAttachmentReference colorAttachmentReference = {};
+		colorAttachmentReference.attachment = 0;
+		colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		m_attachmentReferences.emplace_back(colorAttachmentReference);
+
+
+		VkSubpassDescription subpass = {};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = m_attachmentReferences.size();
+		subpass.pColorAttachments = m_attachmentReferences.data();
+
+		uint32_t subpassNumber = renderpass->AddSubpass(subpass);
+
+		VkSubpassDependency dependency;
+		dependency.srcSubpass = subpassNumber - 1;
+		dependency.dstSubpass = subpassNumber;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		renderpass->AddSubpassDependency(dependency);
+	}
+
 	void PipelineImGui::RecreateOutput(VkExtent2D& windowExtent)
 	{
 		m_extent = windowExtent;

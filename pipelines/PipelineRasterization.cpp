@@ -11,6 +11,7 @@ namespace MelonRenderer
 		DefineVertices();
 
 		CreateDepthBuffer();
+		CreateDynamicTransformBuffer();
 
 		CreatePipelineLayout();
 		CreateDescriptorPool();
@@ -23,16 +24,23 @@ namespace MelonRenderer
 
 	void PipelineRasterization::Tick(VkCommandBuffer& commandBuffer)
 	{
-
-
 		m_memoryManager->UpdateDynamicUBO(m_dynamicTransformBuffer);
 		Draw(commandBuffer);
-
-
 	}
 
 	void PipelineRasterization::FillRenderpassInfo(Renderpass* renderpass)
 	{
+		VkAttachmentDescription colorAttachment = {};
+		colorAttachment.format = VK_FORMAT_B8G8R8A8_UNORM; //TODO: parameter
+		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		*renderpass->GetColorAttachmentPointer() = colorAttachment;
+
 		// Depth attachment
 		VkAttachmentDescription depthAttachment;
 		depthAttachment.format = m_depthBufferFormat;
@@ -49,7 +57,9 @@ namespace MelonRenderer
 		colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		m_attachmentReferences.emplace_back(colorAttachmentReference);
 
-		m_depthAttachmentReference.attachment = renderpass->AddAttachment(depthAttachment);
+		VkClearValue depthClearValue = {};
+		depthClearValue.depthStencil = {1.f, 0};
+		m_depthAttachmentReference.attachment = renderpass->AddAttachment(depthAttachment, depthClearValue);
 		m_depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDescription subpass = {};
@@ -63,8 +73,8 @@ namespace MelonRenderer
 		VkSubpassDependency dependency;
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstSubpass = subpassNumber;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 		dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
@@ -106,25 +116,31 @@ namespace MelonRenderer
 		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		vertexInputBinding.stride = sizeof(Vertex);
 		m_vertexInputBindings.emplace_back(vertexInputBinding);
-	
-		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeColor, vertexAttributeUV;
+
+		VkVertexInputAttributeDescription vertexAttributePosition, vertexAttributeNormal, vertexAttributeUV, vertexAttributeMaterial;
 		vertexAttributePosition.binding = 0;
 		vertexAttributePosition.location = 0;
 		vertexAttributePosition.format = VK_FORMAT_R32G32B32_SFLOAT;
 		vertexAttributePosition.offset = 0;
 		m_vertexInputAttributes.emplace_back(vertexAttributePosition);
 
-		vertexAttributeColor.binding = 0;
-		vertexAttributeColor.location = 1;
-		vertexAttributeColor.format = VK_FORMAT_R32G32B32_SFLOAT;
-		vertexAttributeColor.offset = sizeof(float) * 3;
-		m_vertexInputAttributes.emplace_back(vertexAttributeColor);
+		vertexAttributeNormal.binding = 0;
+		vertexAttributeNormal.location = 1;
+		vertexAttributeNormal.format = VK_FORMAT_R32G32B32_SFLOAT;
+		vertexAttributeNormal.offset = sizeof(float) * 3;
+		m_vertexInputAttributes.emplace_back(vertexAttributeNormal);
 
 		vertexAttributeUV.binding = 0;
 		vertexAttributeUV.location = 2;
 		vertexAttributeUV.format = VK_FORMAT_R32G32_SFLOAT;
 		vertexAttributeUV.offset = sizeof(float) * 6;
 		m_vertexInputAttributes.emplace_back(vertexAttributeUV);
+
+		vertexAttributeMaterial.binding = 0;
+		vertexAttributeMaterial.location = 3;
+		vertexAttributeMaterial.format = VK_FORMAT_R32_UINT;
+		vertexAttributeMaterial.offset = sizeof(float) * 8;
+		m_vertexInputAttributes.emplace_back(vertexAttributeMaterial);
 	}
 
 	bool PipelineRasterization::CreateDepthBuffer()
@@ -384,7 +400,7 @@ namespace MelonRenderer
 
 	bool PipelineRasterization::CreateDynamicTransformBuffer()
 	{
-		//TODO: uncouple size from number of instances, take fixed value instead and increase if needed?
+		//TODO: uncouple size from number of instances, take fixed value instead and increase if needed? decide with memory allocator
 		m_dynamicTransformBuffer.m_numberOfElements = m_scene->m_drawableInstances.size();
 		m_dynamicTransformBuffer.m_alignment = sizeof(DrawableInstance);
 
@@ -399,8 +415,6 @@ namespace MelonRenderer
 
 	bool PipelineRasterization::UpdateDynamicTransformBuffer()
 	{
-
-
 		for (int i = 0; i < m_scene->m_drawableInstances.size(); i++)
 		{
 			DrawableInstance* mat = (DrawableInstance*)(((uint64_t)m_dynamicTransformBuffer.m_uploadBuffer + 
@@ -408,9 +422,9 @@ namespace MelonRenderer
 			*mat = m_scene->m_drawableInstances.operator[](i);
 		}
 
-		if (m_memoryManager->UpdateDynamicUBO(m_dynamicTransformBuffer))
+		if (!m_memoryManager->UpdateDynamicUBO(m_dynamicTransformBuffer))
 		{
-			Logger::Log("Could not create graphics pipeline.");
+			Logger::Log("Could not update dynamic uniform buffer.");
 			return false;
 		}
 
@@ -419,11 +433,12 @@ namespace MelonRenderer
 
 	bool PipelineRasterization::Draw(VkCommandBuffer& commandBuffer)
 	{
+		UpdateDynamicTransformBuffer();
+
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
 		uint32_t dynamicOffset = 0;
 		
-
 		m_viewport.height = (float)m_extent.height;
 		m_viewport.width = (float)m_extent.width;
 		m_viewport.minDepth = (float)0.0f;
@@ -459,7 +474,6 @@ namespace MelonRenderer
 			vkCmdDrawIndexed(commandBuffer, drawable->m_indexCount, 1, 0, 0, 0);
 		}
 
-
 		return true;
 	}
 
@@ -486,6 +500,15 @@ namespace MelonRenderer
 		};
 		layoutBindings.emplace_back(layoutBindingDynamicTransformUBO);
 
+		VkDescriptorSetLayoutBinding materialsLayoutBinding = {
+			layoutBindingIndex++,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			m_scene->m_drawables.size(), //TODO: update this when number of objects changes
+			VK_SHADER_STAGE_VERTEX_BIT,
+			nullptr
+		};
+		layoutBindings.emplace_back(materialsLayoutBinding);
+
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -494,7 +517,6 @@ namespace MelonRenderer
 			nullptr
 		};
 		layoutBindings.emplace_back(samplerLayoutBinding);
-
 
 		VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {
 			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -552,9 +574,14 @@ namespace MelonRenderer
 		poolSizeDynamicTransform.descriptorCount = 1;
 		descriptorPoolSizes.emplace_back(poolSizeDynamicTransform);
 
+		VkDescriptorPoolSize storageBufferPoolSize = {};
+		storageBufferPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		storageBufferPoolSize.descriptorCount = m_scene->m_drawables.size();
+		descriptorPoolSizes.emplace_back(storageBufferPoolSize);
+
 		VkDescriptorPoolSize poolSizeTextureSampler = {};
 		poolSizeTextureSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizeTextureSampler.descriptorCount = 4; 
+		poolSizeTextureSampler.descriptorCount = m_memoryManager->GetNumberTextures();
 		descriptorPoolSizes.emplace_back(poolSizeTextureSampler);
 
 		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
@@ -591,8 +618,16 @@ namespace MelonRenderer
 			return false;
 		}
 
-		std::vector<VkWriteDescriptorSet> writes;
+		std::vector<VkDescriptorBufferInfo> materialDescBufferInfo;
+		for (size_t i = 0; i < m_scene->m_drawables.size(); ++i)
+		{
+			materialDescBufferInfo.push_back({ m_scene->m_drawables[i].m_materialBuffer, 0, VK_WHOLE_SIZE });
+		}
+
+		std::vector<VkWriteDescriptorSet> descriptorSetWrites;
 		uint32_t dstBinding = 0;
+
+		//camera
 		VkWriteDescriptorSet viewProjectionUBODescriptorSet;
 		viewProjectionUBODescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		viewProjectionUBODescriptorSet.pNext = nullptr;
@@ -602,8 +637,9 @@ namespace MelonRenderer
 		viewProjectionUBODescriptorSet.pBufferInfo = m_camera->GetCameraDescriptor();
 		viewProjectionUBODescriptorSet.dstArrayElement = 0;
 		viewProjectionUBODescriptorSet.dstBinding = dstBinding++;
-		writes.emplace_back(viewProjectionUBODescriptorSet);
+		descriptorSetWrites.emplace_back(viewProjectionUBODescriptorSet);
 
+		//transform dyn ubo
 		VkWriteDescriptorSet dynamicTransformUBO;
 		dynamicTransformUBO.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		dynamicTransformUBO.pNext = nullptr;
@@ -613,8 +649,21 @@ namespace MelonRenderer
 		dynamicTransformUBO.pBufferInfo = &m_dynamicTransformBuffer.m_descriptorBufferInfo;
 		dynamicTransformUBO.dstArrayElement = 0;
 		dynamicTransformUBO.dstBinding = dstBinding++;
-		writes.emplace_back(dynamicTransformUBO);
+		descriptorSetWrites.emplace_back(dynamicTransformUBO);
 
+		//materials
+		VkWriteDescriptorSet materialDescriptorSet;
+		materialDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		materialDescriptorSet.pNext = nullptr;
+		materialDescriptorSet.dstSet = m_descriptorSets[0];
+		materialDescriptorSet.descriptorCount = materialDescBufferInfo.size();
+		materialDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		materialDescriptorSet.pBufferInfo = materialDescBufferInfo.data();
+		materialDescriptorSet.dstArrayElement = 0;
+		materialDescriptorSet.dstBinding = dstBinding++;
+		descriptorSetWrites.emplace_back(materialDescriptorSet);
+
+		//image sampler
 		VkWriteDescriptorSet imageSamplerDescriptorSet;
 		imageSamplerDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		imageSamplerDescriptorSet.pNext = nullptr;
@@ -624,9 +673,9 @@ namespace MelonRenderer
 		imageSamplerDescriptorSet.pImageInfo = m_memoryManager->GetDescriptorImageInfo();
 		imageSamplerDescriptorSet.dstArrayElement = 0;
 		imageSamplerDescriptorSet.dstBinding = dstBinding++;
-		writes.emplace_back(imageSamplerDescriptorSet);
+		descriptorSetWrites.emplace_back(imageSamplerDescriptorSet);
 
-		vkUpdateDescriptorSets(Device::Get().m_device, writes.size(), writes.data(), 0, nullptr);
+		vkUpdateDescriptorSets(Device::Get().m_device, descriptorSetWrites.size(), descriptorSetWrites.data(), 0, nullptr);
 
 		return true;
 	}

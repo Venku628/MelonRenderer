@@ -10,6 +10,7 @@ namespace MelonRenderer
 		void Tick(VkCommandBuffer& commanduffer) override;
 		void Fini();
 
+		void FillRenderpassInfo(Renderpass* renderpass) override;
 		void RecreateOutput(VkExtent2D& windowExtent);
 
 	protected:

@@ -24,7 +24,7 @@ constexpr VkApplicationInfo applicationInfo =
 	VK_MAKE_VERSION(0, 1, 0),
 	"MelonEngine",
 	VK_MAKE_VERSION(0, 1, 0),
-	VK_MAKE_VERSION(0, 1, 0)
+	VK_API_VERSION_1_2
 };
 
 struct QueueFamilyInfo
@@ -113,7 +113,7 @@ namespace MelonRenderer
 		bool CreateRenderpass();
 		bool BeginRenderpass(VkCommandBuffer& commandBuffer);
 		bool EndRenderpass(VkCommandBuffer& commandBuffer);
-		VkRenderPass m_renderpass;
+		//VkRenderPass m_renderpass;
 
 		bool BeginCommandBuffer(VkCommandBuffer& commandBuffer);
 		bool EndCommandBuffer(VkCommandBuffer& commandBuffer);
@@ -146,6 +146,7 @@ namespace MelonRenderer
 		Camera m_camera;
 		Scene m_scene;
 		DeviceMemoryManager m_memoryManager;
+		Renderpass* m_renderpass;
 
 		std::vector<mat3x4> m_transformMats;
 

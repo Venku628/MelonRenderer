@@ -13,7 +13,7 @@ namespace MelonRenderer
 	{
 		input.append("\n");
 		if (Get().m_modeImmediate)
-			std::cout << input << std::endl;
+			std::cout << input << "\n";
 		else
 			Get().m_log.append(input);
 	}

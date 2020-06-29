@@ -48,7 +48,12 @@ namespace MelonRenderer
 		ImGui::GetIO().DisplaySize.y = defaultHeight;
 		GlfwInputInit();
 
-		CreateRenderpass();
+		//CreateRenderpass();
+		//TODO: using 2 functions is redundant
+		m_renderpass = new Renderpass(&m_swapchain);
+		
+		m_imguiPipeline.FillRenderpassInfo(m_renderpass);
+		m_renderpass->CreateRenderpass();
 
 		//TODO: move to simple scene graph, when a camera node is constructed
 		m_camera.Init(m_memoryManager);
@@ -59,39 +64,40 @@ namespace MelonRenderer
 		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
 		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
 		*/
-		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
-		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
+		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, *m_renderpass->GetVkRenderpass(), m_extent);
+		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], m_renderpass->GetVkRenderpass(), outputSurface, m_extent);
 
 
 		//-----------------------------------------
 		Drawable cube, dragon, mirror, bunny, teapot, scene;
 		cube.Init(m_memoryManager);
 		m_scene.m_drawables.emplace_back(cube);
-		dragon.Init(m_memoryManager, "models/dragon.obj");
-		m_scene.m_drawables.emplace_back(dragon);
+		//dragon.Init(m_memoryManager, "models/dragon.obj");
+		//m_scene.m_drawables.emplace_back(dragon);
 		mirror.Init(m_memoryManager, "models/mirror.obj");
 		m_scene.m_drawables.emplace_back(mirror);
-		bunny.Init(m_memoryManager, "models/bunny.obj");
-		m_scene.m_drawables.emplace_back(bunny);
+		//bunny.Init(m_memoryManager, "models/bunny.obj");
+		//m_scene.m_drawables.emplace_back(bunny);
 		teapot.Init(m_memoryManager, "models/teapot.obj");
 		m_scene.m_drawables.emplace_back(teapot); //test if unused geometry causes problems
+		
 		scene.Init(m_memoryManager, "models/scene.obj");
 		m_scene.m_drawables.emplace_back(scene);
 
 		// random order of models to test correct uploading
-		m_drawableNodes.resize(7);
+		m_drawableNodes.resize(4);
 		//scene
 		*m_drawableNodes[0].GetTransformMat() = glm::scale(mat4(1.f), vec3(50.f, 50.f, 50.f));
-		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(5, false));
+		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[0]);
 		//mirror 1
 		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -40.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, -80.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
+		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[1]);
 		//mirror 2 
 		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 40.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, -51.f, 0.f, 0.f, 0.f, 1.f);
 		*m_drawableNodes[2].GetTransformMat() = glm::rotate(*m_drawableNodes[2].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
-		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
+		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[2]);
 		//object node
 		*m_objectNode.GetTransformMat() = mat4(10.f, 0.f, 0.f, -50.f, 0.f, 10.f, 0.f, 20.f, 0.f, 0.f, 10.f, -50.f, 0.f, 0.f, 0.f, 1.f);
@@ -100,6 +106,7 @@ namespace MelonRenderer
 		*m_drawableNodes[3].GetTransformMat() = mat4(0.1f, 0.f, 0.f, -2.f, 0.f, 0.1f, 0.f, 2.f, 0.f, 0.f, 0.1f, -2.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_objectNode.m_children.emplace_back(&m_drawableNodes[3]);
+		/*
 		//bunny
 		*m_drawableNodes[4].GetTransformMat() = mat4(2.f, 0.f, 0.f, -2.f, 0.f, 2.f, 0.f, -2.f, 0.f, 0.f, 2.f, 0.f, 0.f, 0.f, 0.f, 1.f);
 		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
@@ -112,16 +119,21 @@ namespace MelonRenderer
 		*m_drawableNodes[6].GetTransformMat() = mat4(1.f); 
 		m_drawableNodes[6].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_objectNode.m_children.emplace_back(&m_drawableNodes[6]);
-		
+		*/
 		m_scene.m_rootChildren.emplace_back(&m_objectNode);
 		
 		m_scene.UpdateInstanceTransforms();
 		//-----------------------------------------
 
-		m_raytracingPipeline.SetRaytracingProperties(&m_raytracingProperties);
+		/*m_raytracingPipeline.SetRaytracingProperties(&m_raytracingProperties);
 		m_raytracingPipeline.SetScene(&m_scene);
 		m_raytracingPipeline.SetCamera(&m_camera);
-		m_raytracingPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
+		m_raytracingPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, *m_renderpass->GetVkRenderpass(), m_extent);*/
+
+		m_rasterizationPipeline.FillRenderpassInfo(m_renderpass);
+		m_rasterizationPipeline.SetScene(&m_scene);
+		m_rasterizationPipeline.SetCamera(&m_camera);
+		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, *m_renderpass->GetVkRenderpass(), m_extent);
 		
 		Logger::Log("Loading complete.");
 	}
@@ -164,19 +176,14 @@ namespace MelonRenderer
 
 		m_camera.Tick(m_window);
 
-
-
-
-		//TODO: switch between raytracing and rasterization
-		m_raytracingPipeline.Tick(commandBuffer);
-		//m_rasterizationPipeline.Tick(commandBuffer);
-
-		CopyOutputToSwapchain(commandBuffer, m_raytracingPipeline.GetStorageImage());
+		//m_raytracingPipeline.Tick(commandBuffer);
+		//CopyOutputToSwapchain(commandBuffer, m_raytracingPipeline.GetStorageImage());
 		
 		ImGui::Render();
-		BeginRenderpass(commandBuffer);
+		m_renderpass->BeginRenderpass(commandBuffer);
+		m_rasterizationPipeline.Tick(commandBuffer);
 		m_imguiPipeline.Tick(commandBuffer);
-		EndRenderpass(commandBuffer);
+		m_renderpass->EndRenderpass(commandBuffer);
 		
 		EndCommandBuffer(commandBuffer);
 		
@@ -663,64 +670,18 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 
 	bool Renderer::CreateRenderpass()
 	{ 
-		VkAttachmentDescription colorAttachment = {};
-		colorAttachment.format = VK_FORMAT_B8G8R8A8_UNORM; //TODO: parameter
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; //previously clear, would overwrite render image
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-		VkAttachmentReference colorAttachmentReference = {};
-		colorAttachmentReference.attachment = 0;
-		colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		//TODO: add depth attachment and reference when using rasterisation
-
-		VkSubpassDescription subpasses[1];
-		subpasses[0] = {};
-		subpasses[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpasses[0].colorAttachmentCount = 1;
-		subpasses[0].pColorAttachments = &colorAttachmentReference;
-		subpasses[0].pDepthStencilAttachment = nullptr;
-
-		VkSubpassDependency dependencies[1];
-
-		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependencies[0].dstSubpass = 0;
-		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[0].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-		VkAttachmentDescription attachments[1] = { colorAttachment };
-		VkRenderPassCreateInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = 1;
-		renderPassInfo.pAttachments = attachments;
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = subpasses;
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = dependencies;
-		VkResult result = vkCreateRenderPass(Device::Get().m_device, &renderPassInfo, nullptr, &m_renderpass);
-		if (result != VK_SUCCESS)
-		{
-			Logger::Log("Could not create renderpass.");
-			return false;
-		}
+		m_renderpass = new Renderpass(&m_swapchain);
 
 		return true;
 	}
 
+	//deprecated
 	bool Renderer::BeginRenderpass(VkCommandBuffer& commandBuffer)
 	{
 		VkRenderPassBeginInfo renderPassBegin = {};
 		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassBegin.pNext = nullptr;
-		renderPassBegin.renderPass = m_renderpass;
+		//renderPassBegin.renderPass = m_renderpass;
 		renderPassBegin.framebuffer = m_swapchain.GetFramebuffer();
 		renderPassBegin.renderArea.offset.x = 0;
 		renderPassBegin.renderArea.offset.y = 0;
@@ -794,11 +755,11 @@ for(auto & requiredExtension : m_requiredInstanceExtensions){ if(std::string(req
 		outputSurface.surface = m_presentationSurface;
 
 		m_imguiPipeline.RecreateOutput(m_extent);
-		//m_rasterizationPipeline.RecreateOutput(m_extent);
-		m_raytracingPipeline.RecreateOutput(m_extent);
+		m_rasterizationPipeline.RecreateOutput(m_extent);
+		//m_raytracingPipeline.RecreateOutput(m_extent);
 		m_swapchain.CleanupSwapchain(true);
 		//m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
-		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], &m_renderpass, outputSurface, m_extent);
+		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], m_renderpass->GetVkRenderpass(), outputSurface, m_extent);
 
 		return true;
 	}

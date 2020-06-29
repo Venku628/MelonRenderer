@@ -2,12 +2,14 @@
 
 namespace MelonRenderer
 {
-	Renderpass::Renderpass()
+	Renderpass::Renderpass(Swapchain* swapchain)
 	{
+		m_swapchain = swapchain;
+
 		VkAttachmentDescription colorAttachment = {};
 		colorAttachment.format = VK_FORMAT_B8G8R8A8_UNORM; //TODO: parameter
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; //TODO: parameter for clear before rasterization
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -15,6 +17,9 @@ namespace MelonRenderer
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		//default color attachment is always attachment 0
 		m_attachments.emplace_back(colorAttachment);
+
+		VkClearValue colorClearValue = {};
+		m_clearValues.emplace_back(colorClearValue);
 	}
 
 	bool Renderpass::CreateRenderpass()
@@ -43,13 +48,12 @@ namespace MelonRenderer
 		renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassBegin.pNext = nullptr;
 		renderPassBegin.renderPass = m_renderpass;
-		renderPassBegin.framebuffer = m_swapchain.GetFramebuffer();
+		renderPassBegin.framebuffer = m_swapchain->GetFramebuffer();
 		renderPassBegin.renderArea.offset.x = 0;
 		renderPassBegin.renderArea.offset.y = 0;
-		renderPassBegin.renderArea.extent.width = m_extent.width;
-		renderPassBegin.renderArea.extent.height = m_extent.height;
-		renderPassBegin.clearValueCount = 0;
-		renderPassBegin.pClearValues = nullptr;
+		renderPassBegin.renderArea.extent = m_swapchain->GetExtent();
+		renderPassBegin.clearValueCount = m_clearValues.size();
+		renderPassBegin.pClearValues = m_clearValues.data();
 		vkCmdBeginRenderPass(commandBuffer, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
 
 		return true;
@@ -62,9 +66,10 @@ namespace MelonRenderer
 		return true;
 	}
 
-	uint32_t Renderpass::AddAttachment(VkAttachmentDescription& attachment)
+	uint32_t Renderpass::AddAttachment(VkAttachmentDescription& attachment, VkClearValue& clearValue)
 	{
 		m_attachments.emplace_back(attachment);
+		m_clearValues.emplace_back(clearValue);
 
 		return m_attachments.size() - 1;
 	}
@@ -79,5 +84,14 @@ namespace MelonRenderer
 	void Renderpass::AddSubpassDependency(VkSubpassDependency& subpassDependency)
 	{
 		m_subpassDependencies.emplace_back(subpassDependency);
+	}
+
+	VkRenderPass* Renderpass::GetVkRenderpass()
+	{
+		return &m_renderpass;
+	}
+	VkAttachmentDescription* Renderpass::GetColorAttachmentPointer()
+	{
+		return &m_attachments[0];
 	}
 }

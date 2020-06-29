@@ -22,6 +22,11 @@ namespace MelonRenderer
 		return &m_attachments;
 	}
 
+	VkExtent2D Swapchain::GetExtent()
+	{
+		return m_extent;
+	}
+
 	bool Swapchain::AquireNextImage()
 	{
 		VkResult result;

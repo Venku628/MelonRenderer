@@ -72,6 +72,7 @@ namespace MelonRenderer
 		void Tick(VkCommandBuffer& commandBuffer) override;
 		void Fini();
 
+		void FillRenderpassInfo(Renderpass* renderpass) override;
 		void RecreateOutput(VkExtent2D& windowExtent);
 		void SetCamera(Camera* camera);
 		void SetScene(Scene* scene);
