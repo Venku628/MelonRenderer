@@ -1,10 +1,10 @@
  struct WaveFrontMaterial
 {
-  vec3  ambient;
-  vec3  diffuse;
-  vec3  specular;
-  vec3  transmittance;
-  vec3  emission;
+  vec4  ambient;
+  vec4  diffuse;
+  vec4  specular;
+  vec4  transmittance;
+  vec4  emission;
   float shininess;
   float ior;       // index of refraction
   float dissolve;  // 1 opaque; 0 fully transparent
@@ -16,9 +16,9 @@ vec3 computeDiffuse(WaveFrontMaterial mat, vec3 lightDir, vec3 normal)
 {
   // Lambertian
   float dotNL = max(dot(normal, lightDir), 0.0);
-  vec3  c     = mat.diffuse * dotNL;
+  vec3  c     = vec3(mat.diffuse) * dotNL;
   if(mat.illum >= 1)
-    return c + mat.ambient;
+    return c + vec3(mat.ambient);
 }
 
 vec3 computeSpecular(WaveFrontMaterial mat, vec3 viewDir, vec3 lightDir, vec3 normal)

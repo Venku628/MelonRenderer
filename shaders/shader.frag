@@ -5,20 +5,30 @@
 #extension GL_GOOGLE_include_directive : enable
 #include "wavefront.glsl"
 
-struct Material {
-	int textureIndex;
-};
-
 layout(binding = 2, set = 0, scalar) buffer MatColorBufferObject { WaveFrontMaterial m[]; } materials[]; 
 layout(binding = 3) uniform sampler2D texSampler[];
 
-layout (location = 0) in vec2 inTexCoord;
-layout (location = 1) flat in uint inMaterial;
+layout(push_constant) uniform Constants
+{
+  vec4  lightPosition;
+  float lightIntensity;
+} pushC;
+
+layout (location = 0) in vec3 inPos;
+layout (location = 1) in vec3 inNormal;
+layout (location = 2) in vec2 inTexCoord;
+layout (location = 3) flat in uint inMaterial;
+layout (location = 4) flat in uint inObjId;
 
 layout (location = 0) out vec4 outColor;
 
 void main() 
 {
-	outColor = texture(texSampler[inMaterial], inTexCoord);
-	//outColor = vec4(1.0, 1.0, 1.0, 1.0);
+	WaveFrontMaterial mat = materials[inObjId].m[inMaterial];
+
+	vec3 lightDir = normalize(vec3(pushC.lightPosition) - inPos);
+
+	vec3 diffuse = max(dot(inNormal, lightDir), 0.0) * vec3(1.0, 1.0, 1.0);
+
+	outColor = texture(texSampler[mat.textureId], inTexCoord) * vec4(diffuse, 1.0);
 }

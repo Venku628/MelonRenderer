@@ -12,7 +12,7 @@ bool MelonRenderer::Camera::Init(DeviceMemoryManager& memoryManager)
 		return false;
 	}
 
-	m_cameraMatrices.projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+	m_cameraMatrices.projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 10000.0f);
 	m_cameraMatrices.view = glm::lookAt(vec3(-5, 3, -10),
 		vec3(0, 0, 0),
 		vec3(0, -1, 0));
@@ -59,7 +59,7 @@ bool MelonRenderer::Camera::Tick(GLFWwindow* glfwWindow)
 	m_cameraPosition.x = cameraPosition[0];
 	m_cameraPosition.y = cameraPosition[1];
 	m_cameraPosition.z = cameraPosition[2];
-	static float cameraDirection[3] = { -0.5f, -0.2f, -0.5f };
+	static float cameraDirection[3] = { -0.5f, -0.f, -0.5f };
 	ImGui::SliderFloat3("camera direction", cameraDirection, -1.f, 1.f);
 	m_cameraDirection.x = cameraDirection[0];
 	m_cameraDirection.y = cameraDirection[1];
@@ -68,7 +68,7 @@ bool MelonRenderer::Camera::Tick(GLFWwindow* glfwWindow)
 	ImGui::End();
 
 	//https://learnopengl.com/Getting-started/Camera
-	vec3 cameraUp = glm::cross(m_cameraDirection, glm::normalize(glm::cross(worldUp, m_cameraDirection)));
+	vec3 cameraUp = glm::cross(glm::normalize(glm::cross(m_cameraDirection, worldUp)), m_cameraDirection);
 
 	const float cameraSpeed = 0.05f; // adjust accordingly
 	if (glfwGetKey(glfwWindow, GLFW_KEY_W) == GLFW_PRESS)
@@ -81,7 +81,7 @@ bool MelonRenderer::Camera::Tick(GLFWwindow* glfwWindow)
 		m_cameraPosition += glm::normalize(glm::cross(m_cameraDirection, cameraUp)) * cameraSpeed;
 
 
-	m_cameraMatrices.view = glm::lookAt(m_cameraPosition, m_cameraPosition + m_cameraDirection, cameraUp);
+	m_cameraMatrices.view = glm::lookAt(m_cameraPosition, m_cameraPosition + m_cameraDirection, cameraUp); 
 	m_cameraMatrices.viewInverse = glm::inverse(m_cameraMatrices.view);
 	
 	if (!m_memoryManager->CopyDataToMemory(m_uniformBufferMemory, &m_cameraMatrices, sizeof(m_cameraMatrices)))

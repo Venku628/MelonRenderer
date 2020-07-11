@@ -48,92 +48,88 @@ namespace MelonRenderer
 		ImGui::GetIO().DisplaySize.y = defaultHeight;
 		GlfwInputInit();
 
-		//CreateRenderpass();
-		//TODO: using 2 functions is redundant
 		m_renderpass = new Renderpass(&m_swapchain);
 		
+		m_rasterizationPipeline.FillRenderpassInfo(m_renderpass);
 		m_imguiPipeline.FillRenderpassInfo(m_renderpass);
 		m_renderpass->CreateRenderpass();
-
-		//TODO: move to simple scene graph, when a camera node is constructed
-		m_camera.Init(m_memoryManager);
-		/*
-		m_rasterizationPipeline.SetCamera(&m_camera);
-		m_rasterizationPipeline.SetScene(&m_scene);
-
-		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, m_renderpass, m_extent);
-		m_rasterizationPipeline.FillAttachments(m_swapchain.GetAttachmentPointer());
-		*/
-		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, *m_renderpass->GetVkRenderpass(), m_extent);
-		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], m_renderpass->GetVkRenderpass(), outputSurface, m_extent);
-
 
 		//-----------------------------------------
 		Drawable cube, dragon, mirror, bunny, teapot, scene;
 		cube.Init(m_memoryManager);
 		m_scene.m_drawables.emplace_back(cube);
-		//dragon.Init(m_memoryManager, "models/dragon.obj");
-		//m_scene.m_drawables.emplace_back(dragon);
+		dragon.Init(m_memoryManager, "models/dragon.obj");
+		m_scene.m_drawables.emplace_back(dragon);
 		mirror.Init(m_memoryManager, "models/mirror.obj");
 		m_scene.m_drawables.emplace_back(mirror);
-		//bunny.Init(m_memoryManager, "models/bunny.obj");
-		//m_scene.m_drawables.emplace_back(bunny);
+		bunny.Init(m_memoryManager, "models/bunny.obj");
+		m_scene.m_drawables.emplace_back(bunny);
 		teapot.Init(m_memoryManager, "models/teapot.obj");
 		m_scene.m_drawables.emplace_back(teapot); //test if unused geometry causes problems
-		
 		scene.Init(m_memoryManager, "models/scene.obj");
 		m_scene.m_drawables.emplace_back(scene);
 
 		// random order of models to test correct uploading
-		m_drawableNodes.resize(4);
+		m_drawableNodes.resize(7);
 		//scene
 		*m_drawableNodes[0].GetTransformMat() = glm::scale(mat4(1.f), vec3(50.f, 50.f, 50.f));
-		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
+		m_drawableNodes[0].SetDrawableInstance(m_scene.CreateDrawableInstance(5, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[0]);
-		//mirror 1
-		*m_drawableNodes[1].GetTransformMat() = mat4(1.f, 0.f, 0.f, -40.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, -80.f, 0.f, 0.f, 0.f, 1.f);
-		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
+		//mirror 1 
+		*m_drawableNodes[1].GetTransformMat() = glm::translate(mat4(1.f), vec3(-40.f, 20.f, -80.f));
+		m_drawableNodes[1].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[1]);
-		//mirror 2 
-		*m_drawableNodes[2].GetTransformMat() = mat4(1.f, 0.f, 0.f, 40.f, 0.f, 1.f, 0.f, 20.f, 0.f, 0.f, 1.f, -51.f, 0.f, 0.f, 0.f, 1.f);
-		*m_drawableNodes[2].GetTransformMat() = glm::rotate(*m_drawableNodes[2].GetTransformMat(), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
-		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
+		//mirror 2
+		*m_drawableNodes[2].GetTransformMat() = glm::rotate(mat4(1.f), glm::radians(180.f), vec3(0.f, 1.f, 0.f));
+		*m_drawableNodes[2].GetTransformMat() = glm::translate(*m_drawableNodes[2].GetTransformMat(), vec3(-40.f, 20.f, -80.f));
+		m_drawableNodes[2].SetDrawableInstance(m_scene.CreateDrawableInstance(2, false));
 		m_scene.m_rootChildren.emplace_back(&m_drawableNodes[2]);
+		
 		//object node
-		*m_objectNode.GetTransformMat() = mat4(10.f, 0.f, 0.f, -50.f, 0.f, 10.f, 0.f, 20.f, 0.f, 0.f, 10.f, -50.f, 0.f, 0.f, 0.f, 1.f);
-
+		*m_objectNode.GetTransformMat() = glm::translate(mat4(1.f), vec3(-50.f, 10.f, -50.f));
+		*m_objectNode.GetTransformMat() = glm::scale(*m_objectNode.GetTransformMat(), vec3(10.f, 10.f, 10.f));
+		
 		//cube
-		*m_drawableNodes[3].GetTransformMat() = mat4(0.1f, 0.f, 0.f, -2.f, 0.f, 0.1f, 0.f, 2.f, 0.f, 0.f, 0.1f, -2.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[3].GetTransformMat() = glm::translate(mat4(1.f), vec3(-2.f, 2.f, -2.f));
+		*m_drawableNodes[3].GetTransformMat() = glm::scale(*m_drawableNodes[3].GetTransformMat(), vec3(0.1f, 0.1f, 0.1f));
 		m_drawableNodes[3].SetDrawableInstance(m_scene.CreateDrawableInstance(0, false));
 		m_objectNode.m_children.emplace_back(&m_drawableNodes[3]);
-		/*
 		//bunny
-		*m_drawableNodes[4].GetTransformMat() = mat4(2.f, 0.f, 0.f, -2.f, 0.f, 2.f, 0.f, -2.f, 0.f, 0.f, 2.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[4].GetTransformMat() = glm::translate(mat4(1.f), vec3(-2.f, -2.f, 0.f));
+		*m_drawableNodes[4].GetTransformMat() = glm::scale(*m_drawableNodes[4].GetTransformMat(), vec3(2.f, 2.f, 2.f));
 		m_drawableNodes[4].SetDrawableInstance(m_scene.CreateDrawableInstance(3, false));
 		m_objectNode.m_children.emplace_back(&m_drawableNodes[4]);
 		//dragon 1
-		*m_drawableNodes[5].GetTransformMat() = mat4(1.f, 0.f, 0.f, -2.f, 0.f, 1.f, 0.f, 2.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+		*m_drawableNodes[5].GetTransformMat() = glm::translate(mat4(1.f), vec3(-2.f, -2.f, 0.f));
 		m_drawableNodes[5].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_objectNode.m_children.emplace_back(&m_drawableNodes[5]);
 		// dragon 2
-		*m_drawableNodes[6].GetTransformMat() = mat4(1.f); 
+		*m_drawableNodes[6].GetTransformMat() = mat4(1.f);
 		m_drawableNodes[6].SetDrawableInstance(m_scene.CreateDrawableInstance(1, false));
 		m_objectNode.m_children.emplace_back(&m_drawableNodes[6]);
-		*/
+
 		m_scene.m_rootChildren.emplace_back(&m_objectNode);
 		
+
 		m_scene.UpdateInstanceTransforms();
 		//-----------------------------------------
+
+		//TODO: move to simple scene graph, when a camera node is constructed
+		m_camera.Init(m_memoryManager);
+		m_imguiPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, *m_renderpass->GetVkRenderpass(), m_extent);
+
+		m_rasterizationPipeline.SetScene(&m_scene);
+		m_rasterizationPipeline.SetCamera(&m_camera);
+		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, *m_renderpass->GetVkRenderpass(), m_extent);
+		m_rasterizationPipeline.FillAttachmentInfo(&m_swapchain);
+
+		m_swapchain.CreateSwapchain(m_physicalDevices[m_currentPhysicalDeviceIndex], m_renderpass->GetVkRenderpass(), outputSurface, m_extent);
+
 
 		/*m_raytracingPipeline.SetRaytracingProperties(&m_raytracingProperties);
 		m_raytracingPipeline.SetScene(&m_scene);
 		m_raytracingPipeline.SetCamera(&m_camera);
 		m_raytracingPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, *m_renderpass->GetVkRenderpass(), m_extent);*/
-
-		m_rasterizationPipeline.FillRenderpassInfo(m_renderpass);
-		m_rasterizationPipeline.SetScene(&m_scene);
-		m_rasterizationPipeline.SetCamera(&m_camera);
-		m_rasterizationPipeline.Init(m_physicalDevices[m_currentPhysicalDeviceIndex], m_memoryManager, *m_renderpass->GetVkRenderpass(), m_extent);
 		
 		Logger::Log("Loading complete.");
 	}
@@ -179,9 +175,10 @@ namespace MelonRenderer
 		//m_raytracingPipeline.Tick(commandBuffer);
 		//CopyOutputToSwapchain(commandBuffer, m_raytracingPipeline.GetStorageImage());
 		
-		ImGui::Render();
 		m_renderpass->BeginRenderpass(commandBuffer);
 		m_rasterizationPipeline.Tick(commandBuffer);
+
+		ImGui::Render();
 		m_imguiPipeline.Tick(commandBuffer);
 		m_renderpass->EndRenderpass(commandBuffer);
 		

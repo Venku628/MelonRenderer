@@ -42,7 +42,11 @@ namespace MelonRenderer
 
 	uint32_t Scene::CreateDrawableInstance(uint32_t drawableHandle, bool isStatic)
 	{
-		m_drawableInstances.emplace_back(DrawableInstance{ drawableHandle, 0 });
+		DrawableInstance instance = {};
+		instance.m_drawableIndex = drawableHandle;
+		instance.m_textureOffset = 0;
+
+		m_drawableInstances.emplace_back(instance);
 		m_drawableInstanceIsStatic.emplace_back(isStatic);
 
 		return m_drawableInstances.size() - 1;

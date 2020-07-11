@@ -46,11 +46,15 @@ namespace MelonRenderer
 		subpass.colorAttachmentCount = m_attachmentReferences.size();
 		subpass.pColorAttachments = m_attachmentReferences.data();
 
-		uint32_t subpassNumber = renderpass->AddSubpass(subpass);
+		m_subpassNumber = renderpass->AddSubpass(subpass);
+
 
 		VkSubpassDependency dependency;
-		dependency.srcSubpass = subpassNumber - 1;
-		dependency.dstSubpass = subpassNumber;
+		if (m_subpassNumber > 0)
+			dependency.srcSubpass = m_subpassNumber - 1;
+		else
+			dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = m_subpassNumber;
 		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 		dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -219,7 +223,7 @@ namespace MelonRenderer
 		pipeline.pStages = m_shaderStagesV.data();
 		pipeline.stageCount = static_cast<uint32_t>(m_shaderStagesV.size());
 		pipeline.renderPass = *m_renderpass;
-		pipeline.subpass = 0; //TODO: make parameter in case of more pipelines
+		pipeline.subpass = m_subpassNumber; 
 
 		VkResult result = vkCreateGraphicsPipelines(Device::Get().m_device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &m_pipeline);
 		if (result != VK_SUCCESS)

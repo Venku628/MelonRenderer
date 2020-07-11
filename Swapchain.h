@@ -17,7 +17,7 @@ namespace MelonRenderer
 		VkCommandBuffer& GetCommandBuffer();
 		VkFramebuffer& GetFramebuffer();
 		VkImage GetImage();
-		std::vector<VkImageView>* GetAttachmentPointer();
+		void AddAttachment(VkImageView attachment);
 		VkExtent2D GetExtent();
 
 		bool AquireNextImage();
@@ -54,7 +54,7 @@ namespace MelonRenderer
 		VkPresentModeKHR m_presentMode;
 		const uint32_t m_queueFamilyIndex = 0; //TODO: make variable 
 		
-		std::vector<VkImageView> m_attachments;
+		std::vector<VkImageView> m_attachments = {VkImageView()};
 		VkRenderPass* m_renderpass;
 		OutputSurface m_outputSurface;
 	};

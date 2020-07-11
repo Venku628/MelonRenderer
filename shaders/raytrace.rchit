@@ -34,9 +34,9 @@ void main()
   uint objId = scnDesc.i[nonuniformEXT(geometryID)].objId;
 
     // Indices of the triangle
-  ivec3 ind = ivec3(indices[objId].i[3 * gl_PrimitiveID + 0],   //
-                    indices[objId].i[3 * gl_PrimitiveID + 1],   //
-                    indices[objId].i[3 * gl_PrimitiveID + 2]);  //
+  ivec3 ind = ivec3(indices[objId].i[3 * gl_PrimitiveID + 0],  
+                    indices[objId].i[3 * gl_PrimitiveID + 1],
+                    indices[objId].i[3 * gl_PrimitiveID + 2]);
   // Vertex of the triangle
   Vertex v0 = vertices[objId].v[ind.x];
   Vertex v1 = vertices[objId].v[ind.y];
@@ -72,8 +72,8 @@ void main()
   if(mat.illum >= 1)
   {
     float dotNL = max(dot(normal, L), 0.0);
-    vec3  c     = mat.diffuse * dotNL;
-    diffuse = c + mat.ambient;
+    vec3  c     = vec3(mat.diffuse) * dotNL;
+    diffuse = c + vec3(mat.ambient);
   }
   else
   {
@@ -130,7 +130,7 @@ void main()
   if(mat.illum == 3)
   {
     vec3 rayDir = reflect(gl_WorldRayDirectionNV, normal);
-    prd.attenuation *= mat.specular;
+    prd.attenuation *= vec3(mat.specular);
     prd.done      = 0; //hit reflective surface, continue tracing rays
     prd.rayOrigin = worldPos;
     prd.rayDir    = rayDir;

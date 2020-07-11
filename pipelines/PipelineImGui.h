@@ -52,6 +52,8 @@ namespace MelonRenderer
 		VkDeviceSize m_vertexBufferSize;
 		VkDeviceSize m_indexBufferSize;
 
+		uint32_t m_subpassNumber = 0;
+
 		VkImage m_fontImage;
 		VkDeviceMemory m_fontImageMemory;
 		VkImageView m_fontImageView;

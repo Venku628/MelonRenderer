@@ -31,6 +31,7 @@ namespace MelonRenderer
 	void PipelineRasterization::FillRenderpassInfo(Renderpass* renderpass)
 	{
 		VkAttachmentDescription colorAttachment = {};
+		colorAttachment.flags = 0;
 		colorAttachment.format = VK_FORMAT_B8G8R8A8_UNORM; //TODO: parameter
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -42,12 +43,13 @@ namespace MelonRenderer
 		*renderpass->GetColorAttachmentPointer() = colorAttachment;
 
 		// Depth attachment
-		VkAttachmentDescription depthAttachment;
+		VkAttachmentDescription depthAttachment = {};
+		depthAttachment.flags = 0;
 		depthAttachment.format = m_depthBufferFormat;
 		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -70,16 +72,21 @@ namespace MelonRenderer
 
 		uint32_t subpassNumber = renderpass->AddSubpass(subpass);
 
-		VkSubpassDependency dependency;
+		VkSubpassDependency dependency = {};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstSubpass = subpassNumber;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
 		renderpass->AddSubpassDependency(dependency);
+	}
+
+	void PipelineRasterization::FillAttachmentInfo(Swapchain* swapchain)
+	{
+		swapchain->AddAttachment(m_depthBufferView);
 	}
 
 	void PipelineRasterization::RecreateOutput(VkExtent2D& windowExtent)
@@ -341,7 +348,7 @@ namespace MelonRenderer
 		pipelineDepthStencilInfo.flags = 0;
 		pipelineDepthStencilInfo.depthTestEnable = VK_TRUE;
 		pipelineDepthStencilInfo.depthWriteEnable = VK_TRUE;
-		pipelineDepthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+		pipelineDepthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL; //previously less or equal
 		pipelineDepthStencilInfo.depthBoundsTestEnable = VK_FALSE;
 		pipelineDepthStencilInfo.minDepthBounds = 0;
 		pipelineDepthStencilInfo.maxDepthBounds = 0;
@@ -435,6 +442,22 @@ namespace MelonRenderer
 	{
 		UpdateDynamicTransformBuffer();
 
+		ImGui::Begin("Scene");
+
+		static float lightPosition[3] = { -50.f, 50.f, -50.f };
+		static float lightIntensity = 1.f;
+
+		ImGui::InputFloat3("light position", lightPosition);
+		m_pushConstants.lightPosition.x = lightPosition[0];
+		m_pushConstants.lightPosition.y = lightPosition[1];
+		m_pushConstants.lightPosition.z = lightPosition[2];
+		ImGui::SliderFloat("light intensity", &lightIntensity, 0.f, 10.f);
+		m_pushConstants.lightIntensity = lightIntensity;
+
+		ImGui::End();
+
+		vkCmdPushConstants(commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(m_pushConstants), &m_pushConstants);
+
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
 		uint32_t dynamicOffset = 0;
@@ -453,18 +476,14 @@ namespace MelonRenderer
 		m_scissorRect2D.offset.y = 0;
 		vkCmdSetScissor(commandBuffer, 0, 1, &m_scissorRect2D);
 
-		//TODO: reimplement as soon as refactor is finished
-		//m_scene->Tick(commandBuffer);
 		VkDeviceSize offsets[1] = { 0 };
 
 		for (int i = 0; i < m_scene->m_drawableInstances.size(); i++)
 		{
 			Drawable* drawable = &m_scene->m_drawables[m_scene->m_drawableInstances[i].m_drawableIndex];
 
-			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &drawable->m_vertexBuffer, 
-				offsets);
-			vkCmdBindIndexBuffer(commandBuffer, drawable->m_indexBuffer,
-				0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &drawable->m_vertexBuffer, offsets);
+			vkCmdBindIndexBuffer(commandBuffer, drawable->m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 			uint32_t dynamicOffset = i * m_dynamicTransformBuffer.m_alignment;
 
@@ -473,6 +492,8 @@ namespace MelonRenderer
 
 			vkCmdDrawIndexed(commandBuffer, drawable->m_indexCount, 1, 0, 0, 0);
 		}
+
+		vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 
 		return true;
 	}
@@ -504,7 +525,7 @@ namespace MelonRenderer
 			layoutBindingIndex++,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			m_scene->m_drawables.size(), //TODO: update this when number of objects changes
-			VK_SHADER_STAGE_VERTEX_BIT,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr
 		};
 		layoutBindings.emplace_back(materialsLayoutBinding);
@@ -534,13 +555,12 @@ namespace MelonRenderer
 		}
 
 		std::vector<VkPushConstantRange> pushConstantRanges;
-		/*
-		VkPushConstantRange pushConstantRangeTransforms = {};
-		pushConstantRangeTransforms.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		pushConstantRangeTransforms.offset = 0;
-		pushConstantRangeTransforms.size = sizeof(ObjectData);
-		pushConstantRanges.emplace_back(pushConstantRangeTransforms);
-		*/
+		VkPushConstantRange pushConstantRange = {};
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		pushConstantRange.offset = 0;
+		pushConstantRange.size = sizeof(SceneInfo);
+		pushConstantRanges.emplace_back(pushConstantRange);
+		
 
 		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
 			VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,

@@ -5,6 +5,13 @@
 
 namespace MelonRenderer
 {
+	struct SceneInfo
+	{
+		vec3 lightPosition;
+		float lightIntensity;
+	};
+
+
 	class PipelineRasterization : public Pipeline
 	{
 	public:
@@ -13,6 +20,7 @@ namespace MelonRenderer
 		void Fini();
 
 		void FillRenderpassInfo(Renderpass* renderpass) override;
+		void FillAttachmentInfo(Swapchain* swapchain); //TODO: implement for every pipeline?
 		void RecreateOutput(VkExtent2D& windowExtent);
 		void SetCamera(Camera* camera);
 		void SetScene(Scene* scene);
@@ -47,6 +55,8 @@ namespace MelonRenderer
 		Camera* m_camera;
 		Scene* m_scene;
 
+		SceneInfo m_pushConstants;
+
 
 		VkAttachmentReference m_depthAttachmentReference;
 
@@ -57,7 +67,7 @@ namespace MelonRenderer
 		VkImage m_depthBuffer;
 		VkDeviceMemory m_depthBufferMemory;
 		VkImageView m_depthBufferView;
-		VkFormat m_depthBufferFormat = VK_FORMAT_D16_UNORM;
+		VkFormat m_depthBufferFormat = VK_FORMAT_D32_SFLOAT; //previously VK_FORMAT_D16_UNORM
 		bool CreateDepthBuffer();
 		bool CleanupDepthBuffer();
 		//---------------------------------------

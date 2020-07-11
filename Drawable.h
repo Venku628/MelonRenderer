@@ -11,10 +11,10 @@ namespace MelonRenderer {
 
 	struct DrawableInstance
 	{
-		uint32_t m_drawableIndex;
-		uint32_t m_textureOffset;
 		mat4 m_transformation;
 		mat4 m_transformationInverseTranspose;
+		uint32_t m_drawableIndex;
+		uint32_t m_textureOffset;
 		//uint8_t alignmentPadding[8];
 	};
 

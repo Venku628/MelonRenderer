@@ -10,10 +10,10 @@ struct hitPayload
 
 struct sceneDesc
 {
-  int  objId;
-  int  txtOffset;
   mat4 transfo;
   mat4 transfoIT;
+  int  objId;
+  int  txtOffset;
 };
 
 struct Vertex

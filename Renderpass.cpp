@@ -19,6 +19,10 @@ namespace MelonRenderer
 		m_attachments.emplace_back(colorAttachment);
 
 		VkClearValue colorClearValue = {};
+		colorClearValue.color.float32[0] = 0.f;
+		colorClearValue.color.float32[1] = 0.4531f;
+		colorClearValue.color.float32[2] = 0.78125f;
+		colorClearValue.color.float32[3] = 0.f;
 		m_clearValues.emplace_back(colorClearValue);
 	}
 

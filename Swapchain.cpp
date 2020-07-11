@@ -17,9 +17,9 @@ namespace MelonRenderer
 		return m_outputImages[m_imageIndex];
 	}
 
-	std::vector<VkImageView>* Swapchain::GetAttachmentPointer()
+	void Swapchain::AddAttachment(VkImageView attachment)
 	{
-		return &m_attachments;
+		m_attachments.emplace_back(attachment);
 	}
 
 	VkExtent2D Swapchain::GetExtent()
@@ -118,11 +118,6 @@ namespace MelonRenderer
 
 	bool Swapchain::CreateFramebuffers()
 	{
-		//TODO: change this in case of more attachments from other pipelines
-		VkImageView color;
-		m_attachments.resize(0);
-		m_attachments.emplace_back(color);
-
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferCreateInfo.pNext = nullptr;
@@ -440,7 +435,6 @@ namespace MelonRenderer
 		{
 			m_oldSwapchain = m_swapchain;
 			m_swapchain = VK_NULL_HANDLE;
-			m_attachments.resize(0);
 		}
 		else
 		{

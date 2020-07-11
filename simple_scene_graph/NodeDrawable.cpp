@@ -2,7 +2,7 @@
 
 mat4 MelonRenderer::NodeDrawable::CalculateWorldTransform(const mat4& parentMat, uint32_t** handle)
 {
-	auto worldTransformMat = m_transformationMat * parentMat;
+	auto worldTransformMat = parentMat * m_transformationMat;
 	*handle = &m_drawableInstance;
 	return worldTransformMat;
 }

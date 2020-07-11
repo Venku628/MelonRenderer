@@ -9,10 +9,10 @@ mat4 projectionInverse;
 } cam;
 
 layout (binding = 1) uniform ObjectData {
-  int  objId;
-  int  txtOffset;
   mat4 transfo;
   mat4 transfoIT;
+  uint  objId;
+  uint  txtOffset;
 } object;
 
 layout (location = 0) in vec3 pos;
@@ -20,15 +20,23 @@ layout (location = 1) in vec3 normal;
 layout (location = 2) in vec2 inTexCoord;
 layout (location = 3) in uint matID;
 
-layout (location = 0) out vec2 outTexCoord;
-layout (location = 1) flat out uint outMaterial;
+layout (location = 0) out vec3 outPos;
+layout (location = 1) out vec3 outNormal;
+layout (location = 2) out vec2 outTexCoord;
+layout (location = 3) flat out uint outMaterial;
+layout (location = 4) flat out uint outObjId;
 
 void main() 
 {
-	vec4 transformedPos = vec4(pos, 1) * object.transfo;
+	vec4 transformedPos = vec4(pos, 1);
 
-	gl_Position = cam.projection * cam.view * transformedPos;
+	gl_Position = cam.projection * cam.view * object.transfo * transformedPos;
 
+	//redundant calculation?
+	outPos = vec3(object.transfo * transformedPos);
+	//outNormal = mat3(cam.view) * mat3(object.transfoIT) * normal;
+	outNormal = normal;
 	outTexCoord = inTexCoord;
 	outMaterial = matID;
+	outObjId = object.objId;
 }

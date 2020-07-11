@@ -210,23 +210,4 @@ namespace MelonRenderer {
 		vkDestroyBuffer(Device::Get().m_device, m_vertexBuffer, nullptr);
 		vkDestroyBuffer(Device::Get().m_device, m_materialBuffer, nullptr);
 	}
-
-	//rasterisation
-	/*
-	void Drawable::Tick(PipelineData& pipelineData)
-	{
-		const VkDeviceSize offsets[1] = { 0 };
-		vkCmdBindVertexBuffers(*pipelineData.m_commandBuffer, 0, 1, &m_vertexBuffer, offsets);
-		vkCmdBindIndexBuffer(*pipelineData.m_commandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-		//TODO: do once for every instance
-		vkCmdBindDescriptorSets(*pipelineData.m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineData.m_pipelineLayout, 0, 
-			pipelineData.m_descriptorSets->size(), pipelineData.m_descriptorSets->data(),
-			1, pipelineData.m_transformOffset);
-
-		vkCmdDrawIndexed(*pipelineData.m_commandBuffer, sizeof(cube_index_data) / sizeof(uint32_t), 1, 0, 0, 0);
-
-		*pipelineData.m_transformOffset += pipelineData.m_alignment;
-	}
-	*/
 }
