@@ -67,7 +67,7 @@ namespace MelonRenderer
 		VkImage m_depthBuffer;
 		VkDeviceMemory m_depthBufferMemory;
 		VkImageView m_depthBufferView;
-		VkFormat m_depthBufferFormat = VK_FORMAT_D32_SFLOAT; //previously VK_FORMAT_D16_UNORM
+		VkFormat m_depthBufferFormat = VK_FORMAT_D32_SFLOAT; 
 		bool CreateDepthBuffer();
 		bool CleanupDepthBuffer();
 		//---------------------------------------

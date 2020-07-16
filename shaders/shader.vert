@@ -22,9 +22,10 @@ layout (location = 3) in uint matID;
 
 layout (location = 0) out vec3 outPos;
 layout (location = 1) out vec3 outNormal;
-layout (location = 2) out vec2 outTexCoord;
-layout (location = 3) flat out uint outMaterial;
-layout (location = 4) flat out uint outObjId;
+layout (location = 2) out vec3 outViewPos;
+layout (location = 3) out vec2 outTexCoord;
+layout (location = 4) flat out uint outMaterial;
+layout (location = 5) flat out uint outObjId;
 
 void main() 
 {
@@ -34,8 +35,9 @@ void main()
 
 	//redundant calculation?
 	outPos = vec3(object.transfo * transformedPos);
-	//outNormal = mat3(cam.view) * mat3(object.transfoIT) * normal;
 	outNormal = normal;
+	outViewPos = cam.view[3].xyz;
+	outViewPos = vec3(0, 0, 0);
 	outTexCoord = inTexCoord;
 	outMaterial = matID;
 	outObjId = object.objId;
