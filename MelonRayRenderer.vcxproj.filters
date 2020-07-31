@@ -96,6 +96,9 @@
     <ClInclude Include="Renderpass.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="Vertex.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

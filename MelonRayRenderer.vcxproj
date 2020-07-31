@@ -253,6 +253,7 @@
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Swapchain.h" />
     <ClInclude Include="Texture.h" />
+    <ClInclude Include="Vertex.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />

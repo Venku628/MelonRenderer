@@ -26,9 +26,9 @@ namespace MelonRenderer {
 		vec3  transmittance = vec3(0.f, 0.f, 0.f);
 		vec3  emission = vec3(0.f, 0.f, 0.f);
 		float shininess = 225.f;
-		float indexOfRefraction = 1.f;       // index of refraction
-		float dissolve = 1.f;  // 1 == opaque; 0 == fully transparent
-		int   illum = 2;     // illumination model (see http://www.fileformat.info/format/material/)
+		float indexOfRefraction = 1.f;			// index of refraction
+		float dissolve = 1.f;					// 1 == opaque; 0 == fully transparent
+		int   illum = 2;						// illumination model (see http://www.fileformat.info/format/material/)
 		int   textureId = 0;
 	};
 

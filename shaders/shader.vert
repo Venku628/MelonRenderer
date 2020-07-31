@@ -37,7 +37,7 @@ void main()
 	outPos = vec3(object.transfo * transformedPos);
 	outNormal = normal;
 	outViewPos = cam.view[3].xyz;
-	outViewPos = vec3(0, 0, 0);
+	outViewPos = vec3(0, 0, 0); //debug, specular calculation not working correctly
 	outTexCoord = inTexCoord;
 	outMaterial = matID;
 	outObjId = object.objId;
